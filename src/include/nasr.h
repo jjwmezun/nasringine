@@ -24,22 +24,17 @@ float NasrRectBottom( const struct NasrRect * r );
 int NasrRectEqual( const struct NasrRect * a, const struct NasrRect * b );
 void NasrRectPrint( const struct NasrRect * r );
 
-typedef enum NasrShaderType
-{
-    NASR_SHADER_VERTEX,
-    NASR_SHADER_FRAGMENT
-} NasrShaderType;
+#define NASR_SHADER_VERTEX   0
+#define NASR_SHADER_FRAGMENT 1
 
 typedef struct NasrShader
 {
-    NasrShaderType type;
+    int type;
     const char * code;
 } NasrShader;
 
-typedef enum NasrGraphicType
-{
-    NASR_GRAPHIC_RECT
-} NasrGraphicType;
+#define NASR_GRAPHIC_RECT          0
+#define NASR_GRAPHIC_RECT_GRADIENT 1
 
 typedef struct NasrGraphicRect
 {
@@ -47,14 +42,24 @@ typedef struct NasrGraphicRect
     NasrColor color;
 } NasrGraphicRect;
 
+typedef struct NasrGraphicRectGradient
+{
+    NasrRect rect;
+    NasrColor color1;
+    NasrColor color2;
+    NasrColor color3;
+    NasrColor color4;
+} NasrGraphicRectGradient;
+
 typedef union NasrGraphicData
 {
-    NasrGraphicRect rect;
+    NasrGraphicRect         rect;
+    NasrGraphicRectGradient gradient;
 } NasrGraphicData;
 
 typedef struct NasrGraphic
 {
-    NasrGraphicType type;
+    int type;
     NasrGraphicData data;
 } NasrGraphic;
 
@@ -187,6 +192,15 @@ typedef struct NasrInput
     int key;
 } NasrInput;
 
+#define NASR_DIR_UP        0
+#define NASR_DIR_UPRIGHT   1
+#define NASR_DIR_RIGHT     2
+#define NASR_DIR_DOWNRIGHT 3
+#define NASR_DIR_DOWN      4
+#define NASR_DIR_DOWNLEFT  5
+#define NASR_DIR_LEFT      6
+#define NASR_DIR_UPLEFT    7
+
 int NasrHeld( int id );
 void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs );
 
@@ -206,4 +220,10 @@ int NasrGraphicsAddCanvas( struct NasrColor color );
 int NasrGraphicsAddRect(
     struct NasrRect rect,
     struct NasrColor color
+);
+int NasrGraphicsAddRectGradient(
+    struct NasrRect rect,
+    int dir,
+    struct NasrColor color1,
+    struct NasrColor color2
 );

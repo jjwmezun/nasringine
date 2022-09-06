@@ -214,6 +214,23 @@ void NasrUpdate( void )
                 );
             }
             break;
+            case ( NASR_GRAPHIC_RECT_GRADIENT ):
+            {
+                DrawBox
+                (
+                    &graphics[ i ].data.gradient.rect,
+                    &graphics[ i ].data.gradient.color1,
+                    &graphics[ i ].data.gradient.color2,
+                    &graphics[ i ].data.gradient.color3,
+                    &graphics[ i ].data.gradient.color4
+                );
+            }
+            break;
+            default:
+            {
+                printf( "¡Trying to render invalid graphic type #%d!\n", graphics[ i ].type );
+            }
+            break;
         }
     }
 
@@ -501,6 +518,92 @@ int NasrGraphicsAddRect(
         graphics[ num_o_graphics ].type = NASR_GRAPHIC_RECT;
         graphics[ num_o_graphics ].data.rect.rect = rect;
         graphics[ num_o_graphics ].data.rect.color = color;
+        return num_o_graphics++;
+    }
+    else
+    {
+        return -1;
+    }
+};
+
+int NasrGraphicsAddRectGradient(
+    struct NasrRect rect,
+    int dir,
+    struct NasrColor color1,
+    struct NasrColor color2
+)
+{
+    if ( num_o_graphics < max_graphics )
+    {
+        graphics[ num_o_graphics ].type = NASR_GRAPHIC_RECT_GRADIENT;
+        graphics[ num_o_graphics ].data.gradient.rect = rect;
+        switch ( dir )
+        {
+            case ( NASR_DIR_UP ):
+            {
+                graphics[ num_o_graphics ].data.gradient.color1 = color2;
+                graphics[ num_o_graphics ].data.gradient.color2 = color2;
+                graphics[ num_o_graphics ].data.gradient.color3 = color1;
+                graphics[ num_o_graphics ].data.gradient.color4 = color1;
+            }
+            break;
+            case ( NASR_DIR_UPRIGHT ):
+            {
+                graphics[ num_o_graphics ].data.gradient.color1 = color1;
+                graphics[ num_o_graphics ].data.gradient.color2 = color2;
+                graphics[ num_o_graphics ].data.gradient.color3 = color1;
+                graphics[ num_o_graphics ].data.gradient.color4 = color1;
+            }
+            break;
+            case ( NASR_DIR_RIGHT ):
+            {
+                graphics[ num_o_graphics ].data.gradient.color1 = color1;
+                graphics[ num_o_graphics ].data.gradient.color2 = color2;
+                graphics[ num_o_graphics ].data.gradient.color3 = color1;
+                graphics[ num_o_graphics ].data.gradient.color4 = color2;
+            }
+            break;
+            case ( NASR_DIR_DOWNRIGHT ):
+            {
+                graphics[ num_o_graphics ].data.gradient.color1 = color1;
+                graphics[ num_o_graphics ].data.gradient.color2 = color1;
+                graphics[ num_o_graphics ].data.gradient.color3 = color2;
+                graphics[ num_o_graphics ].data.gradient.color4 = color1;
+            }
+            break;
+            case ( NASR_DIR_DOWN ):
+            {
+                graphics[ num_o_graphics ].data.gradient.color1 = color1;
+                graphics[ num_o_graphics ].data.gradient.color2 = color1;
+                graphics[ num_o_graphics ].data.gradient.color3 = color2;
+                graphics[ num_o_graphics ].data.gradient.color4 = color2;
+            }
+            break;
+            case ( NASR_DIR_DOWNLEFT ):
+            {
+                graphics[ num_o_graphics ].data.gradient.color1 = color1;
+                graphics[ num_o_graphics ].data.gradient.color2 = color1;
+                graphics[ num_o_graphics ].data.gradient.color3 = color2;
+                graphics[ num_o_graphics ].data.gradient.color4 = color1;
+            }
+            break;
+            case ( NASR_DIR_LEFT ):
+            {
+                graphics[ num_o_graphics ].data.gradient.color1 = color2;
+                graphics[ num_o_graphics ].data.gradient.color2 = color1;
+                graphics[ num_o_graphics ].data.gradient.color3 = color2;
+                graphics[ num_o_graphics ].data.gradient.color4 = color1;
+            }
+            break;
+            case ( NASR_DIR_UPLEFT ):
+            {
+                graphics[ num_o_graphics ].data.gradient.color1 = color2;
+                graphics[ num_o_graphics ].data.gradient.color2 = color1;
+                graphics[ num_o_graphics ].data.gradient.color3 = color1;
+                graphics[ num_o_graphics ].data.gradient.color4 = color1;
+            }
+            break;
+        }
         return num_o_graphics++;
     }
     else
