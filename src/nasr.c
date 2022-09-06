@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <cglm/cglm.h>
 #include <cglm/call.h>
-#include <glad/glad.h>
-#include "GLFW/glfw3.h"
 #include "nasr.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -16,6 +14,11 @@
     { 0.0f, 0.0f, 1.0f, 0.0f },\
     { 0.0f, 0.0f, 0.0f, 1.0f }\
 }
+
+typedef struct KeyInputList {
+    int count;
+    int * data;
+} KeyInputList;
 
 static float vertices[] =
 {
@@ -42,6 +45,15 @@ static int num_o_graphics = 0;
 static NasrRect camera = { 0.0f, 0.0f, 0.0f, 0.0f };
 static NasrRect prev_camera = { 0.0f, 0.0f, 0.0f, 0.0f };
 static NasrRect canvas = { 0.0f, 0.0f, 0.0f, 0.0f };
+static int max_inputs = 0;
+static int inputs_per_key = 0;
+static int keys_per_input = 0;
+static int key_input_size = 0;
+static int input_key_size = 0;
+static int input_keys_start = 0;
+static int held_keys_start = 0;
+static int held_start = 0;
+static int * keydata = NULL;
 
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
@@ -51,6 +63,11 @@ static void SetVerticesColors( const NasrColor * top_left_color, const NasrColor
 static void SetVerticesView( float x, float y );
 static void SetupVertices();
 static void UpdateShaderOrtho( void );
+static void HandleInput( GLFWwindow * window, int key, int scancode, int action, int mods );
+static int * GetKeyInputs( int key );
+static int * GetInputKeys( int input );
+static int * GetHeldKeys( int input );
+static int * GetHeld( int id );
 
 void NasrColorPrint( const NasrColor * c )
 {
@@ -113,6 +130,9 @@ int NasrInit( const char * program_title, float canvas_width, float canvas_heigh
     // Update viewport on window resize.
     glfwSetFramebufferSizeCallback( window, FramebufferSizeCallback );
 
+    // Init Input
+    glfwSetKeyCallback( window, HandleInput );
+
     // Turn on blending.
     glEnable( GL_BLEND );
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
@@ -163,6 +183,7 @@ int NasrInit( const char * program_title, float canvas_width, float canvas_heigh
 
 void NasrClose( void )
 {
+    free( keydata );
     free( graphics );
     glfwTerminate();
 };
@@ -457,15 +478,20 @@ static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shade
     return program;
 };
 
-void NasrGraphicsAddCanvas( NasrColor color )
+NasrGraphic * NasrGraphicGet( int id )
 {
-    NasrGraphicsAddRect(
+    return &graphics[ id ];
+};
+
+int NasrGraphicsAddCanvas( NasrColor color )
+{
+    return NasrGraphicsAddRect(
         canvas,
         color
     );
 };
 
-void NasrGraphicsAddRect(
+int NasrGraphicsAddRect(
     NasrRect rect,
     NasrColor color
 )
@@ -475,6 +501,178 @@ void NasrGraphicsAddRect(
         graphics[ num_o_graphics ].type = NASR_GRAPHIC_RECT;
         graphics[ num_o_graphics ].data.rect.rect = rect;
         graphics[ num_o_graphics ].data.rect.color = color;
-        ++num_o_graphics;
+        return num_o_graphics++;
     }
+    else
+    {
+        return -1;
+    }
+};
+
+int NasrHeld( int id )
+{
+    return GetHeld( id )[ 0 ];
+};
+
+void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs )
+{
+    // If this is not the 1st time using this function, make sure we reset e’erything to prevent memory leaks &
+    // inaccurate #s.
+    if ( keydata != NULL )
+    {
+        free( keydata );
+    }
+    max_inputs = 0;
+    inputs_per_key = 0;
+    keys_per_input = 0;
+
+    // These several loops are necessary to find the max inputs per key & max keys per input.
+    int keys_max_inputs[ GLFW_KEY_LAST ] = { 0 };
+    for ( int i = 0; i < num_o_inputs; ++i )
+    {
+        if ( inputs[ i ].id + 1 > max_inputs )
+        {
+            max_inputs = inputs[ i ].id + 1;
+        }
+        ++keys_max_inputs[ inputs[ i ].key ];
+    }
+    int * inputs_max_keys = calloc( max_inputs, sizeof( int ) );
+    for ( int i = 0; i < GLFW_KEY_LAST; ++i )
+    {
+        if ( keys_max_inputs[ i ] > inputs_per_key )
+        {
+            inputs_per_key = keys_max_inputs[ i ];
+        }
+    }
+    for ( int i = 0; i < num_o_inputs; ++i )
+    {
+        ++inputs_max_keys[ inputs[ i ].id ];
+    }
+    for ( int i = 0; i < max_inputs; ++i )
+    {
+        if ( inputs_max_keys[ i ] > keys_per_input )
+        {
+            keys_per_input = inputs_max_keys[ i ];
+        }
+    }
+    free( inputs_max_keys );
+
+    // Calculate size o’ chunks.
+    // 4 chunks are:
+    // * List o’ inputs for each key ( list o’ lists )
+    //       -> MAX_KEYS * ( 1 int for inner list count + inner list length )
+    // * List o’ keys for each input ( list o’ lists )
+    //       -> MAX_INPUTS * ( 1 int for inner list count + inner list length )
+    // * List o’ keys held for each input ( list o’ lists )
+    //       -> MAX_INPUTS * inner list length.
+    //          We don’t need counts, as these are only e’er references from inputs & ne’er looped thru.
+    // * List o’ inputs held ( 1D list )
+    //       -> MAX_INPUTS
+    //          Tho this value can be found thru the previous held_keys list, it’s mo’ efficient to only loop thru &
+    //          check all keys held during press or release & set 1 simple value to be checked during the main game
+    //          loop, 60 times per second.
+    key_input_size = 1 + inputs_per_key;
+    const int key_inputs_size = key_input_size * GLFW_KEY_LAST;
+    input_keys_start = key_inputs_size;
+    input_key_size = 1 + keys_per_input;
+    const int input_keys_size = input_key_size * max_inputs;
+    held_keys_start = input_keys_start + input_keys_size;
+    const int held_keys_size = keys_per_input * max_inputs;
+    held_start = held_keys_start + held_keys_size;
+    const int held_size = max_inputs;
+    const int total_size = key_inputs_size + input_keys_size + held_keys_size + held_size;
+    keydata = calloc( total_size, sizeof( int ) );
+
+    // Loop thru given list o’ key/input pairs & set KeyInputs & InputKeys,
+    // incrementing their counts as we go.
+    for ( int i = 0; i < num_o_inputs; ++i )
+    {
+        int * keyinputs = GetKeyInputs( inputs[ i ].key );
+        int * keycount = &keyinputs[ 0 ];
+        keyinputs[ 1 + keycount[ 0 ] ] = inputs[ i ].id;
+        ++*keycount;
+
+        int * inputkeys = GetInputKeys( inputs[ i ].id );
+        int * inputcount = &inputkeys[ 0 ];
+        inputkeys[ 1 + inputcount[ 0 ] ] = inputs[ i ].key;
+        ++*inputcount;
+    }
+};
+
+static void HandleInput( GLFWwindow * window, int key, int scancode, int action, int mods )
+{
+    switch ( action )
+    {
+        case ( GLFW_PRESS ):
+        {
+            // Loop thru this key’s inputs so we can set them as held.
+            int * inputs = GetKeyInputs( key );
+            const int count = inputs[ 0 ];
+            for ( int i = 0; i < count; ++i )
+            {
+                const int input = inputs[ 1 + i ];
+                GetHeld( input )[ 0 ] = 1;
+                const int * input_keys = GetInputKeys( input );
+                const int input_keys_count = input_keys[ 0 ];
+                // While we can settle for just setting the 1D held list to 1, since if any key for an input is
+                // pressed, the input is considered pressed, we need to also register the specific key held in
+                // a list o’ keys for the input so we can check it later for release.
+                for ( int j = 0; j < input_keys_count; ++j )
+                {
+                    if ( input_keys[ j + 1 ] == key )
+                    {
+                        GetHeldKeys( input )[ j ] = 1;
+                    }
+                }
+            }
+        }
+        break;
+        case ( GLFW_RELEASE ):
+        {
+            int * inputs = GetKeyInputs( key );
+            const int count = inputs[ 0 ];
+            for ( int i = 0; i < count; ++i )
+            {
+                const int input = inputs[ 1 + i ];
+                // Unlike the press code, we need this for later, so keep pointer.
+                int * held = GetHeld( input );
+                *held = 0;
+                const int * input_keys = GetInputKeys( input );
+                const int input_keys_count = input_keys[ 0 ];
+                for ( int j = 0; j < input_keys_count; ++j )
+                {
+                    // Unlike the press code, we need this for later, so keep pointer.
+                    int * heldkeys = &GetHeldKeys( input )[ j ];
+                    if ( input_keys[ j + 1 ] == key )
+                    {
+                        *heldkeys = 0;
+                    }
+                    // This is a simple & efficient way to say that if any o’ the keys for this input are held, still
+                    // consider it held.
+                    held[ 0 ] = held[ 0 ] || *heldkeys;
+                }
+            }
+        }
+        break;
+    }
+};
+
+static int * GetKeyInputs( int key )
+{
+    return &keydata[ key_input_size * key ];
+};
+
+static int * GetInputKeys( int input )
+{
+    return &keydata[ input_keys_start + ( input_key_size * input ) ];
+};
+
+static int * GetHeldKeys( int input )
+{
+    return &keydata[ held_keys_start + ( keys_per_input * input ) ];
+};
+
+static int * GetHeld( int id )
+{
+    return &keydata[ held_start + id ];
 };
