@@ -6,6 +6,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
 
+#define DEGREES_TO_RADIANS( n ) ( ( n ) * 3.14159f / 180.0f )
+
 #define VERTEX_SIZE 8
 
 #define BASE_MATRIX {\
@@ -19,6 +21,12 @@ typedef struct KeyInputList {
     int count;
     int * data;
 } KeyInputList;
+
+typedef struct Texture
+{
+    unsigned int width;
+    unsigned int height;
+} Texture;
 
 static float vertices[] =
 {
@@ -35,10 +43,14 @@ static unsigned int indices[] =
     1, 2, 3    // second triangle
 };
 
+#define NUMBER_O_BASE_SHADERS 2
+
 static int magnification = 1;
 static GLFWwindow * window;
 static unsigned int VAO;
 static unsigned int rect_shader;
+static unsigned int sprite_shader;
+static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] = { &rect_shader, &sprite_shader };
 static NasrGraphic * graphics = NULL;
 static int max_graphics = 0;
 static int num_o_graphics = 0;
@@ -54,6 +66,10 @@ static int input_keys_start = 0;
 static int held_keys_start = 0;
 static int held_start = 0;
 static int * keydata = NULL;
+static int max_textures;
+static unsigned int * texture_ids;
+static Texture * textures;
+static int texture_count = 0;
 
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
@@ -97,7 +113,14 @@ void NasrRectPrint( const NasrRect * r )
     printf( "NasrRect: %f, %f, %f, %f\n", r->x, r->y, r->w, r->h );
 };
 
-int NasrInit( const char * program_title, float canvas_width, float canvas_height, int init_max_graphics )
+int NasrInit
+(
+    const char * program_title,
+    float canvas_width,
+    float canvas_height,
+    int init_max_graphics,
+    int init_max_textures
+)
 {
     glfwInit();
 
@@ -137,6 +160,12 @@ int NasrInit( const char * program_title, float canvas_width, float canvas_heigh
     glEnable( GL_BLEND );
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
+    // Init textures list
+    max_textures = init_max_textures;
+    textures = calloc( max_textures, sizeof( Texture ) );
+    texture_ids = calloc( max_textures, sizeof( unsigned int ) );
+    glGenTextures( max_textures, texture_ids );
+
     // VBO
     unsigned int VBO;
     glGenBuffers( 1, &VBO );
@@ -158,23 +187,38 @@ int NasrInit( const char * program_title, float canvas_width, float canvas_heigh
     BufferVertices();
 
     // Set up shaders
-    NasrShader shaders[] =
+    NasrShader vertex_shader =
     {
-        {
-            NASR_SHADER_VERTEX,
-            "#version 330 core\n layout ( location = 0 ) in vec2 in_position;\n layout ( location = 1 ) in vec2 in_texture_coords;\n layout ( location = 2 ) in vec4 in_color;\n \n out vec2 texture_coords;\n out vec4 out_color;\n out vec2 out_position;\n \n uniform mat4 model;\n uniform mat4 view;\n uniform mat4 ortho;\n \n void main()\n {\n out_position = in_position;\n gl_Position = ortho * view * model * vec4( in_position, 0.0, 1.0 );\n texture_coords = in_texture_coords;\n out_color = in_color;\n }"
-        },
+        NASR_SHADER_VERTEX,
+        "#version 330 core\n layout ( location = 0 ) in vec2 in_position;\n layout ( location = 1 ) in vec2 in_texture_coords;\n layout ( location = 2 ) in vec4 in_color;\n \n out vec2 texture_coords;\n out vec4 out_color;\n out vec2 out_position;\n \n uniform mat4 model;\n uniform mat4 view;\n uniform mat4 ortho;\n \n void main()\n {\n out_position = in_position;\n gl_Position = ortho * view * model * vec4( in_position, 0.0, 1.0 );\n texture_coords = in_texture_coords;\n out_color = in_color;\n }"
+    };
+
+    NasrShader rect_shaders[] =
+    {
+        vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
             "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 out_position;\n\nvoid main()\n{\n    final_color = out_color;\n}"
         }
     };
-    rect_shader = GenerateShaderProgram( shaders, 2 );
+
+    NasrShader sprite_shaders[] =
+    {
+        vertex_shader,
+        {
+            NASR_SHADER_FRAGMENT,
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform float opacity;\n  \nvoid main()\n{\n    final_color = texture( texture_data, texture_coords );\n    final_color.a *= opacity;\n}"
+        }
+    };
+    
+    rect_shader = GenerateShaderProgram( rect_shaders, 2 );
+    sprite_shader = GenerateShaderProgram( sprite_shaders, 2 );
 
     // Init camera
     NasrResetCamera();
     UpdateShaderOrtho();
 
+    // Init graphics list
     max_graphics = init_max_graphics;
     graphics = calloc( max_graphics, sizeof( NasrGraphic ) );
 
@@ -183,8 +227,20 @@ int NasrInit( const char * program_title, float canvas_width, float canvas_heigh
 
 void NasrClose( void )
 {
+    glDeleteTextures( max_textures, texture_ids );
     free( keydata );
-    free( graphics );
+    if ( textures != NULL )
+    {
+        free( textures );
+    }
+    if ( texture_ids != NULL )
+    {
+        free( texture_ids );
+    }
+    if ( graphics != NULL )
+    {
+        free( graphics );
+    }
     glfwTerminate();
 };
 
@@ -224,6 +280,62 @@ void NasrUpdate( void )
                     &graphics[ i ].data.gradient.color3,
                     &graphics[ i ].data.gradient.color4
                 );
+            }
+            break;
+            case ( NASR_GRAPHIC_SPRITE ):
+            {
+                const NasrGraphicSprite * sprite = &graphics[ i ].data.sprite;
+                unsigned int texture_id = sprite->texture;
+                const NasrRect * src = &sprite->src;
+                const NasrRect * dest = &sprite->dest;
+                glUseProgram( sprite_shader );
+
+                // Src Coords
+                if ( sprite->flip_x )
+                {
+                    vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].width ) * src->x; // Left X
+                    vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture_id ].width ) * ( src->x + src->w );  // Right X
+                }
+                else
+                {
+                    vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture_id ].width ) * src->x; // Left X
+                    vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].width ) * ( src->x + src->w );  // Right X
+                }
+
+                if ( sprite->flip_y )
+                {
+                    vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * ( src->y + src->h ); // Top Y
+                    vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ texture_id ].height ) * src->y;  // Bottom Y
+                }
+                else
+                {
+                    vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ texture_id ].height ) * ( src->y + src->h ); // Top Y
+                    vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * src->y;  // Bottom Y
+                }
+
+                BufferVertices();
+                SetVerticesView( dest->x + ( dest->w / 2.0f ), dest->y + ( dest->h / 2.0f ) );
+
+                mat4 model = BASE_MATRIX;
+                vec3 scale = { dest->w, dest->h, 0.0 };
+                glm_scale( model, scale );
+                vec3 xrot = { 0.0, 1.0, 0.0 };
+                glm_rotate( model, DEGREES_TO_RADIANS( sprite->rotation_x ), xrot );
+                vec3 yrot = { 0.0, 0.0, 1.0 };
+                glm_rotate( model, DEGREES_TO_RADIANS( sprite->rotation_y ), yrot );
+                vec3 zrot = { 1.0, 0.0, 0.0 };
+                glm_rotate( model, DEGREES_TO_RADIANS( sprite->rotation_z ), zrot );
+                unsigned int model_location = glGetUniformLocation( sprite_shader, "model" );
+                glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+
+                GLint opacity_location = glGetUniformLocation( sprite_shader, "opacity" );
+                glUniform1f( opacity_location, ( float )( sprite->opacity ) );
+
+                GLint texture_data_location = glGetUniformLocation( sprite_shader, "texture_data" );
+                glActiveTexture( GL_TEXTURE0 );
+                glBindTexture( GL_TEXTURE_2D, texture_ids[ texture_id ] );
+                glUniform1i( texture_data_location, 0 );
+                SetupVertices();
             }
             break;
             default:
@@ -416,17 +528,21 @@ static void SetupVertices( void )
 
 static void UpdateShaderOrtho( void )
 {
-    glUseProgram( rect_shader );
-    mat4 ortho =
+    for ( int i = 0; i < NUMBER_O_BASE_SHADERS; ++i )
     {
-        { 1.0f, 1.0f, 1.0f, 1.0f },
-        { 1.0f, 1.0f, 1.0f, 1.0f },
-        { 1.0f, 1.0f, 1.0f, 1.0f },
-        { 1.0f, 1.0f, 1.0f, 1.0f }
-    };
-    glm_ortho_rh_no( camera.x, camera.w, camera.h, camera.y, -1.0f, 1.0f, ortho );
-    unsigned int ortho_location = glGetUniformLocation( rect_shader, "ortho" );
-    glUniformMatrix4fv( ortho_location, 1, GL_FALSE, ( float * )( ortho ) );
+        const unsigned int shader = *base_shaders[ i ];
+        glUseProgram( shader );
+        mat4 ortho =
+        {
+            { 1.0f, 1.0f, 1.0f, 1.0f },
+            { 1.0f, 1.0f, 1.0f, 1.0f },
+            { 1.0f, 1.0f, 1.0f, 1.0f },
+            { 1.0f, 1.0f, 1.0f, 1.0f }
+        };
+        glm_ortho_rh_no( camera.x, camera.w, camera.h, camera.y, -1.0f, 1.0f, ortho );
+        unsigned int ortho_location = glGetUniformLocation( shader, "ortho" );
+        glUniformMatrix4fv( ortho_location, 1, GL_FALSE, ( float * )( ortho ) );
+    }
 };
 
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum )
@@ -610,6 +726,63 @@ int NasrGraphicsAddRectGradient(
     {
         return -1;
     }
+};
+
+int NasrGraphicsAddSprite
+(
+    int texture,
+    NasrRect src,
+    NasrRect dest,
+    int flip_x,
+    int flip_y,
+    float rotation_x,
+    float rotation_y,
+    float rotation_z,
+    float opacity
+)
+{
+    if ( num_o_graphics < max_graphics )
+    {
+        graphics[ num_o_graphics ].type = NASR_GRAPHIC_SPRITE;
+        graphics[ num_o_graphics ].data.sprite.texture = texture;
+        graphics[ num_o_graphics ].data.sprite.src = src;
+        graphics[ num_o_graphics ].data.sprite.dest = dest;
+        graphics[ num_o_graphics ].data.sprite.flip_x = flip_x;
+        graphics[ num_o_graphics ].data.sprite.flip_y = flip_y;
+        graphics[ num_o_graphics ].data.sprite.rotation_x = rotation_x;
+        graphics[ num_o_graphics ].data.sprite.rotation_y = rotation_y;
+        graphics[ num_o_graphics ].data.sprite.rotation_z = rotation_z;
+        graphics[ num_o_graphics ].data.sprite.opacity = opacity;
+        return num_o_graphics++;
+    }
+    else
+    {
+        return -1;
+    }
+};
+
+int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height )
+{
+    if ( texture_count >= max_textures )
+    {
+        NasrLog( "¡No mo’ space for textures!" );
+        return -1;
+    }
+
+    textures[ texture_count ].width = width;
+    textures[ texture_count ].height = height;
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ texture_count ] );
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+    return texture_count++;
+};
+
+void NasrClearTextures( void )
+{
+    texture_count = 0;
 };
 
 int NasrHeld( int id )

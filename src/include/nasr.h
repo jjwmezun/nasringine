@@ -35,6 +35,7 @@ typedef struct NasrShader
 
 #define NASR_GRAPHIC_RECT          0
 #define NASR_GRAPHIC_RECT_GRADIENT 1
+#define NASR_GRAPHIC_SPRITE        2
 
 typedef struct NasrGraphicRect
 {
@@ -51,10 +52,24 @@ typedef struct NasrGraphicRectGradient
     NasrColor color4;
 } NasrGraphicRectGradient;
 
+typedef struct NasrGraphicSprite
+{
+    int texture;
+    NasrRect src;
+    NasrRect dest;
+    int flip_x;
+    int flip_y;
+    float rotation_x;
+    float rotation_y;
+    float rotation_z;
+    float opacity;
+} NasrGraphicSprite;
+
 typedef union NasrGraphicData
 {
     NasrGraphicRect         rect;
     NasrGraphicRectGradient gradient;
+    NasrGraphicSprite       sprite;
 } NasrGraphicData;
 
 typedef struct NasrGraphic
@@ -204,7 +219,14 @@ typedef struct NasrInput
 int NasrHeld( int id );
 void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs );
 
-int NasrInit( const char * program_title, float canvas_width, float canvas_height, int max_graphics );
+int NasrInit
+(
+    const char * program_title,
+    float canvas_width,
+    float canvas_height,
+    int max_graphics,
+    int init_max_textures
+);
 void NasrClose( void );
 void NasrUpdate( void );
 
@@ -227,3 +249,18 @@ int NasrGraphicsAddRectGradient(
     struct NasrColor color1,
     struct NasrColor color2
 );
+int NasrGraphicsAddSprite
+(
+    int texture,
+    NasrRect src,
+    NasrRect dest,
+    int flip_x,
+    int flip_y,
+    float rotation_x,
+    float rotation_y,
+    float rotation_z,
+    float opacity
+);
+
+int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height );
+void NasrClearTextures( void );
