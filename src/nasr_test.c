@@ -94,8 +94,8 @@ void NasrTestRun( void )
     uint32_t texdata[ texwidth * texheight ];
     for ( int i = 0; i < texwidth * texheight; ++i )
     {
-        const x = i % texwidth;
-        const y = floor( i / texwidth );
+        const int x = i % texwidth;
+        const int y = floor( i / texwidth );
         if ( y % 4 == 0 || ( y < 4 && x == 0 ) || ( y >= 4 && x == 4 ) )
         {
             texdata[ i ] = 0xFF000000;
@@ -106,27 +106,37 @@ void NasrTestRun( void )
     }
     const int texture = NasrAddTexture( texdata, texwidth, texheight );
 
-    const unsigned texw2 = 2;
-    const unsigned texh2 = 2;
-    uint32_t texdata2[ texw2 * texh2 ];
-    texdata2[ 0 ] = 0xFF000000;
-    texdata2[ 1 ] = 0xFFFFFFFF;
-    texdata2[ 2 ] = 0xFFFFFFFF;
-    texdata2[ 3 ] = 0xFF000000;
+    const int bricksize = 16;
 
-    const NasrRect src = { 0.0f, 0.0f, 8.0f, 8.0f };
-    const NasrRect dest = { 0.0f, 0.0f, 32.0f, 32.0f };
-    const int heroid = NasrGraphicsAddSprite
+    /*
+    const unsigned int d3[ bricksize * bricksize ];
+    const NasrRectInt src3 = { 0, 0, 8, 8 };
+    const NasrRectInt dest6 = { 0, 0, bricksize, bricksize };
+    NasrTileTexture( texture, d3, src3, dest6 );
+    const int blank_board = NasrAddTexture( d3, bricksize, bricksize );
+    */
+
+    NasrRectInt texsrc = { 0, 0, 8, 8 };
+    NasrRectInt texdest = { 0, 0, 16, 16 };
+    const int blank_board = NasrAddTextureBlank( 16, 16 );
+    NasrCopyTextureToTexture( texture, blank_board, texsrc, texdest );
+    texdest.x = 8;
+    texdest.y = 8;
+    NasrCopyTextureToTexture( texture, blank_board, texsrc, texdest );
+
+    const NasrRect bsrc = { 0.0f, 0.0f, ( float )( bricksize ), ( float )( bricksize ) };
+    const NasrRect bdest = { 0.0f, 0.0f, ( float )( bricksize ), ( float )( bricksize ) };
+    const int bid = NasrGraphicsAddSprite
     (
-        texture,
-        src,
-        dest,
-        1,
-        1,
+        blank_board,
+        bsrc,
+        bdest,
+        0,
+        0,
         0.0f,
         0.0f,
         0.0f,
-        0.5f
+        1.0f
     );
 
     while ( running )
@@ -137,7 +147,7 @@ void NasrTestRun( void )
         }
         else
         {
-            NasrGraphicSprite * sprite = &NasrGraphicGet( heroid )->data.sprite;
+            NasrGraphicSprite * sprite = &NasrGraphicGet( bid )->data.sprite;
             NasrRect * dest = &sprite->dest;
             if ( NasrHeld( INPUT_RIGHT ) )
             {
@@ -177,13 +187,6 @@ void NasrTestRun( void )
             {
                 dest->w -= 1.0f;
                 dest->h -= 1.0f;
-            }
-            if ( NasrHeld( INPUT_Q ) )
-            {
-                NasrClearTextures();
-                NasrAddTexture( texdata2, texw2, texh2 );
-                sprite->src.w = 2.0f;
-                sprite->src.h = 2.0f;
             }
             NasrAdjustCamera( dest, 1024.0f, 640.0f );
             NasrUpdate();

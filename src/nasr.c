@@ -100,6 +100,16 @@ float NasrRectBottom( const NasrRect * r )
     return r->y + r->h;
 };
 
+NasrRectInt NasrRectToNasrRectInt( const struct NasrRect r )
+{
+    NasrRectInt r2;
+    r2.x = ( int )( r.x );
+    r2.y = ( int )( r.y );
+    r2.w = ( int )( r.w );
+    r2.h = ( int )( r.h );
+    return r2;
+};
+
 int NasrRectEqual( const struct NasrRect * a, const struct NasrRect * b )
 {
     return a->x == b->x
@@ -778,6 +788,153 @@ int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int heigh
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
     return texture_count++;
+};
+
+int NasrAddTextureBlank( unsigned int width, unsigned int height )
+{
+    return NasrAddTexture( 0, width, height );
+    /*
+    unsigned int data[ width * height ];
+    for ( int i = 0; i < width * height; ++i )
+    {
+        data[ i ] = 0xFF000000;
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, v, 0 );
+
+    glBindTexture(GL_TEXTURE_2D, v);
+    static GLuint rb;
+    glGenRenderbuffers( 1, &rb );
+    glBindRenderbuffer( GL_RENDERBUFFER, rb );
+    glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height );
+    glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rb );
+
+    printf( "COMPLETE: %d\n", glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE );
+
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    /*
+    NasrRect src = { 0.0f, 0.0f, ( float )( width ), ( float )( height ) };
+    NasrColor color = { 128.0f, 42.0f, 80.0f, 255.0f };
+    DrawBox( &src, &color, &color, &color, &color );
+    unsigned int d[ width * height ];
+    glReadPixels
+    (
+        0,
+        0,
+        width,
+        height,
+        GL_RGBA,
+        GL_UNSIGNED_INT_8_8_8_8,
+        d
+    );/
+
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
+    glBindRenderbuffer( GL_RENDERBUFFER, 0 );*/
+};
+
+void NasrGetTexturePixels( unsigned int texture, void * pixels )
+{
+    glGetTextureImage
+    (
+        texture_ids[ texture ],
+  	    0,
+  	    GL_RGBA,
+  	    GL_UNSIGNED_BYTE,
+        textures[ texture ].width * textures[ texture ].height * 4,
+        pixels
+  	);
+};
+
+void NasrCopyTextureToTexture( unsigned int src, unsigned int dest, NasrRectInt srccoords, NasrRectInt destcoords )
+{
+    unsigned char pixels[ textures[ dest ].width * textures[ dest ].height * 4 ];
+    NasrGetTexturePixels( dest, pixels );
+    NasrApplyTextureToPixelData( src, pixels, srccoords, destcoords );
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ dest ] );
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, textures[ dest ].width, textures[ dest ].height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+};
+
+void NasrApplyTextureToPixelData( unsigned int texture, void * dest, NasrRectInt srccoords, NasrRectInt destcoords )
+{
+    unsigned char src[ textures[ texture ].width * textures[ texture ].height * 4 ];
+    NasrGetTexturePixels( texture, src );
+    int maxx = srccoords.w;
+    if ( maxx + srccoords.x > textures[ texture ].width )
+    {
+        maxx = textures[ texture ].width - srccoords.x;
+    }
+    if ( maxx + destcoords.x > destcoords.w )
+    {
+        maxx = destcoords.w - destcoords.x;
+    }
+    maxx *= 4;
+    int maxh = srccoords.h;
+    if ( maxh + srccoords.y > textures[ texture ].height )
+    {
+        maxh = textures[ texture ].height - srccoords.y;
+    }
+    if ( maxh + destcoords.y > destcoords.h )
+    {
+        maxh = destcoords.h - destcoords.y;
+    }
+    for ( int y = 0; y < maxh; ++y )
+    {
+        const int srci = ( ( ( srccoords.y + y ) * textures[ texture ].width ) + srccoords.x ) * 4;
+        const int desti = ( ( ( destcoords.y + y ) * destcoords.w ) + destcoords.x ) * 4;
+        memcpy( &dest[ desti ], &src[ srci ], maxx );
+    }
+};
+
+void NasrCopyPixelData( void * src, void * dest, NasrRectInt srccoords, NasrRectInt destcoords, int maxsrcw, int maxsrch )
+{
+    int maxx = srccoords.w;
+    if ( maxx + srccoords.x > maxsrcw )
+    {
+        maxx = maxsrcw - srccoords.x;
+    }
+    if ( maxx + destcoords.x > destcoords.w )
+    {
+        maxx = destcoords.w - destcoords.x;
+    }
+    maxx *= 4;
+    int maxh = srccoords.h;
+    if ( maxh + srccoords.y > maxsrch )
+    {
+        maxh = maxsrch - srccoords.y;
+    }
+    if ( maxh + destcoords.y > destcoords.h )
+    {
+        maxh = destcoords.h - destcoords.y;
+    }
+    for ( int y = 0; y < maxh; ++y )
+    {
+        const int srci = ( ( ( srccoords.y + y ) * maxsrcw ) + srccoords.x ) * 4;
+        const int desti = ( ( ( destcoords.y + y ) * destcoords.w ) + destcoords.x ) * 4;
+        memcpy( &dest[ desti ], &src[ srci ], maxx );
+    }
+};
+
+void NasrTileTexture( unsigned int texture, void * pixels, NasrRectInt srccoords, NasrRectInt destcoords )
+{
+    NasrApplyTextureToPixelData( texture, pixels, srccoords, destcoords );
+    int w = srccoords.w;
+    int h = srccoords.h;
+    while ( w < destcoords.w && h < destcoords.h )
+    {
+        const NasrRectInt src4 = { 0, 0, w, h };
+        const NasrRectInt dest7 = { w, 0, destcoords.w, destcoords.h };
+        const NasrRectInt dest8 = { 0, h, destcoords.w, destcoords.h };
+        const NasrRectInt dest9 = { w, h, destcoords.w, destcoords.h };
+        NasrCopyPixelData( pixels, pixels, src4, dest7, destcoords.w, destcoords.h );
+        NasrCopyPixelData( pixels, pixels, src4, dest8, destcoords.w, destcoords.h );
+        NasrCopyPixelData( pixels, pixels, src4, dest9, destcoords.w, destcoords.h );
+        w *= 2;
+        h *= 2;
+    }
 };
 
 void NasrClearTextures( void )

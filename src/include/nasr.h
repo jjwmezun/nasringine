@@ -19,10 +19,19 @@ typedef struct NasrRect
     float h;
 } NasrRect;
 
+typedef struct NasrRectInt
+{
+    int x;
+    int y;
+    int w;
+    int h;
+} NasrRectInt;
+
 float NasrRectRight( const struct NasrRect * r );
 float NasrRectBottom( const struct NasrRect * r );
 int NasrRectEqual( const struct NasrRect * a, const struct NasrRect * b );
 void NasrRectPrint( const struct NasrRect * r );
+struct NasrRectInt NasrRectToNasrRectInt( const struct NasrRect r );
 
 #define NASR_SHADER_VERTEX   0
 #define NASR_SHADER_FRAGMENT 1
@@ -263,4 +272,10 @@ int NasrGraphicsAddSprite
 );
 
 int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height );
+int NasrAddTextureBlank( unsigned int width, unsigned int height );
+void NasrGetTexturePixels( unsigned int texture, void * pixels );
+void NasrCopyTextureToTexture( unsigned int src, unsigned int dest, NasrRectInt srccoords, NasrRectInt destcoords );
+void NasrApplyTextureToPixelData( unsigned int texture, void * dest, NasrRectInt srccoords, NasrRectInt destcoords );
+void NasrCopyPixelData( void * src, void * dest, NasrRectInt srccoords, NasrRectInt destcoords, int maxsrcw, int maxsrch );
+void NasrTileTexture( unsigned int texture, void * pixels, NasrRectInt srccoords, NasrRectInt destcoords );
 void NasrClearTextures( void );
