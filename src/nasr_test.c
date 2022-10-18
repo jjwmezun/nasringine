@@ -34,6 +34,9 @@ void NasrTestRun( void )
     };
     NasrRegisterInputs( inputs, 10 );
 
+    const NasrRect rainbow_rect = { 0.0f, 0.0f, 520.0f, 300.0f };
+    int rainbow = NasrAddTextureBlank( rainbow_rect.w, rainbow_rect.h );
+    NasrSetTextureAsTarget( rainbow );
     const NasrRect canvas_rect1 = { 0.0f, 0.0f, 520.0f, 50.0f };
     const NasrRect canvas_rect2 = { 0.0f, 50.0f, 520.0f, 50.0f };
     const NasrRect canvas_rect3 = { 0.0f, 100.0f, 520.0f, 50.0f };
@@ -46,6 +49,16 @@ void NasrTestRun( void )
     const NasrColor canvas_color_4 = { 0.0f, 255.0f, 255.0f, 255.0f };
     const NasrColor canvas_color_5 = { 0.0f, 0.0f, 255.0f, 255.0f };
     const NasrColor canvas_color_6 = { 255.0f, 0.0f, 255.0f, 255.0f };
+    /*
+    NasrDrawGradientRectToTexture( canvas_rect1, NASR_DIR_DOWN, canvas_color_1, canvas_color_2 );
+    NasrDrawGradientRectToTexture( canvas_rect2, NASR_DIR_DOWN, canvas_color_2, canvas_color_3 );
+    NasrDrawGradientRectToTexture( canvas_rect3, NASR_DIR_DOWN, canvas_color_3, canvas_color_4 );
+    NasrDrawGradientRectToTexture( canvas_rect4, NASR_DIR_DOWN, canvas_color_4, canvas_color_5 );
+    NasrDrawGradientRectToTexture( canvas_rect5, NASR_DIR_DOWN, canvas_color_5, canvas_color_6 );
+    NasrDrawGradientRectToTexture( canvas_rect6, NASR_DIR_DOWN, canvas_color_6, canvas_color_1 );
+    */
+    NasrReleaseTextureTarget();
+
     NasrGraphicsAddRectGradient
     (
         canvas_rect1,
@@ -106,26 +119,51 @@ void NasrTestRun( void )
     }
     const int texture = NasrAddTexture( texdata, texwidth, texheight );
 
-    const int bricksize = 16;
-
-    /*
-    const unsigned int d3[ bricksize * bricksize ];
-    const NasrRectInt src3 = { 0, 0, 8, 8 };
-    const NasrRectInt dest6 = { 0, 0, bricksize, bricksize };
-    NasrTileTexture( texture, d3, src3, dest6 );
-    const int blank_board = NasrAddTexture( d3, bricksize, bricksize );
-    */
-
-    NasrRectInt texsrc = { 0, 0, 8, 8 };
-    NasrRectInt texdest = { 0, 0, 16, 16 };
-    const int blank_board = NasrAddTextureBlank( 16, 16 );
-    NasrCopyTextureToTexture( texture, blank_board, texsrc, texdest );
-    texdest.x = 8;
-    texdest.y = 8;
-    NasrCopyTextureToTexture( texture, blank_board, texsrc, texdest );
+    const int bricksize = 256;
+    int blank_board = NasrAddTextureBlank( 256, 256 );
+    NasrSetTextureAsTarget( blank_board );
+    NasrRect rect = { 0.0f, 0.0f, 256.0f, 256.0f };
+    NasrColor color = { 255.0f, 0.0f, 255.0f, 255.0f };
+    NasrDrawRectToTexture( rect, color );
+    NasrRect src = { 0.0f, 0.0f, 8.0f, 8.0f };
+    NasrRect dest = { 0.0f, 0.0f, 8.0f, 8.0f };
+    for ( float x = 0.0f; x < 256.0f; x += 8.0f )
+    {
+        dest.x = x;
+        for ( float y = 0.0f; y < 256.0f; y += 8.0f )
+        {
+            dest.y = y;
+            NasrDrawSpriteToTexture(
+                texture,
+                src,
+                dest,
+                0,
+                0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            );
+        }
+    }
+    NasrReleaseTextureTarget();
 
     const NasrRect bsrc = { 0.0f, 0.0f, ( float )( bricksize ), ( float )( bricksize ) };
     const NasrRect bdest = { 0.0f, 0.0f, ( float )( bricksize ), ( float )( bricksize ) };
+
+    NasrGraphicsAddSprite
+    (
+        rainbow,
+        rainbow_rect,
+        rainbow_rect,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f
+    );
+
     const int bid = NasrGraphicsAddSprite
     (
         blank_board,
@@ -188,7 +226,7 @@ void NasrTestRun( void )
                 dest->w -= 1.0f;
                 dest->h -= 1.0f;
             }
-            NasrAdjustCamera( dest, 1024.0f, 640.0f );
+            //NasrAdjustCamera( dest, 1024.0f, 640.0f );
             NasrUpdate();
         }
     }

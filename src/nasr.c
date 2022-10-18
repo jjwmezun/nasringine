@@ -70,6 +70,12 @@ static int max_textures;
 static unsigned int * texture_ids;
 static Texture * textures;
 static int texture_count = 0;
+static GLuint framebuffer = 0;
+static GLint magnified_canvas_width = 0;
+static GLint magnified_canvas_height = 0;
+static GLint magnified_canvas_x = 0;
+static GLint magnified_canvas_y = 0;
+static int selected_texture = -1;
 
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
@@ -232,6 +238,15 @@ int NasrInit
     max_graphics = init_max_graphics;
     graphics = calloc( max_graphics, sizeof( NasrGraphic ) );
 
+    // Init framebuffer.
+    glGenFramebuffers(1, &framebuffer);
+
+    magnified_canvas_width = canvas.w * magnification;
+    magnified_canvas_height = canvas.h * magnification;
+    magnified_canvas_x = ( int )( floor( ( double )( magnified_canvas_width - magnified_canvas_width ) / 2.0 ) );
+    magnified_canvas_y = ( int )( floor( ( double )( magnified_canvas_height - magnified_canvas_height ) / 2.0 ) );
+    glViewport( magnified_canvas_x, magnified_canvas_y, magnified_canvas_width, magnified_canvas_height );
+
     return 0;
 };
 
@@ -258,7 +273,7 @@ void NasrUpdate( void )
 {
     glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
     glClear( GL_COLOR_BUFFER_BIT );
-
+    
     if ( camera.x != prev_camera.x || camera.y != prev_camera.y )
     {
         UpdateShaderOrtho();
@@ -465,11 +480,11 @@ static void FramebufferSizeCallback( GLFWwindow * window, int screen_width, int 
         magnification = 1;
     }
 
-    GLint magnified_canvas_width = canvas.w * magnification;
-    GLint magnified_canvas_height = canvas.h * magnification;
-    GLint x = ( int )( floor( ( double )( screen_width - magnified_canvas_width ) / 2.0 ) );
-    GLint y = ( int )( floor( ( double )( screen_height - magnified_canvas_height ) / 2.0 ) );
-    glViewport( x, y, magnified_canvas_width, magnified_canvas_height );
+    magnified_canvas_width = canvas.w * magnification;
+    magnified_canvas_height = canvas.h * magnification;
+    magnified_canvas_x = ( int )( floor( ( double )( screen_width - magnified_canvas_width ) / 2.0 ) );
+    magnified_canvas_y = ( int )( floor( ( double )( screen_height - magnified_canvas_height ) / 2.0 ) );
+    glViewport( magnified_canvas_x, magnified_canvas_y, magnified_canvas_width, magnified_canvas_height );
 };
 
 static void BufferVertices( void )
@@ -709,8 +724,8 @@ int NasrGraphicsAddRectGradient(
             {
                 graphics[ num_o_graphics ].data.gradient.color1 = color1;
                 graphics[ num_o_graphics ].data.gradient.color2 = color1;
-                graphics[ num_o_graphics ].data.gradient.color3 = color2;
-                graphics[ num_o_graphics ].data.gradient.color4 = color1;
+                graphics[ num_o_graphics ].data.gradient.color3 = color1;
+                graphics[ num_o_graphics ].data.gradient.color4 = color2;
             }
             break;
             case ( NASR_DIR_LEFT ):
@@ -725,6 +740,17 @@ int NasrGraphicsAddRectGradient(
             {
                 graphics[ num_o_graphics ].data.gradient.color1 = color2;
                 graphics[ num_o_graphics ].data.gradient.color2 = color1;
+                graphics[ num_o_graphics ].data.gradient.color3 = color1;
+                graphics[ num_o_graphics ].data.gradient.color4 = color1;
+            }
+            break;
+            default:
+            {
+                printf( "¡Invalid gradient direction for NasrGraphicsAddRectGradient! %d\n", dir );
+
+                // Default direction.
+                graphics[ num_o_graphics ].data.gradient.color1 = color2;
+                graphics[ num_o_graphics ].data.gradient.color2 = color2;
                 graphics[ num_o_graphics ].data.gradient.color3 = color1;
                 graphics[ num_o_graphics ].data.gradient.color4 = color1;
             }
@@ -793,43 +819,21 @@ int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int heigh
 int NasrAddTextureBlank( unsigned int width, unsigned int height )
 {
     return NasrAddTexture( 0, width, height );
-    /*
-    unsigned int data[ width * height ];
-    for ( int i = 0; i < width * height; ++i )
-    {
-        data[ i ] = 0xFF000000;
-    }
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, v, 0 );
+};
 
-    glBindTexture(GL_TEXTURE_2D, v);
-    static GLuint rb;
-    glGenRenderbuffers( 1, &rb );
-    glBindRenderbuffer( GL_RENDERBUFFER, rb );
-    glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height );
-    glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rb );
+void NasrSetTextureAsTarget( int texture )
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_ids[ texture ], 0);
+    glViewport( 0, 0, textures[ texture ].width, textures[ texture ].height );
+    selected_texture = texture;
+};
 
-    printf( "COMPLETE: %d\n", glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE );
-
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    /*
-    NasrRect src = { 0.0f, 0.0f, ( float )( width ), ( float )( height ) };
-    NasrColor color = { 128.0f, 42.0f, 80.0f, 255.0f };
-    DrawBox( &src, &color, &color, &color, &color );
-    unsigned int d[ width * height ];
-    glReadPixels
-    (
-        0,
-        0,
-        width,
-        height,
-        GL_RGBA,
-        GL_UNSIGNED_INT_8_8_8_8,
-        d
-    );/
-
-    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-    glBindRenderbuffer( GL_RENDERBUFFER, 0 );*/
+void NasrReleaseTextureTarget()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport( magnified_canvas_x, magnified_canvas_y, magnified_canvas_width, magnified_canvas_height );
+    selected_texture = -1;
 };
 
 void NasrGetTexturePixels( unsigned int texture, void * pixels )
@@ -940,6 +944,177 @@ void NasrTileTexture( unsigned int texture, void * pixels, NasrRectInt srccoords
 void NasrClearTextures( void )
 {
     texture_count = 0;
+};
+
+void NasrDrawRectToTexture( NasrRect rect, NasrColor color )
+{
+    rect.x *= canvas.w / textures[ selected_texture ].width;
+    rect.y = ( textures[ selected_texture ].height - ( rect.y + rect.h ) ) * ( canvas.h / textures[ selected_texture ].height );
+    rect.w *= canvas.w / textures[ selected_texture ].width;
+    rect.h *= canvas.h / textures[ selected_texture ].height;
+    DrawBox
+    (
+        &rect,
+        &color,
+        &color,
+        &color,
+        &color
+    );
+};
+
+void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, NasrColor color2 )
+{
+    rect.x *= canvas.w / textures[ selected_texture ].width;
+    rect.y = ( textures[ selected_texture ].height - ( rect.y + rect.h ) ) * ( canvas.h / textures[ selected_texture ].height );
+    rect.w *= canvas.w / textures[ selected_texture ].width;
+    rect.h *= canvas.h / textures[ selected_texture ].height;
+    NasrColor cul = color2;
+    NasrColor cur = color2;
+    NasrColor cbr = color1;
+    NasrColor cbl = color1;
+    switch ( dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            cul = color2;
+            cur = color1;
+            cbr = color1;
+            cbl = color1;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            cul = color2;
+            cur = color1;
+            cbr = color2;
+            cbl = color1;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            cul = color1;
+            cur = color1;
+            cbr = color2;
+            cbl = color1;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            cul = color1;
+            cur = color1;
+            cbr = color2;
+            cbl = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            cul = color1;
+            cur = color1;
+            cbr = color1;
+            cbl = color2;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            cul = color1;
+            cur = color2;
+            cbr = color1;
+            cbl = color2;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            cul = color1;
+            cur = color2;
+            cbr = color1;
+            cbl = color1;
+        }
+        break;
+        default:
+        {
+            printf( "¡Invalid gradient direction for NasrDrawGradientRectToTexture! %d\n", dir );
+        }
+        break;
+    }
+    DrawBox
+    (
+        &rect,
+        &cbl,
+        &cbr,
+        &cur,
+        &cul
+    );
+};
+
+void NasrDrawSpriteToTexture(
+    int texture,
+    NasrRect src,
+    NasrRect dest,
+    int flip_x,
+    int flip_y,
+    float rotation_x,
+    float rotation_y,
+    float rotation_z,
+    float opacity
+)
+{
+    dest.x *= canvas.w / textures[ selected_texture ].width;
+    dest.y = ( textures[ selected_texture ].height - ( dest.y + dest.h ) ) * ( canvas.h / textures[ selected_texture ].height );
+    dest.w *= canvas.w / textures[ selected_texture ].width;
+    dest.h *= canvas.h / textures[ selected_texture ].height;
+
+    glUseProgram( sprite_shader );
+
+    // Src Coords
+    if ( flip_x )
+    {
+        vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture ].width ) * src.x; // Left X
+        vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture ].width ) * ( src.x + src.w );  // Right X
+    }
+    else
+    {
+        vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture ].width ) * src.x; // Left X
+        vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture ].width ) * ( src.x + src.w );  // Right X
+    }
+
+    if ( flip_y )
+    {
+        vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ texture ].height ) * ( src.y + src.h ); // Top Y
+        vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture ].height ) * src.y;  // Bottom Y
+    }
+    else
+    {
+        vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture ].height ) * ( src.y + src.h ); // Top Y
+        vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ texture ].height ) * src.y;  // Bottom Y
+    }
+
+    BufferVertices();
+    SetVerticesView( dest.x + ( dest.w / 2.0f ), dest.y + ( dest.h / 2.0f ) );
+
+    mat4 model = BASE_MATRIX;
+    vec3 scale = { dest.w, dest.h, 0.0 };
+    glm_scale( model, scale );
+    vec3 xrot = { 0.0, 1.0, 0.0 };
+    glm_rotate( model, DEGREES_TO_RADIANS( rotation_x ), xrot );
+    vec3 yrot = { 0.0, 0.0, 1.0 };
+    glm_rotate( model, DEGREES_TO_RADIANS( rotation_y ), yrot );
+    vec3 zrot = { 1.0, 0.0, 0.0 };
+    glm_rotate( model, DEGREES_TO_RADIANS( rotation_z ), zrot );
+    unsigned int model_location = glGetUniformLocation( sprite_shader, "model" );
+    glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+
+    GLint opacity_location = glGetUniformLocation( sprite_shader, "opacity" );
+    glUniform1f( opacity_location, ( float )( opacity ) );
+
+    GLint texture_data_location = glGetUniformLocation( sprite_shader, "texture_data" );
+    glActiveTexture( GL_TEXTURE0 );
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ texture ] );
+    glUniform1i( texture_data_location, 0 );
+    SetupVertices();
 };
 
 int NasrHeld( int id )

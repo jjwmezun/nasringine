@@ -279,3 +279,19 @@ void NasrApplyTextureToPixelData( unsigned int texture, void * dest, NasrRectInt
 void NasrCopyPixelData( void * src, void * dest, NasrRectInt srccoords, NasrRectInt destcoords, int maxsrcw, int maxsrch );
 void NasrTileTexture( unsigned int texture, void * pixels, NasrRectInt srccoords, NasrRectInt destcoords );
 void NasrClearTextures( void );
+void NasrSetTextureAsTarget( int texture );
+void NasrReleaseTextureTarget();
+
+void NasrDrawRectToTexture( NasrRect rect, NasrColor color );
+void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, NasrColor color2 );
+void NasrDrawSpriteToTexture(
+    int texture,
+    NasrRect src,
+    NasrRect dest,
+    int flip_x,
+    int flip_y,
+    float rotation_x,
+    float rotation_y,
+    float rotation_z,
+    float opacity
+);
