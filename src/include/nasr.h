@@ -225,6 +225,10 @@ typedef struct NasrInput
 #define NASR_DIR_LEFT      6
 #define NASR_DIR_UPLEFT    7
 
+#define NASR_SAMPLING_DEFAULT 0
+#define NASR_SAMPLING_NEAREST 1
+#define NASR_SAMPLING_LINEAR  2
+
 int NasrHeld( int id );
 void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs );
 
@@ -234,9 +238,11 @@ int NasrInit
     float canvas_width,
     float canvas_height,
     int max_graphics,
-    int init_max_textures
+    int init_max_textures,
+    int sample_type
 );
 void NasrClose( void );
+void NasrClearTextures( void );
 void NasrUpdate( void );
 
 int NasrHasClosed( void );
@@ -271,16 +277,18 @@ int NasrGraphicsAddSprite
     float opacity
 );
 
+int NasrLoadFileAsTexture( char * filename );
+int NasrLoadFileAsTextureEx( char * filename, int sampling );
 int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height );
+int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int height, int sampling );
 int NasrAddTextureBlank( unsigned int width, unsigned int height );
 void NasrGetTexturePixels( unsigned int texture, void * pixels );
 void NasrCopyTextureToTexture( unsigned int src, unsigned int dest, NasrRectInt srccoords, NasrRectInt destcoords );
 void NasrApplyTextureToPixelData( unsigned int texture, void * dest, NasrRectInt srccoords, NasrRectInt destcoords );
 void NasrCopyPixelData( void * src, void * dest, NasrRectInt srccoords, NasrRectInt destcoords, int maxsrcw, int maxsrch );
 void NasrTileTexture( unsigned int texture, void * pixels, NasrRectInt srccoords, NasrRectInt destcoords );
-void NasrClearTextures( void );
 void NasrSetTextureAsTarget( int texture );
-void NasrReleaseTextureTarget();
+void NasrReleaseTextureTarget( void );
 
 void NasrDrawRectToTexture( NasrRect rect, NasrColor color );
 void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, NasrColor color2 );

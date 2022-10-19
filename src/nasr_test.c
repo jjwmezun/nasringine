@@ -18,7 +18,7 @@ typedef enum Input {
 
 void NasrTestRun( void )
 {
-    NasrInit( "Nasringine 0.1", 520, 320, 1024, 1024 );
+    NasrInit( "Nasringine 0.1", 520, 320, 1024, 1024, NASR_SAMPLING_NEAREST );
     NasrInput inputs[] =
     {
         { INPUT_RIGHT, NASR_KEY_RIGHT },
@@ -35,8 +35,8 @@ void NasrTestRun( void )
     NasrRegisterInputs( inputs, 10 );
 
     const NasrRect rainbow_rect = { 0.0f, 0.0f, 520.0f, 300.0f };
-    int rainbow = NasrAddTextureBlank( rainbow_rect.w, rainbow_rect.h );
-    NasrSetTextureAsTarget( rainbow );
+    //int rainbow = NasrAddTextureBlank( rainbow_rect.w, rainbow_rect.h );
+    //NasrSetTextureAsTarget( rainbow );
     const NasrRect canvas_rect1 = { 0.0f, 0.0f, 520.0f, 50.0f };
     const NasrRect canvas_rect2 = { 0.0f, 50.0f, 520.0f, 50.0f };
     const NasrRect canvas_rect3 = { 0.0f, 100.0f, 520.0f, 50.0f };
@@ -57,7 +57,20 @@ void NasrTestRun( void )
     NasrDrawGradientRectToTexture( canvas_rect5, NASR_DIR_DOWN, canvas_color_5, canvas_color_6 );
     NasrDrawGradientRectToTexture( canvas_rect6, NASR_DIR_DOWN, canvas_color_6, canvas_color_1 );
     */
-    NasrReleaseTextureTarget();
+    //NasrReleaseTextureTarget();
+/*
+    NasrGraphicsAddSprite
+    (
+        rainbow,
+        rainbow_rect,
+        rainbow_rect,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f
+    );*/
 
     NasrGraphicsAddRectGradient
     (
@@ -102,8 +115,16 @@ void NasrTestRun( void )
         canvas_color_1
     );
 
+
+    int nasrin_texture1 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR );
+    int nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR );
+    int autumn_texture = NasrLoadFileAsTexture( "assets/autumn.png" );
+    printf( "%d, %d, %d\n", nasrin_texture1, nasrin_texture2, autumn_texture );
+    NasrClearTextures();
+    
     const unsigned int texwidth = 8;
     const unsigned int texheight = 8;
+    const int bricksize = 256;
     uint32_t texdata[ texwidth * texheight ];
     for ( int i = 0; i < texwidth * texheight; ++i )
     {
@@ -118,13 +139,12 @@ void NasrTestRun( void )
         }
     }
     const int texture = NasrAddTexture( texdata, texwidth, texheight );
-
-    const int bricksize = 256;
     int blank_board = NasrAddTextureBlank( 256, 256 );
     NasrSetTextureAsTarget( blank_board );
     NasrRect rect = { 0.0f, 0.0f, 256.0f, 256.0f };
     NasrColor color = { 255.0f, 0.0f, 255.0f, 255.0f };
     NasrDrawRectToTexture( rect, color );
+
     NasrRect src = { 0.0f, 0.0f, 8.0f, 8.0f };
     NasrRect dest = { 0.0f, 0.0f, 8.0f, 8.0f };
     for ( float x = 0.0f; x < 256.0f; x += 8.0f )
@@ -150,12 +170,11 @@ void NasrTestRun( void )
 
     const NasrRect bsrc = { 0.0f, 0.0f, ( float )( bricksize ), ( float )( bricksize ) };
     const NasrRect bdest = { 0.0f, 0.0f, ( float )( bricksize ), ( float )( bricksize ) };
-
-    NasrGraphicsAddSprite
+    const int bid = NasrGraphicsAddSprite
     (
-        rainbow,
-        rainbow_rect,
-        rainbow_rect,
+        blank_board,
+        bsrc,
+        bdest,
         0,
         0,
         0.0f,
@@ -164,11 +183,17 @@ void NasrTestRun( void )
         1.0f
     );
 
-    const int bid = NasrGraphicsAddSprite
+    nasrin_texture1 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR );
+    nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR );
+    autumn_texture = NasrLoadFileAsTexture( "assets/autumn.png" );
+    printf( "%d, %d, %d\n", nasrin_texture1, nasrin_texture2, autumn_texture );
+    const NasrRect nasrin_src = { 0.0f, 0.0f, 1083.0f, 1881.0f };
+    const NasrRect nasrin_dest = { 32.0f, 32.0f, 54.15f, 94.05f };
+    const int nasrinid = NasrGraphicsAddSprite
     (
-        blank_board,
-        bsrc,
-        bdest,
+        nasrin_texture1,
+        nasrin_src,
+        nasrin_dest,
         0,
         0,
         0.0f,
@@ -185,7 +210,7 @@ void NasrTestRun( void )
         }
         else
         {
-            NasrGraphicSprite * sprite = &NasrGraphicGet( bid )->data.sprite;
+            NasrGraphicSprite * sprite = &NasrGraphicGet( nasrinid )->data.sprite;
             NasrRect * dest = &sprite->dest;
             if ( NasrHeld( INPUT_RIGHT ) )
             {
@@ -226,7 +251,7 @@ void NasrTestRun( void )
                 dest->w -= 1.0f;
                 dest->h -= 1.0f;
             }
-            //NasrAdjustCamera( dest, 1024.0f, 640.0f );
+            NasrAdjustCamera( dest, 1024.0f, 640.0f );
             NasrUpdate();
         }
     }

@@ -45,6 +45,10 @@ static unsigned int indices[] =
 
 #define NUMBER_O_BASE_SHADERS 2
 
+typedef uint32_t hash_t;
+typedef struct { char * string; hash_t hash; } TextureMapKey;
+typedef struct { TextureMapKey key; unsigned int value; } TextureMapEntry;
+
 static int magnification = 1;
 static GLFWwindow * window;
 static unsigned int VAO;
@@ -76,6 +80,8 @@ static GLint magnified_canvas_height = 0;
 static GLint magnified_canvas_x = 0;
 static GLint magnified_canvas_y = 0;
 static int selected_texture = -1;
+static GLint default_sample_type = GL_LINEAR;
+static TextureMapEntry * texture_map;
 
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
@@ -90,6 +96,9 @@ static int * GetKeyInputs( int key );
 static int * GetInputKeys( int input );
 static int * GetHeldKeys( int input );
 static int * GetHeld( int id );
+static GLint GetGLSamplingType( int sampling );
+static TextureMapEntry * hash_find_entry( const char * needle_string, hash_t needle_hash );
+static uint32_t hash_string( const char * key );
 
 void NasrColorPrint( const NasrColor * c )
 {
@@ -135,9 +144,12 @@ int NasrInit
     float canvas_width,
     float canvas_height,
     int init_max_graphics,
-    int init_max_textures
+    int init_max_textures,
+    int sample_type
 )
 {
+    default_sample_type = GetGLSamplingType( sample_type );
+
     glfwInit();
 
     // Init window
@@ -239,7 +251,7 @@ int NasrInit
     graphics = calloc( max_graphics, sizeof( NasrGraphic ) );
 
     // Init framebuffer.
-    glGenFramebuffers(1, &framebuffer);
+    glGenFramebuffers( 1, &framebuffer );
 
     magnified_canvas_width = canvas.w * magnification;
     magnified_canvas_height = canvas.h * magnification;
@@ -247,12 +259,18 @@ int NasrInit
     magnified_canvas_y = ( int )( floor( ( double )( magnified_canvas_height - magnified_canvas_height ) / 2.0 ) );
     glViewport( magnified_canvas_x, magnified_canvas_y, magnified_canvas_width, magnified_canvas_height );
 
+    // Init texture map.
+    texture_map = calloc( max_textures, sizeof( TextureMapEntry ) );
+
     return 0;
 };
 
 void NasrClose( void )
 {
+    glDeleteFramebuffers( 1, &framebuffer );
+    NasrClearTextures();
     glDeleteTextures( max_textures, texture_ids );
+    free( texture_map );
     free( keydata );
     if ( textures != NULL )
     {
@@ -267,6 +285,23 @@ void NasrClose( void )
         free( graphics );
     }
     glfwTerminate();
+};
+
+void NasrClearTextures( void )
+{
+    for ( int i = 0; i < max_textures; ++i )
+    {
+        if
+        (
+            texture_map[ i ].key.string != NULL
+        )
+        {
+            free( texture_map[ i ].key.string );
+            texture_map[ i ].key.string = 0;
+            texture_map[ i ].key.hash = 0;
+        }
+    }
+    texture_count = 0;
 };
 
 void NasrUpdate( void )
@@ -797,7 +832,42 @@ int NasrGraphicsAddSprite
     }
 };
 
+int NasrLoadFileAsTexture( char * filename )
+{
+    return NasrLoadFileAsTextureEx( filename, NASR_SAMPLING_DEFAULT );
+};
+
+int NasrLoadFileAsTextureEx( char * filename, int sampling )
+{
+    const hash_t needle_hash = hash_string( filename );
+    TextureMapEntry * entry = hash_find_entry( filename, needle_hash );
+    if ( entry->key.string != NULL )
+    {
+        return entry->value;
+    }
+    entry->key.string = ( char * )( malloc( strlen( filename ) + 1 ) );
+    strcpy( entry->key.string, filename );
+    entry->key.hash = needle_hash;
+    entry->value = texture_count;
+
+    int channels;
+    unsigned char * data = stbi_load( filename, &textures[ texture_count ].width, &textures[ texture_count ].height, &channels, STBI_rgb_alpha );
+    if ( data == NULL )
+    {
+        printf( "Couldn’t load texture file.\n" );
+        return -1;
+    }
+    const int id = NasrAddTextureEx( data, textures[ texture_count ].width, textures[ texture_count ].height, sampling );
+    free( data );
+    return id;
+};
+
 int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height )
+{
+    return NasrAddTextureEx( data, width, height, NASR_SAMPLING_DEFAULT );
+};
+
+int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int height, int sampling )
 {
     if ( texture_count >= max_textures )
     {
@@ -805,14 +875,16 @@ int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int heigh
         return -1;
     }
 
+    const GLint sample_type = GetGLSamplingType( sampling );
+
     textures[ texture_count ].width = width;
     textures[ texture_count ].height = height;
     glBindTexture( GL_TEXTURE_2D, texture_ids[ texture_count ] );
     glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, sample_type );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, sample_type );
     return texture_count++;
 };
 
@@ -823,15 +895,15 @@ int NasrAddTextureBlank( unsigned int width, unsigned int height )
 
 void NasrSetTextureAsTarget( int texture )
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_ids[ texture ], 0);
+    glBindFramebuffer( GL_FRAMEBUFFER, framebuffer );
+    glFramebufferTexture( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_ids[ texture ], 0 );
     glViewport( 0, 0, textures[ texture ].width, textures[ texture ].height );
     selected_texture = texture;
 };
 
 void NasrReleaseTextureTarget()
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
     glViewport( magnified_canvas_x, magnified_canvas_y, magnified_canvas_width, magnified_canvas_height );
     selected_texture = -1;
 };
@@ -939,11 +1011,6 @@ void NasrTileTexture( unsigned int texture, void * pixels, NasrRectInt srccoords
         w *= 2;
         h *= 2;
     }
-};
-
-void NasrClearTextures( void )
-{
-    texture_count = 0;
 };
 
 void NasrDrawRectToTexture( NasrRect rect, NasrColor color )
@@ -1283,4 +1350,39 @@ static int * GetHeldKeys( int input )
 static int * GetHeld( int id )
 {
     return &keydata[ held_start + id ];
+};
+
+static GLint GetGLSamplingType( int sampling )
+{
+    switch ( sampling )
+    {
+        case ( NASR_SAMPLING_NEAREST ): return GL_NEAREST;
+        case ( NASR_SAMPLING_LINEAR ): return GL_LINEAR;
+        default: return default_sample_type;
+    }
+};
+
+static TextureMapEntry * hash_find_entry( const char * needle_string, hash_t needle_hash )
+{
+    while ( 1 )
+    {
+        TextureMapEntry * entry = &texture_map[ needle_hash ];
+        if ( entry->key.string == NULL || strcmp( entry->key.string, needle_string ) == 0 )
+        {
+            return entry;
+        }
+        needle_hash = ( needle_hash + 1 ) % max_textures;
+    }
+};
+
+static uint32_t hash_string( const char * key )
+{
+    uint32_t hash = 2166136261u;
+    const int length = strlen( key );
+    for ( int i = 0; i < length; i++ )
+    {
+        hash ^= ( uint8_t )( key[ i ] );
+        hash *= 16777619;
+    }
+    return hash % max_textures;
 };
