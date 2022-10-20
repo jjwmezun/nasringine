@@ -72,6 +72,7 @@ typedef struct NasrGraphicSprite
     float rotation_y;
     float rotation_z;
     float opacity;
+    unsigned char palette;
 } NasrGraphicSprite;
 
 typedef union NasrGraphicData
@@ -229,6 +230,10 @@ typedef struct NasrInput
 #define NASR_SAMPLING_NEAREST 1
 #define NASR_SAMPLING_LINEAR  2
 
+#define NASR_INDEXED_DEFAULT 0
+#define NASR_INDEXED_NO      1
+#define NASR_INDEXED_YES     2
+
 int NasrHeld( int id );
 void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs );
 
@@ -239,8 +244,10 @@ int NasrInit
     float canvas_height,
     int max_graphics,
     int init_max_textures,
-    int sample_type
+    int sample_type,
+    int default_indexed_type
 );
+void NasrSetPalette( const char * filename );
 void NasrClose( void );
 void NasrClearTextures( void );
 void NasrUpdate( void );
@@ -274,14 +281,16 @@ int NasrGraphicsAddSprite
     float rotation_x,
     float rotation_y,
     float rotation_z,
-    float opacity
+    float opacity,
+    unsigned char palette
 );
 
 int NasrLoadFileAsTexture( char * filename );
-int NasrLoadFileAsTextureEx( char * filename, int sampling );
+int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed );
 int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height );
-int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int height, int sampling );
+int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
 int NasrAddTextureBlank( unsigned int width, unsigned int height );
+int NasrAddTextureBlankEx( unsigned int width, unsigned int height, int sampling, int indexed );
 void NasrGetTexturePixels( unsigned int texture, void * pixels );
 void NasrCopyTextureToTexture( unsigned int src, unsigned int dest, NasrRectInt srccoords, NasrRectInt destcoords );
 void NasrApplyTextureToPixelData( unsigned int texture, void * dest, NasrRectInt srccoords, NasrRectInt destcoords );

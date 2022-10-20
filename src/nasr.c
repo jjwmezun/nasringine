@@ -26,6 +26,7 @@ typedef struct Texture
 {
     unsigned int width;
     unsigned int height;
+    unsigned int indexed;
 } Texture;
 
 static float vertices[] =
@@ -43,7 +44,7 @@ static unsigned int indices[] =
     1, 2, 3    // second triangle
 };
 
-#define NUMBER_O_BASE_SHADERS 2
+#define NUMBER_O_BASE_SHADERS 3
 
 typedef uint32_t hash_t;
 typedef struct { char * string; hash_t hash; } TextureMapKey;
@@ -54,7 +55,8 @@ static GLFWwindow * window;
 static unsigned int VAO;
 static unsigned int rect_shader;
 static unsigned int sprite_shader;
-static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] = { &rect_shader, &sprite_shader };
+static unsigned int indexed_sprite_shader;
+static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] = { &rect_shader, &sprite_shader, &indexed_sprite_shader };
 static NasrGraphic * graphics = NULL;
 static int max_graphics = 0;
 static int num_o_graphics = 0;
@@ -82,6 +84,9 @@ static GLint magnified_canvas_y = 0;
 static int selected_texture = -1;
 static GLint default_sample_type = GL_LINEAR;
 static TextureMapEntry * texture_map;
+static GLint default_indexed_mode = GL_RGBA;
+static unsigned int palette_texture_id;
+static Texture palette_texture;
 
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
@@ -99,6 +104,9 @@ static int * GetHeld( int id );
 static GLint GetGLSamplingType( int sampling );
 static TextureMapEntry * hash_find_entry( const char * needle_string, hash_t needle_hash );
 static uint32_t hash_string( const char * key );
+static GLint GetGLRGBA( int indexed );
+static unsigned char * LoadTextureFileData( char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
+static void AddTexture( Texture * texture, unsigned int texture_id, unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
 
 void NasrColorPrint( const NasrColor * c )
 {
@@ -145,11 +153,12 @@ int NasrInit
     float canvas_height,
     int init_max_graphics,
     int init_max_textures,
-    int sample_type
+    int sample_type,
+    int default_indexed_type
 )
 {
     default_sample_type = GetGLSamplingType( sample_type );
-
+    default_indexed_mode = GetGLRGBA( default_indexed_type );
     glfwInit();
 
     // Init window
@@ -238,9 +247,19 @@ int NasrInit
             "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform float opacity;\n  \nvoid main()\n{\n    final_color = texture( texture_data, texture_coords );\n    final_color.a *= opacity;\n}"
         }
     };
+
+    NasrShader indexed_sprite_shaders[] =
+    {
+        vertex_shader,
+        {
+            NASR_SHADER_FRAGMENT,
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\nvec4 index = texture( texture_data, texture_coords );\nfloat palette = palette_id / 256.0;\nfinal_color = texture( palette_data, vec2( index.r / 16.0, palette ) );\nfinal_color.a *= opacity;\n}"
+        }
+    };
     
     rect_shader = GenerateShaderProgram( rect_shaders, 2 );
     sprite_shader = GenerateShaderProgram( sprite_shaders, 2 );
+    indexed_sprite_shader = GenerateShaderProgram( indexed_sprite_shaders, 2 );
 
     // Init camera
     NasrResetCamera();
@@ -263,6 +282,14 @@ int NasrInit
     texture_map = calloc( max_textures, sizeof( TextureMapEntry ) );
 
     return 0;
+};
+
+void NasrSetPalette( const char * filename )
+{
+    unsigned int width;
+    unsigned int height;
+    const unsigned char * data = LoadTextureFileData( filename, &width, &height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+    AddTexture( &palette_texture, palette_texture_id, data, width, height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
 };
 
 void NasrClose( void )
@@ -346,9 +373,10 @@ void NasrUpdate( void )
             {
                 const NasrGraphicSprite * sprite = &graphics[ i ].data.sprite;
                 unsigned int texture_id = sprite->texture;
+                const unsigned int shader = textures[ texture_id ].indexed ? indexed_sprite_shader : sprite_shader;
                 const NasrRect * src = &sprite->src;
                 const NasrRect * dest = &sprite->dest;
-                glUseProgram( sprite_shader );
+                glUseProgram( shader );
 
                 // Src Coords
                 if ( sprite->flip_x )
@@ -385,16 +413,29 @@ void NasrUpdate( void )
                 glm_rotate( model, DEGREES_TO_RADIANS( sprite->rotation_y ), yrot );
                 vec3 zrot = { 1.0, 0.0, 0.0 };
                 glm_rotate( model, DEGREES_TO_RADIANS( sprite->rotation_z ), zrot );
-                unsigned int model_location = glGetUniformLocation( sprite_shader, "model" );
+                unsigned int model_location = glGetUniformLocation( shader, "model" );
                 glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
 
-                GLint opacity_location = glGetUniformLocation( sprite_shader, "opacity" );
+                if ( textures[ texture_id ].indexed )
+                {
+                    GLint palette_id_location = glGetUniformLocation( shader, "palette_id" );
+                    glUniform1f( palette_id_location, ( float )( sprite->palette ) );
+                }
+
+                GLint opacity_location = glGetUniformLocation( shader, "opacity" );
                 glUniform1f( opacity_location, ( float )( sprite->opacity ) );
 
-                GLint texture_data_location = glGetUniformLocation( sprite_shader, "texture_data" );
+                GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
                 glActiveTexture( GL_TEXTURE0 );
                 glBindTexture( GL_TEXTURE_2D, texture_ids[ texture_id ] );
                 glUniform1i( texture_data_location, 0 );
+                if ( textures[ texture_id ].indexed )
+                {
+                    GLint palette_data_location = glGetUniformLocation(shader, "palette_data");
+                    glActiveTexture(GL_TEXTURE1 );
+                    glBindTexture(GL_TEXTURE_2D, palette_texture_id );
+                    glUniform1i(palette_data_location, 1);
+                }
                 SetupVertices();
             }
             break;
@@ -809,7 +850,8 @@ int NasrGraphicsAddSprite
     float rotation_x,
     float rotation_y,
     float rotation_z,
-    float opacity
+    float opacity,
+    unsigned char palette
 )
 {
     if ( num_o_graphics < max_graphics )
@@ -824,6 +866,7 @@ int NasrGraphicsAddSprite
         graphics[ num_o_graphics ].data.sprite.rotation_y = rotation_y;
         graphics[ num_o_graphics ].data.sprite.rotation_z = rotation_z;
         graphics[ num_o_graphics ].data.sprite.opacity = opacity;
+        graphics[ num_o_graphics ].data.sprite.palette = palette;
         return num_o_graphics++;
     }
     else
@@ -834,10 +877,10 @@ int NasrGraphicsAddSprite
 
 int NasrLoadFileAsTexture( char * filename )
 {
-    return NasrLoadFileAsTextureEx( filename, NASR_SAMPLING_DEFAULT );
+    return NasrLoadFileAsTextureEx( filename, NASR_SAMPLING_DEFAULT, NASR_INDEXED_DEFAULT );
 };
 
-int NasrLoadFileAsTextureEx( char * filename, int sampling )
+int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed )
 {
     const hash_t needle_hash = hash_string( filename );
     TextureMapEntry * entry = hash_find_entry( filename, needle_hash );
@@ -850,24 +893,24 @@ int NasrLoadFileAsTextureEx( char * filename, int sampling )
     entry->key.hash = needle_hash;
     entry->value = texture_count;
 
-    int channels;
-    unsigned char * data = stbi_load( filename, &textures[ texture_count ].width, &textures[ texture_count ].height, &channels, STBI_rgb_alpha );
-    if ( data == NULL )
+    unsigned int width;
+    unsigned int height;
+    unsigned char * data = LoadTextureFileData( filename, &width, &height, sampling, indexed );
+    if ( !data )
     {
-        printf( "Couldn’t load texture file.\n" );
         return -1;
     }
-    const int id = NasrAddTextureEx( data, textures[ texture_count ].width, textures[ texture_count ].height, sampling );
+    const int id = NasrAddTextureEx( data, width, height, sampling, indexed );
     free( data );
     return id;
 };
 
 int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height )
 {
-    return NasrAddTextureEx( data, width, height, NASR_SAMPLING_DEFAULT );
+    return NasrAddTextureEx( data, width, height, NASR_SAMPLING_DEFAULT, NASR_INDEXED_DEFAULT );
 };
 
-int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int height, int sampling )
+int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed )
 {
     if ( texture_count >= max_textures )
     {
@@ -875,22 +918,46 @@ int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int hei
         return -1;
     }
 
-    const GLint sample_type = GetGLSamplingType( sampling );
+    AddTexture( &textures[ texture_count ], texture_ids[ texture_count ], data, width, height, sampling, indexed );
+    return texture_count++;
+};
 
-    textures[ texture_count ].width = width;
-    textures[ texture_count ].height = height;
-    glBindTexture( GL_TEXTURE_2D, texture_ids[ texture_count ] );
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data );
+static unsigned char * LoadTextureFileData( char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed )
+{
+    int channels;
+    unsigned char * data = stbi_load( filename, width, height, &channels, STBI_rgb_alpha );
+    if ( data == NULL )
+    {
+        printf( "Couldn’t load texture file.\n" );
+        return 0;
+    }
+    return data;
+};
+
+static void AddTexture( Texture * texture, unsigned int texture_id, unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed )
+{
+    const GLint sample_type = GetGLSamplingType( sampling );
+    const GLint index_type = GetGLRGBA( indexed );
+
+    texture->width = width;
+    texture->height = height;
+    texture->indexed = index_type == GL_R8;
+    glBindTexture( GL_TEXTURE_2D, texture_id );
+    glTexImage2D( GL_TEXTURE_2D, 0, index_type, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, sample_type );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, sample_type );
-    return texture_count++;
 };
 
 int NasrAddTextureBlank( unsigned int width, unsigned int height )
 {
     return NasrAddTexture( 0, width, height );
+};
+
+int NasrAddTextureBlankEx( unsigned int width, unsigned int height, int sampling, int indexed )
+{
+    return NasrAddTextureEx( 0, width, height, sampling, indexed );
 };
 
 void NasrSetTextureAsTarget( int texture )
@@ -1385,4 +1452,14 @@ static uint32_t hash_string( const char * key )
         hash *= 16777619;
     }
     return hash % max_textures;
+};
+
+static GLint GetGLRGBA( int indexed )
+{
+    switch ( indexed )
+    {
+        case ( NASR_INDEXED_YES ): return GL_R8;
+        case ( NASR_INDEXED_NO ): return GL_RGBA;
+        default: return default_indexed_mode;
+    }
 };

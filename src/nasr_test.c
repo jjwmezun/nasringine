@@ -18,7 +18,8 @@ typedef enum Input {
 
 void NasrTestRun( void )
 {
-    NasrInit( "Nasringine 0.1", 520, 320, 1024, 1024, NASR_SAMPLING_NEAREST );
+    NasrInit( "Nasringine 0.1", 520, 320, 1024, 1024, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
+    NasrSetPalette( "assets/palette.png" );
     NasrInput inputs[] =
     {
         { INPUT_RIGHT, NASR_KEY_RIGHT },
@@ -116,8 +117,8 @@ void NasrTestRun( void )
     );
 
 
-    int nasrin_texture1 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR );
-    int nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR );
+    int nasrin_texture1 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
+    int nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     int autumn_texture = NasrLoadFileAsTexture( "assets/autumn.png" );
     printf( "%d, %d, %d\n", nasrin_texture1, nasrin_texture2, autumn_texture );
     NasrClearTextures();
@@ -138,8 +139,8 @@ void NasrTestRun( void )
             texdata[ i ] = 0xFF0c4cc8;
         }
     }
-    const int texture = NasrAddTexture( texdata, texwidth, texheight );
-    int blank_board = NasrAddTextureBlank( 256, 256 );
+    const int texture = NasrAddTextureEx( texdata, texwidth, texheight, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+    int blank_board = NasrAddTextureBlankEx( 256, 256, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
     NasrSetTextureAsTarget( blank_board );
     NasrRect rect = { 0.0f, 0.0f, 256.0f, 256.0f };
     NasrColor color = { 255.0f, 0.0f, 255.0f, 255.0f };
@@ -180,11 +181,12 @@ void NasrTestRun( void )
         0.0f,
         0.0f,
         0.0f,
-        1.0f
+        1.0f,
+        0
     );
 
-    nasrin_texture1 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR );
-    nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR );
+    nasrin_texture1 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
+    nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     autumn_texture = NasrLoadFileAsTexture( "assets/autumn.png" );
     printf( "%d, %d, %d\n", nasrin_texture1, nasrin_texture2, autumn_texture );
     const NasrRect nasrin_src = { 0.0f, 0.0f, 1083.0f, 1881.0f };
@@ -199,7 +201,24 @@ void NasrTestRun( void )
         0.0f,
         0.0f,
         0.0f,
-        1.0f
+        1.0f,
+        0
+    );
+
+    const NasrRect autumn_src = { 0.0f, 0.0f, 16.0f, 25.0f };
+    const NasrRect autumn_dest = { 200.0f, 32.0f, 16.0f, 25.0f };
+    const int autumnid = NasrGraphicsAddSprite
+    (
+        autumn_texture,
+        autumn_src,
+        autumn_dest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        128
     );
 
     while ( running )
