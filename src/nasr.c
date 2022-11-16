@@ -87,6 +87,13 @@ static TextureMapEntry * texture_map;
 static GLint default_indexed_mode = GL_RGBA;
 static unsigned int palette_texture_id;
 static Texture palette_texture;
+static int max_states;
+static int max_gfx_layers;
+static int * layer_pos = NULL;
+static int * gfx_ptrs_a = NULL;
+static int * gfx_ptrs_b = NULL;
+static int * state_for_gfx = NULL;
+static int * layer_for_gfx = NULL;
 
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
@@ -151,8 +158,10 @@ int NasrInit
     const char * program_title,
     float canvas_width,
     float canvas_height,
+    int init_max_states,
     int init_max_graphics,
     int init_max_textures,
+    int init_max_gfx_layers,
     int sample_type,
     int default_indexed_type
 )
@@ -267,7 +276,14 @@ int NasrInit
 
     // Init graphics list
     max_graphics = init_max_graphics;
+    max_states = init_max_states;
+    max_gfx_layers = init_max_gfx_layers;
     graphics = calloc( max_graphics, sizeof( NasrGraphic ) );
+    gfx_ptrs_a = calloc( max_graphics, sizeof( int ) );
+    gfx_ptrs_b = calloc( max_graphics, sizeof( int ) );
+    state_for_gfx = calloc( max_graphics, sizeof( int ) );
+    layer_for_gfx = calloc( max_graphics, sizeof( int ) );
+    layer_pos = calloc( max_states * max_gfx_layers, sizeof( int ) );
 
     // Init framebuffer.
     glGenFramebuffers( 1, &framebuffer );
@@ -310,6 +326,26 @@ void NasrClose( void )
     if ( graphics != NULL )
     {
         free( graphics );
+    }
+    if ( gfx_ptrs_a != NULL )
+    {
+        free( gfx_ptrs_a );
+    }
+    if ( gfx_ptrs_b != NULL )
+    {
+        free( gfx_ptrs_b );
+    }
+    if ( layer_pos != NULL )
+    {
+        free( layer_pos );
+    }
+    if ( state_for_gfx != NULL )
+    {
+        free( state_for_gfx );
+    }
+    if ( layer_for_gfx != NULL )
+    {
+        free( layer_for_gfx );
     }
     glfwTerminate();
 };
@@ -714,134 +750,259 @@ static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shade
 
 NasrGraphic * NasrGraphicGet( int id )
 {
-    return &graphics[ id ];
+    return &graphics[ gfx_ptrs_a[ id ] ];
 };
 
-int NasrGraphicsAddCanvas( NasrColor color )
+void NasrGraphicChangeLayer( int id, int layer )
 {
-    return NasrGraphicsAddRect(
+    if ( layer_for_gfx[ id ] == layer )
+    {
+        return;
+    }
+    NasrGraphic gfx = graphics[ gfx_ptrs_a[ id ] ];
+
+    // Find last graphic of current layer.
+    int pp1 = state_for_gfx[ id ] * max_gfx_layers + layer_for_gfx[ id ];
+    int p1 = layer_pos[ pp1 ];
+    // Find last graphic of target layer.
+    int pp2 = state_for_gfx[ id ] * max_gfx_layers + layer;
+    int p2 = layer_pos[ pp2 ];
+
+    if ( layer < layer_for_gfx[ id ] )
+    {
+        // If already lowest graphic, then there is nothing below, so we don’t need to move graphic downward.
+        if ( gfx_ptrs_a[ id ] == 0 )
+        {
+            layer_for_gfx[ id ] = layer;
+            return;
+        }
+
+        // Push forward all following graphics.
+        for ( int i = gfx_ptrs_a[ id ]; i > p2; --i )
+        {
+            graphics[ i ] = graphics[ i - 1 ];
+
+            // Update pointers so they still point to correct graphics.
+            const int t = gfx_ptrs_b[ i - 1 ];
+            ++gfx_ptrs_a[ t ];
+            gfx_ptrs_b[ gfx_ptrs_a[ t ] ] = t;
+        }
+
+        graphics[ p2 ] = gfx;
+        gfx_ptrs_a[ id ] = p2;
+        gfx_ptrs_b[ p2 ] = id;
+
+        // Push up all layers from original point to selected layer.
+        for ( int i = pp2; i < pp1; ++i )
+        {
+            ++layer_pos[ i ];
+        }
+    }
+    else
+    {
+        // Push down all graphics between them.
+        for ( int i = gfx_ptrs_a[ id ]; i < p2; ++i )
+        {
+            graphics[ i ] = graphics[ i + 1 ];
+
+            // Update pointers so they still point to correct graphics.
+            const int t = gfx_ptrs_b[ i + 1 ];
+            --gfx_ptrs_a[ t ];
+            gfx_ptrs_b[ gfx_ptrs_a[ t ] ] = t;
+        }
+
+        graphics[ p2 - 1 ] = gfx;
+        gfx_ptrs_a[ id ] = p2 - 1;
+        gfx_ptrs_b[ p2 - 1 ] = id;
+
+        // Push down all layers from original point to selected layer.
+        for ( int i = pp1; i < pp2; ++i )
+        {
+            --layer_pos[ i ];
+        }
+    }
+    layer_for_gfx[ id ] = layer;
+
+};
+
+int NasrGraphicsAdd
+(
+    int abs,
+    int state,
+    int layer,
+    struct NasrGraphic graphic
+)
+{
+    if ( num_o_graphics >= max_graphics )
+    {
+        return -1;
+    }
+
+    // Find last graphic of current layer.
+    int pp = state * max_gfx_layers + layer;
+    int p = layer_pos[ pp ];
+
+    // Push forward this & following positions.
+    for ( int i = pp; i < max_gfx_layers * max_states; ++i )
+    {
+        ++layer_pos[ i ];
+    }
+
+    // Push forward all following graphics.
+    for ( int i = num_o_graphics; i > p; --i )
+    {
+        graphics[ i ] = graphics[ i - 1 ];
+
+        // Update pointers so they still point to correct graphics.
+        const int t = gfx_ptrs_b[ i - 1 ];
+        ++gfx_ptrs_a[ t ];
+        gfx_ptrs_b[ gfx_ptrs_a[ t ] ] = t;
+    }
+
+    // Add current graphic & pointer.
+    graphics[ p ] = graphic;
+    gfx_ptrs_a[ num_o_graphics ] = p;
+    gfx_ptrs_b[ p ] = num_o_graphics;
+    state_for_gfx[ num_o_graphics ] = state;
+    layer_for_gfx[ num_o_graphics ] = layer;
+
+    return num_o_graphics++;
+};
+
+int NasrGraphicsAddCanvas
+(
+    int abs,
+    int state,
+    int layer,
+    NasrColor color
+)
+{
+    return NasrGraphicsAddRect
+    (
+        abs,
+        state,
+        layer,
         canvas,
         color
     );
 };
 
-int NasrGraphicsAddRect(
+int NasrGraphicsAddRect
+(
+    int abs,
+    int state,
+    int layer,
     NasrRect rect,
     NasrColor color
 )
 {
-    if ( num_o_graphics < max_graphics )
-    {
-        graphics[ num_o_graphics ].type = NASR_GRAPHIC_RECT;
-        graphics[ num_o_graphics ].data.rect.rect = rect;
-        graphics[ num_o_graphics ].data.rect.color = color;
-        return num_o_graphics++;
-    }
-    else
-    {
-        return -1;
-    }
+    struct NasrGraphic graphic;
+    graphic.type = NASR_GRAPHIC_RECT;
+    graphic.data.rect.rect = rect;
+    graphic.data.rect.color = color;
+    return NasrGraphicsAdd( abs, state, layer, graphic );
 };
 
-int NasrGraphicsAddRectGradient(
+int NasrGraphicsAddRectGradient
+(
+    int abs,
+    int state,
+    int layer,
     struct NasrRect rect,
     int dir,
     struct NasrColor color1,
     struct NasrColor color2
 )
 {
-    if ( num_o_graphics < max_graphics )
+    struct NasrGraphic graphic;
+    graphic.type = NASR_GRAPHIC_RECT_GRADIENT;
+    graphic.data.gradient.rect = rect;
+    switch ( dir )
     {
-        graphics[ num_o_graphics ].type = NASR_GRAPHIC_RECT_GRADIENT;
-        graphics[ num_o_graphics ].data.gradient.rect = rect;
-        switch ( dir )
+        case ( NASR_DIR_UP ):
         {
-            case ( NASR_DIR_UP ):
-            {
-                graphics[ num_o_graphics ].data.gradient.color1 = color2;
-                graphics[ num_o_graphics ].data.gradient.color2 = color2;
-                graphics[ num_o_graphics ].data.gradient.color3 = color1;
-                graphics[ num_o_graphics ].data.gradient.color4 = color1;
-            }
-            break;
-            case ( NASR_DIR_UPRIGHT ):
-            {
-                graphics[ num_o_graphics ].data.gradient.color1 = color1;
-                graphics[ num_o_graphics ].data.gradient.color2 = color2;
-                graphics[ num_o_graphics ].data.gradient.color3 = color1;
-                graphics[ num_o_graphics ].data.gradient.color4 = color1;
-            }
-            break;
-            case ( NASR_DIR_RIGHT ):
-            {
-                graphics[ num_o_graphics ].data.gradient.color1 = color1;
-                graphics[ num_o_graphics ].data.gradient.color2 = color2;
-                graphics[ num_o_graphics ].data.gradient.color3 = color1;
-                graphics[ num_o_graphics ].data.gradient.color4 = color2;
-            }
-            break;
-            case ( NASR_DIR_DOWNRIGHT ):
-            {
-                graphics[ num_o_graphics ].data.gradient.color1 = color1;
-                graphics[ num_o_graphics ].data.gradient.color2 = color1;
-                graphics[ num_o_graphics ].data.gradient.color3 = color2;
-                graphics[ num_o_graphics ].data.gradient.color4 = color1;
-            }
-            break;
-            case ( NASR_DIR_DOWN ):
-            {
-                graphics[ num_o_graphics ].data.gradient.color1 = color1;
-                graphics[ num_o_graphics ].data.gradient.color2 = color1;
-                graphics[ num_o_graphics ].data.gradient.color3 = color2;
-                graphics[ num_o_graphics ].data.gradient.color4 = color2;
-            }
-            break;
-            case ( NASR_DIR_DOWNLEFT ):
-            {
-                graphics[ num_o_graphics ].data.gradient.color1 = color1;
-                graphics[ num_o_graphics ].data.gradient.color2 = color1;
-                graphics[ num_o_graphics ].data.gradient.color3 = color1;
-                graphics[ num_o_graphics ].data.gradient.color4 = color2;
-            }
-            break;
-            case ( NASR_DIR_LEFT ):
-            {
-                graphics[ num_o_graphics ].data.gradient.color1 = color2;
-                graphics[ num_o_graphics ].data.gradient.color2 = color1;
-                graphics[ num_o_graphics ].data.gradient.color3 = color2;
-                graphics[ num_o_graphics ].data.gradient.color4 = color1;
-            }
-            break;
-            case ( NASR_DIR_UPLEFT ):
-            {
-                graphics[ num_o_graphics ].data.gradient.color1 = color2;
-                graphics[ num_o_graphics ].data.gradient.color2 = color1;
-                graphics[ num_o_graphics ].data.gradient.color3 = color1;
-                graphics[ num_o_graphics ].data.gradient.color4 = color1;
-            }
-            break;
-            default:
-            {
-                printf( "¡Invalid gradient direction for NasrGraphicsAddRectGradient! %d\n", dir );
-
-                // Default direction.
-                graphics[ num_o_graphics ].data.gradient.color1 = color2;
-                graphics[ num_o_graphics ].data.gradient.color2 = color2;
-                graphics[ num_o_graphics ].data.gradient.color3 = color1;
-                graphics[ num_o_graphics ].data.gradient.color4 = color1;
-            }
-            break;
+            graphic.data.gradient.color1 = color2;
+            graphic.data.gradient.color2 = color2;
+            graphic.data.gradient.color3 = color1;
+            graphic.data.gradient.color4 = color1;
         }
-        return num_o_graphics++;
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            graphic.data.gradient.color1 = color1;
+            graphic.data.gradient.color2 = color2;
+            graphic.data.gradient.color3 = color1;
+            graphic.data.gradient.color4 = color1;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            graphic.data.gradient.color1 = color1;
+            graphic.data.gradient.color2 = color2;
+            graphic.data.gradient.color3 = color1;
+            graphic.data.gradient.color4 = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            graphic.data.gradient.color1 = color1;
+            graphic.data.gradient.color2 = color1;
+            graphic.data.gradient.color3 = color2;
+            graphic.data.gradient.color4 = color1;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            graphic.data.gradient.color1 = color1;
+            graphic.data.gradient.color2 = color1;
+            graphic.data.gradient.color3 = color2;
+            graphic.data.gradient.color4 = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            graphic.data.gradient.color1 = color1;
+            graphic.data.gradient.color2 = color1;
+            graphic.data.gradient.color3 = color1;
+            graphic.data.gradient.color4 = color2;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            graphic.data.gradient.color1 = color2;
+            graphic.data.gradient.color2 = color1;
+            graphic.data.gradient.color3 = color2;
+            graphic.data.gradient.color4 = color1;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            graphic.data.gradient.color1 = color2;
+            graphic.data.gradient.color2 = color1;
+            graphic.data.gradient.color3 = color1;
+            graphic.data.gradient.color4 = color1;
+        }
+        break;
+        default:
+        {
+            printf( "¡Invalid gradient direction for NasrGraphicsAddRectGradient! %d\n", dir );
+
+            // Default direction.
+            graphic.data.gradient.color1 = color2;
+            graphic.data.gradient.color2 = color2;
+            graphic.data.gradient.color3 = color1;
+            graphic.data.gradient.color4 = color1;
+        }
+        break;
     }
-    else
-    {
-        return -1;
-    }
+    return NasrGraphicsAdd( abs, state, layer, graphic );
 };
 
 int NasrGraphicsAddSprite
 (
+    int abs,
+    int state,
+    int layer,
     int texture,
     NasrRect src,
     NasrRect dest,
@@ -854,25 +1015,23 @@ int NasrGraphicsAddSprite
     unsigned char palette
 )
 {
-    if ( num_o_graphics < max_graphics )
-    {
-        graphics[ num_o_graphics ].type = NASR_GRAPHIC_SPRITE;
-        graphics[ num_o_graphics ].data.sprite.texture = texture;
-        graphics[ num_o_graphics ].data.sprite.src = src;
-        graphics[ num_o_graphics ].data.sprite.dest = dest;
-        graphics[ num_o_graphics ].data.sprite.flip_x = flip_x;
-        graphics[ num_o_graphics ].data.sprite.flip_y = flip_y;
-        graphics[ num_o_graphics ].data.sprite.rotation_x = rotation_x;
-        graphics[ num_o_graphics ].data.sprite.rotation_y = rotation_y;
-        graphics[ num_o_graphics ].data.sprite.rotation_z = rotation_z;
-        graphics[ num_o_graphics ].data.sprite.opacity = opacity;
-        graphics[ num_o_graphics ].data.sprite.palette = palette;
-        return num_o_graphics++;
-    }
-    else
+    if ( num_o_graphics >= max_graphics )
     {
         return -1;
     }
+    struct NasrGraphic graphic;
+    graphic.type = NASR_GRAPHIC_SPRITE;
+    graphic.data.sprite.texture = texture;
+    graphic.data.sprite.src = src;
+    graphic.data.sprite.dest = dest;
+    graphic.data.sprite.flip_x = flip_x;
+    graphic.data.sprite.flip_y = flip_y;
+    graphic.data.sprite.rotation_x = rotation_x;
+    graphic.data.sprite.rotation_y = rotation_y;
+    graphic.data.sprite.rotation_z = rotation_z;
+    graphic.data.sprite.opacity = opacity;
+    graphic.data.sprite.palette = palette;
+    return NasrGraphicsAdd( abs, state, layer, graphic );
 };
 
 int NasrLoadFileAsTexture( char * filename )

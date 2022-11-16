@@ -242,8 +242,10 @@ int NasrInit
     const char * program_title,
     float canvas_width,
     float canvas_height,
-    int max_graphics,
+    int init_max_states,
+    int init_max_graphics,
     int init_max_textures,
+    int init_max_gfx_layers,
     int sample_type,
     int default_indexed_type
 );
@@ -260,12 +262,34 @@ void NasrAdjustCamera( struct NasrRect * target, float max_w, float max_h );
 void NasrMoveCamera( float x, float y, float max_w, float max_h );
 
 NasrGraphic * NasrGraphicGet( int id );
-int NasrGraphicsAddCanvas( struct NasrColor color );
-int NasrGraphicsAddRect(
+void NasrGraphicChangeLayer( int id, int layer );
+int NasrGraphicsAdd
+(
+    int abs,
+    int state,
+    int layer,
+    struct NasrGraphic graphic
+);
+int NasrGraphicsAddCanvas
+(
+    int abs,
+    int state,
+    int layer,
+    struct NasrColor color
+);
+int NasrGraphicsAddRect
+(
+    int abs,
+    int state,
+    int layer,
     struct NasrRect rect,
     struct NasrColor color
 );
-int NasrGraphicsAddRectGradient(
+int NasrGraphicsAddRectGradient
+(
+    int abs,
+    int state,
+    int layer,
     struct NasrRect rect,
     int dir,
     struct NasrColor color1,
@@ -273,6 +297,9 @@ int NasrGraphicsAddRectGradient(
 );
 int NasrGraphicsAddSprite
 (
+    int abs,
+    int state,
+    int layer,
     int texture,
     NasrRect src,
     NasrRect dest,

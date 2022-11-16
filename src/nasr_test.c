@@ -18,7 +18,7 @@ typedef enum Input {
 
 void NasrTestRun( void )
 {
-    NasrInit( "Nasringine 0.1", 520, 320, 1024, 1024, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
+    NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
     NasrSetPalette( "assets/palette.png" );
     NasrInput inputs[] =
     {
@@ -62,6 +62,8 @@ void NasrTestRun( void )
 /*
     NasrGraphicsAddSprite
     (
+        0,
+        0,
         rainbow,
         rainbow_rect,
         rainbow_rect,
@@ -75,6 +77,9 @@ void NasrTestRun( void )
 
     NasrGraphicsAddRectGradient
     (
+        0,
+        0,
+        0,
         canvas_rect1,
         NASR_DIR_DOWN,
         canvas_color_1,
@@ -82,6 +87,9 @@ void NasrTestRun( void )
     );
     NasrGraphicsAddRectGradient
     (
+        0,
+        0,
+        0,
         canvas_rect2,
         NASR_DIR_DOWN,
         canvas_color_2,
@@ -89,6 +97,9 @@ void NasrTestRun( void )
     );
     NasrGraphicsAddRectGradient
     (
+        0,
+        0,
+        0,
         canvas_rect3,
         NASR_DIR_DOWN,
         canvas_color_3,
@@ -96,6 +107,9 @@ void NasrTestRun( void )
     );
     NasrGraphicsAddRectGradient
     (
+        0,
+        0,
+        0,
         canvas_rect4,
         NASR_DIR_DOWN,
         canvas_color_4,
@@ -103,6 +117,9 @@ void NasrTestRun( void )
     );
     NasrGraphicsAddRectGradient
     (
+        0,
+        0,
+        0,
         canvas_rect5,
         NASR_DIR_DOWN,
         canvas_color_5,
@@ -110,6 +127,9 @@ void NasrTestRun( void )
     );
     NasrGraphicsAddRectGradient
     (
+        0,
+        0,
+        0,
         canvas_rect6,
         NASR_DIR_DOWN,
         canvas_color_6,
@@ -120,7 +140,7 @@ void NasrTestRun( void )
     int nasrin_texture1 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     int nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     int autumn_texture = NasrLoadFileAsTexture( "assets/autumn.png" );
-    printf( "%d, %d, %d\n", nasrin_texture1, nasrin_texture2, autumn_texture );
+    //printf( "%d, %d, %d\n", nasrin_texture1, nasrin_texture2, autumn_texture );
     NasrClearTextures();
     
     const unsigned int texwidth = 8;
@@ -173,6 +193,9 @@ void NasrTestRun( void )
     const NasrRect bdest = { 0.0f, 0.0f, ( float )( bricksize ), ( float )( bricksize ) };
     const int bid = NasrGraphicsAddSprite
     (
+        0,
+        0,
+        16,
         blank_board,
         bsrc,
         bdest,
@@ -188,11 +211,13 @@ void NasrTestRun( void )
     nasrin_texture1 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     autumn_texture = NasrLoadFileAsTexture( "assets/autumn.png" );
-    printf( "%d, %d, %d\n", nasrin_texture1, nasrin_texture2, autumn_texture );
     const NasrRect nasrin_src = { 0.0f, 0.0f, 1083.0f, 1881.0f };
     const NasrRect nasrin_dest = { 32.0f, 32.0f, 54.15f, 94.05f };
     const int nasrinid = NasrGraphicsAddSprite
     (
+        0,
+        0,
+        14,
         nasrin_texture1,
         nasrin_src,
         nasrin_dest,
@@ -205,10 +230,50 @@ void NasrTestRun( void )
         0
     );
 
+    NasrGraphicsAddSprite
+    (
+        0,
+        0,
+        14,
+        nasrin_texture1,
+        nasrin_src,
+        nasrin_dest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0
+    );
+
+    const int dawn_texture = NasrLoadFileAsTextureEx( "assets/dawn-summers-2021.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
+    const NasrRect dawn_src = { 0.0f, 0.0f, 3055.f, 5354.0f };
+    const NasrRect dawn_dest = { 300.0f, 32.0f, dawn_src.w / 50.0f, dawn_src.h / 50.0f };
+    NasrGraphicsAddSprite
+    (
+        0,
+        0,
+        14,
+        dawn_texture,
+        dawn_src,
+        dawn_dest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0
+    );  
+
     const NasrRect autumn_src = { 0.0f, 0.0f, 16.0f, 25.0f };
     const NasrRect autumn_dest = { 200.0f, 32.0f, 16.0f, 25.0f };
     const int autumnid = NasrGraphicsAddSprite
     (
+        0,
+        1,
+        2,
         autumn_texture,
         autumn_src,
         autumn_dest,
@@ -229,7 +294,8 @@ void NasrTestRun( void )
         }
         else
         {
-            NasrGraphicSprite * sprite = &NasrGraphicGet( nasrinid )->data.sprite;
+            NasrGraphic * gfx = NasrGraphicGet( nasrinid );
+            NasrGraphicSprite * sprite = &gfx->data.sprite;
             NasrRect * dest = &sprite->dest;
             if ( NasrHeld( INPUT_RIGHT ) )
             {
@@ -242,10 +308,12 @@ void NasrTestRun( void )
             if ( NasrHeld( INPUT_DOWN ) )
             {
                 dest->y += 1.0f;
+                NasrGraphicChangeLayer( nasrinid, 14 );
             }
             else if ( NasrHeld( INPUT_UP ) )
             {
                 dest->y -= 1.0f;
+                NasrGraphicChangeLayer( nasrinid, 17 );
             }
 
             if ( NasrHeld( INPUT_X ) )
@@ -270,6 +338,9 @@ void NasrTestRun( void )
                 dest->w -= 1.0f;
                 dest->h -= 1.0f;
             }
+            gfx = NasrGraphicGet( nasrinid );
+            sprite = &gfx->data.sprite;
+            dest = &sprite->dest;
             NasrAdjustCamera( dest, 1024.0f, 640.0f );
             NasrUpdate();
         }
