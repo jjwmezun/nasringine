@@ -2,6 +2,7 @@
 #include "nasr_test.h"
 
 static int running = 1;
+static int lock = 0;
 
 typedef enum Input {
     INPUT_LEFT,
@@ -212,7 +213,7 @@ void NasrTestRun( void )
     nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     autumn_texture = NasrLoadFileAsTexture( "assets/autumn.png" );
     const NasrRect nasrin_src = { 0.0f, 0.0f, 1083.0f, 1881.0f };
-    const NasrRect nasrin_dest = { 32.0f, 32.0f, 54.15f, 94.05f };
+    NasrRect nasrin_dest = { 200.0f, 32.0f, 54.15f, 94.05f };
     const int nasrinid = NasrGraphicsAddSprite
     (
         0,
@@ -230,7 +231,10 @@ void NasrTestRun( void )
         0
     );
 
-    NasrGraphicsAddSprite
+    nasrin_dest.x = 300.0f;
+    nasrin_dest.y = 180.0f;
+
+    const int nasrinid2 = NasrGraphicsAddSprite
     (
         0,
         0,
@@ -248,9 +252,9 @@ void NasrTestRun( void )
     );
 
     const int dawn_texture = NasrLoadFileAsTextureEx( "assets/dawn-summers-2021.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
-    const NasrRect dawn_src = { 0.0f, 0.0f, 3055.f, 5354.0f };
-    const NasrRect dawn_dest = { 300.0f, 32.0f, dawn_src.w / 50.0f, dawn_src.h / 50.0f };
-    NasrGraphicsAddSprite
+    const NasrRect dawn_src = { 0.0f, 0.0f, 306.f, 535.0f };
+    const NasrRect dawn_dest = { 300.0f, 32.0f, dawn_src.w / 5.0f, dawn_src.h / 5.0f };
+    const int dawnid = NasrGraphicsAddSprite
     (
         0,
         0,
@@ -300,10 +304,18 @@ void NasrTestRun( void )
             if ( NasrHeld( INPUT_RIGHT ) )
             {
                 dest->x += 1.0f;
+                if ( NasrGetLayer( nasrinid ) == NasrGetLayer( nasrinid2 ) )
+                {
+                    NasrPlaceGraphicAbovePositionInLayer( nasrinid, NasrGetLayerPosition( nasrinid2 ) );
+                }
             }
             else if ( NasrHeld( INPUT_LEFT ) )
             {
                 dest->x -= 1.0f;
+                if ( NasrGetLayer( nasrinid ) == NasrGetLayer( dawnid ) )
+                {
+                    NasrPlaceGraphicBelowPositionInLayer( nasrinid, NasrGetLayerPosition( nasrinid2 ) );
+                }
             }
             if ( NasrHeld( INPUT_DOWN ) )
             {
@@ -322,25 +334,37 @@ void NasrTestRun( void )
             }
             if ( NasrHeld( INPUT_Z ) )
             {
-                sprite->rotation_z += 4.0f;
+                NasrSendGraphicToBackOLayer( nasrinid );
             }
             if ( NasrHeld( INPUT_Y ) )
             {
-                sprite->rotation_y += 4.0f;
+                NasrSendGraphicToFrontOLayer( nasrinid );
             }
             if ( NasrHeld( INPUT_A ) )
             {
-                dest->w += 1.0f;
-                dest->h += 1.0f;
+                if ( lock == 0 )
+                {
+                    NasrRaiseGraphicBackwardInLayer( nasrinid );
+                    lock = 16;
+                }
             }
             else if ( NasrHeld( INPUT_S ) )
             {
-                dest->w -= 1.0f;
-                dest->h -= 1.0f;
+                if ( lock == 0 )
+                {
+                    NasrRaiseGraphicForwardInLayer( nasrinid );
+                    lock = 16;
+                }
             }
             gfx = NasrGraphicGet( nasrinid );
             sprite = &gfx->data.sprite;
             dest = &sprite->dest;
+
+            if ( lock > 0 )
+            {
+                --lock;
+            }
+
             NasrAdjustCamera( dest, 1024.0f, 640.0f );
             NasrUpdate();
         }

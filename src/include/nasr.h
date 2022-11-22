@@ -261,35 +261,44 @@ void NasrResetCamera( void );
 void NasrAdjustCamera( struct NasrRect * target, float max_w, float max_h );
 void NasrMoveCamera( float x, float y, float max_w, float max_h );
 
-NasrGraphic * NasrGraphicGet( int id );
-void NasrGraphicChangeLayer( int id, int layer );
+NasrGraphic * NasrGraphicGet( unsigned int id );
+void NasrGraphicChangeLayer( unsigned int id, unsigned int layer );
+void NasrSendGraphicToFrontOLayer( unsigned int id );
+void NasrSendGraphicToBackOLayer( unsigned int id );
+void NasrRaiseGraphicForwardInLayer( unsigned int id );
+void NasrRaiseGraphicBackwardInLayer( unsigned int id );
+void NasrPlaceGraphicBelowPositionInLayer( unsigned int id, unsigned int pos );
+void NasrPlaceGraphicAbovePositionInLayer( unsigned int id, unsigned int pos );
+unsigned int NasrGetLayer( unsigned int id );
+unsigned int NasrGetLayerPosition( unsigned int id );
+unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer );
 int NasrGraphicsAdd
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     struct NasrGraphic graphic
 );
 int NasrGraphicsAddCanvas
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     struct NasrColor color
 );
 int NasrGraphicsAddRect
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     struct NasrRect rect,
     struct NasrColor color
 );
 int NasrGraphicsAddRectGradient
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     struct NasrRect rect,
     int dir,
     struct NasrColor color1,
@@ -298,8 +307,8 @@ int NasrGraphicsAddRectGradient
 int NasrGraphicsAddSprite
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     int texture,
     NasrRect src,
     NasrRect dest,

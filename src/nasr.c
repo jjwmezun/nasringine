@@ -90,8 +90,8 @@ static Texture palette_texture;
 static int max_states;
 static int max_gfx_layers;
 static int * layer_pos = NULL;
-static int * gfx_ptrs_a = NULL;
-static int * gfx_ptrs_b = NULL;
+static int * gfx_ptrs_id_to_pos = NULL;
+static int * gfx_ptrs_pos_to_id = NULL;
 static int * state_for_gfx = NULL;
 static int * layer_for_gfx = NULL;
 
@@ -112,8 +112,9 @@ static GLint GetGLSamplingType( int sampling );
 static TextureMapEntry * hash_find_entry( const char * needle_string, hash_t needle_hash );
 static uint32_t hash_string( const char * key );
 static GLint GetGLRGBA( int indexed );
-static unsigned char * LoadTextureFileData( char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
-static void AddTexture( Texture * texture, unsigned int texture_id, unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
+static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
+static void AddTexture( Texture * texture, unsigned int texture_id, const unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
+static unsigned int GetStateLayerIndex( unsigned int state, unsigned int layer );
 
 void NasrColorPrint( const NasrColor * c )
 {
@@ -279,8 +280,8 @@ int NasrInit
     max_states = init_max_states;
     max_gfx_layers = init_max_gfx_layers;
     graphics = calloc( max_graphics, sizeof( NasrGraphic ) );
-    gfx_ptrs_a = calloc( max_graphics, sizeof( int ) );
-    gfx_ptrs_b = calloc( max_graphics, sizeof( int ) );
+    gfx_ptrs_id_to_pos = calloc( max_graphics, sizeof( int ) );
+    gfx_ptrs_pos_to_id = calloc( max_graphics, sizeof( int ) );
     state_for_gfx = calloc( max_graphics, sizeof( int ) );
     layer_for_gfx = calloc( max_graphics, sizeof( int ) );
     layer_pos = calloc( max_states * max_gfx_layers, sizeof( int ) );
@@ -327,13 +328,13 @@ void NasrClose( void )
     {
         free( graphics );
     }
-    if ( gfx_ptrs_a != NULL )
+    if ( gfx_ptrs_id_to_pos != NULL )
     {
-        free( gfx_ptrs_a );
+        free( gfx_ptrs_id_to_pos );
     }
-    if ( gfx_ptrs_b != NULL )
+    if ( gfx_ptrs_pos_to_id != NULL )
     {
-        free( gfx_ptrs_b );
+        free( gfx_ptrs_pos_to_id );
     }
     if ( layer_pos != NULL )
     {
@@ -748,52 +749,52 @@ static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shade
     return program;
 };
 
-NasrGraphic * NasrGraphicGet( int id )
+NasrGraphic * NasrGraphicGet( unsigned int id )
 {
-    return &graphics[ gfx_ptrs_a[ id ] ];
+    return &graphics[ gfx_ptrs_id_to_pos[ id ] ];
 };
 
-void NasrGraphicChangeLayer( int id, int layer )
+void NasrGraphicChangeLayer( unsigned int id, unsigned int layer )
 {
+    // Skip if already on layer.
     if ( layer_for_gfx[ id ] == layer )
     {
         return;
     }
-    NasrGraphic gfx = graphics[ gfx_ptrs_a[ id ] ];
 
-    // Find last graphic of current layer.
-    int pp1 = state_for_gfx[ id ] * max_gfx_layers + layer_for_gfx[ id ];
-    int p1 = layer_pos[ pp1 ];
-    // Find last graphic of target layer.
-    int pp2 = state_for_gfx[ id ] * max_gfx_layers + layer;
-    int p2 = layer_pos[ pp2 ];
+    // Make copy o’ graphic.
+    NasrGraphic gfx = graphics[ gfx_ptrs_id_to_pos[ id ] ];
 
+    const unsigned int state = state_for_gfx[ id ];
+    const unsigned int current_layer_index = GetStateLayerIndex( state, layer_for_gfx[ id ] );
+    const unsigned int target_layer_index = GetStateLayerIndex( state, layer );
+    const unsigned int target_layer_pos = layer_pos[ target_layer_index ];
     if ( layer < layer_for_gfx[ id ] )
     {
         // If already lowest graphic, then there is nothing below, so we don’t need to move graphic downward.
-        if ( gfx_ptrs_a[ id ] == 0 )
+        if ( gfx_ptrs_id_to_pos[ id ] == 0 )
         {
             layer_for_gfx[ id ] = layer;
             return;
         }
 
         // Push forward all following graphics.
-        for ( int i = gfx_ptrs_a[ id ]; i > p2; --i )
+        for ( unsigned int i = gfx_ptrs_id_to_pos[ id ]; i > target_layer_pos; --i )
         {
             graphics[ i ] = graphics[ i - 1 ];
 
             // Update pointers so they still point to correct graphics.
-            const int t = gfx_ptrs_b[ i - 1 ];
-            ++gfx_ptrs_a[ t ];
-            gfx_ptrs_b[ gfx_ptrs_a[ t ] ] = t;
+            const unsigned int t = gfx_ptrs_pos_to_id[ i - 1 ];
+            ++gfx_ptrs_id_to_pos[ t ];
+            gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
         }
 
-        graphics[ p2 ] = gfx;
-        gfx_ptrs_a[ id ] = p2;
-        gfx_ptrs_b[ p2 ] = id;
+        graphics[ target_layer_pos ] = gfx;
+        gfx_ptrs_id_to_pos[ id ] = target_layer_pos;
+        gfx_ptrs_pos_to_id[ target_layer_pos ] = id;
 
         // Push up all layers from original point to selected layer.
-        for ( int i = pp2; i < pp1; ++i )
+        for ( unsigned int i = target_layer_index; i < current_layer_index; ++i )
         {
             ++layer_pos[ i ];
         }
@@ -801,35 +802,173 @@ void NasrGraphicChangeLayer( int id, int layer )
     else
     {
         // Push down all graphics between them.
-        for ( int i = gfx_ptrs_a[ id ]; i < p2; ++i )
+        for ( unsigned int i = gfx_ptrs_id_to_pos[ id ]; i < target_layer_pos; ++i )
         {
             graphics[ i ] = graphics[ i + 1 ];
 
             // Update pointers so they still point to correct graphics.
-            const int t = gfx_ptrs_b[ i + 1 ];
-            --gfx_ptrs_a[ t ];
-            gfx_ptrs_b[ gfx_ptrs_a[ t ] ] = t;
+            const unsigned int t = gfx_ptrs_pos_to_id[ i + 1 ];
+            --gfx_ptrs_id_to_pos[ t ];
+            gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
         }
 
-        graphics[ p2 - 1 ] = gfx;
-        gfx_ptrs_a[ id ] = p2 - 1;
-        gfx_ptrs_b[ p2 - 1 ] = id;
+        // Move copied graphic to end of target layer & update pointers.
+        graphics[ target_layer_pos - 1 ] = gfx;
+        gfx_ptrs_id_to_pos[ id ] = target_layer_pos - 1;
+        gfx_ptrs_pos_to_id[ target_layer_pos - 1 ] = id;
 
         // Push down all layers from original point to selected layer.
-        for ( int i = pp1; i < pp2; ++i )
+        for ( unsigned int i = current_layer_index; i < target_layer_index; ++i )
         {
             --layer_pos[ i ];
         }
     }
     layer_for_gfx[ id ] = layer;
+};
 
+void NasrSendGraphicToFrontOLayer( unsigned int id )
+{
+    const unsigned int end = NasrNumOGraphicsInLayer( state_for_gfx[ id ], layer_for_gfx[ id ] );
+    NasrPlaceGraphicAbovePositionInLayer( id, end > 0 ? end : 0 );
+};
+
+void NasrSendGraphicToBackOLayer( unsigned int id )
+{
+    NasrPlaceGraphicBelowPositionInLayer( id, 0 );
+};
+
+void NasrRaiseGraphicForwardInLayer( unsigned int id )
+{
+    const unsigned int state = state_for_gfx[ id ];
+    const unsigned int layer = layer_for_gfx[ id ];
+    const unsigned int rel_pos = NasrGetLayerPosition( id );
+
+    // Skip if already @ front.
+    if ( rel_pos >= NasrNumOGraphicsInLayer( state, layer ) - 1 )
+    {
+        return;
+    }
+
+    // Make copy o’ graphic & swap with graphic ’bove.
+    const unsigned int abs_pos = gfx_ptrs_id_to_pos[ id ];
+    NasrGraphic gfx = graphics[ abs_pos ];
+    graphics[ abs_pos ] = graphics[ abs_pos + 1 ];
+    const unsigned int t = gfx_ptrs_pos_to_id[ abs_pos + 1 ];
+    --gfx_ptrs_id_to_pos[ t ];
+    gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
+    graphics[ abs_pos + 1 ] = gfx;
+    gfx_ptrs_id_to_pos[ id ] = abs_pos + 1;
+    gfx_ptrs_pos_to_id[ abs_pos + 1 ] = id;
+};
+
+void NasrRaiseGraphicBackwardInLayer( unsigned int id )
+{
+    const unsigned int rel_pos = NasrGetLayerPosition( id );
+
+    // Skip if already @ back.
+    if ( rel_pos == 0 )
+    {
+        return;
+    }
+
+    // Make copy o’ graphic & swap with graphic below.
+    NasrGraphic gfx = graphics[ gfx_ptrs_id_to_pos[ id ] ];
+    const unsigned int abs_pos = gfx_ptrs_id_to_pos[ id ];
+    graphics[ abs_pos ] = graphics[ abs_pos - 1 ];
+    const unsigned int t = gfx_ptrs_pos_to_id[ abs_pos - 1 ];
+    ++gfx_ptrs_id_to_pos[ t ];
+    gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
+    graphics[ abs_pos - 1 ] = gfx;
+    gfx_ptrs_id_to_pos[ id ] = abs_pos - 1;
+    gfx_ptrs_pos_to_id[ abs_pos - 1 ] = id;
+};
+
+void NasrPlaceGraphicBelowPositionInLayer( unsigned int id, unsigned int pos )
+{
+    // Skip if already @ position or lower.
+    if ( NasrGetLayerPosition( id ) <= pos )
+    {
+        return;
+    }
+
+    // Push forward all graphics between current and target positions.
+    const unsigned int layer_index = GetStateLayerIndex( state_for_gfx[ id ], layer_for_gfx[ id ] );
+    const unsigned int prev_layer = layer_index > 0 ? layer_index - 1 : 0;
+    const unsigned int current_abs_pos = gfx_ptrs_id_to_pos[ id ];
+    const unsigned int target_abs_pos = layer_pos[ prev_layer ] + pos;
+    const NasrGraphic gfx = graphics[ current_abs_pos ];
+    for ( int i = current_abs_pos; i > target_abs_pos; --i )
+    {
+        graphics[ i ] = graphics[ i - 1 ];
+
+        // Update pointers so they still point to correct graphics.
+        const unsigned int t = gfx_ptrs_pos_to_id[ i - 1 ];
+        ++gfx_ptrs_id_to_pos[ t ];
+        gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
+    }
+
+    graphics[ target_abs_pos ] = gfx;
+    gfx_ptrs_id_to_pos[ id ] = target_abs_pos;
+    gfx_ptrs_pos_to_id[ target_abs_pos ] = id;
+};
+
+void NasrPlaceGraphicAbovePositionInLayer( unsigned int id, unsigned int pos )
+{
+    // Skip if already @ position or ’bove.
+    if ( NasrGetLayerPosition( id ) >= pos )
+    {
+        return;
+    }
+
+    // Push back all graphics between current and target positions.
+    const unsigned int layer_index = GetStateLayerIndex( state_for_gfx[ id ], layer_for_gfx[ id ] );
+    const unsigned int prev_layer = layer_index > 0 ? layer_index - 1 : 0;
+    const unsigned int current_abs_pos = gfx_ptrs_id_to_pos[ id ];
+    const unsigned int target_abs_pos = layer_pos[ prev_layer ] + pos - 1;
+    const NasrGraphic gfx = graphics[ current_abs_pos ];
+    for ( unsigned int i = current_abs_pos; i < target_abs_pos; ++i )
+    {
+        graphics[ i ] = graphics[ i + 1 ];
+
+        // Update pointers so they still point to correct graphics.
+        const unsigned int t = gfx_ptrs_pos_to_id[ i + 1 ];
+        --gfx_ptrs_id_to_pos[ t ];
+        gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
+    }
+
+    // Move copied graphic to front o’ layer & update pointers.
+    graphics[ target_abs_pos ] = gfx;
+    gfx_ptrs_id_to_pos[ id ] = target_abs_pos;
+    gfx_ptrs_pos_to_id[ target_abs_pos ] = id;
+};
+
+unsigned int NasrGetLayer( unsigned int id )
+{
+    return layer_for_gfx[ id ];
+};
+
+unsigned int NasrGetLayerPosition( unsigned int id )
+{
+    const unsigned int state = state_for_gfx[ id ];
+    const unsigned int layer_index = GetStateLayerIndex( state, layer_for_gfx[ id ] );
+    const unsigned int abs_pos = gfx_ptrs_id_to_pos[ id ];
+    const unsigned int prev_layer = layer_index > 0 ? layer_index - 1 : 0;
+    const unsigned int layer_start = layer_pos[ prev_layer ];
+    return abs_pos - layer_start;
+};
+
+unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer )
+{
+    const unsigned int layer_index = GetStateLayerIndex( state, layer );
+    const unsigned int prev_layer = layer_index > 0 ? layer_index - 1 : 0;
+    return layer_pos[ layer_index ] - layer_pos[ prev_layer ];
 };
 
 int NasrGraphicsAdd
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     struct NasrGraphic graphic
 )
 {
@@ -839,30 +978,30 @@ int NasrGraphicsAdd
     }
 
     // Find last graphic of current layer.
-    int pp = state * max_gfx_layers + layer;
-    int p = layer_pos[ pp ];
+    unsigned int pp = state * max_gfx_layers + layer;
+    unsigned int p = layer_pos[ pp ];
 
     // Push forward this & following positions.
-    for ( int i = pp; i < max_gfx_layers * max_states; ++i )
+    for ( unsigned int i = pp; i < max_gfx_layers * max_states; ++i )
     {
         ++layer_pos[ i ];
     }
 
     // Push forward all following graphics.
-    for ( int i = num_o_graphics; i > p; --i )
+    for ( unsigned int i = num_o_graphics; i > p; --i )
     {
         graphics[ i ] = graphics[ i - 1 ];
 
         // Update pointers so they still point to correct graphics.
-        const int t = gfx_ptrs_b[ i - 1 ];
-        ++gfx_ptrs_a[ t ];
-        gfx_ptrs_b[ gfx_ptrs_a[ t ] ] = t;
+        const unsigned int t = gfx_ptrs_pos_to_id[ i - 1 ];
+        ++gfx_ptrs_id_to_pos[ t ];
+        gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
     }
 
     // Add current graphic & pointer.
     graphics[ p ] = graphic;
-    gfx_ptrs_a[ num_o_graphics ] = p;
-    gfx_ptrs_b[ p ] = num_o_graphics;
+    gfx_ptrs_id_to_pos[ num_o_graphics ] = p;
+    gfx_ptrs_pos_to_id[ p ] = num_o_graphics;
     state_for_gfx[ num_o_graphics ] = state;
     layer_for_gfx[ num_o_graphics ] = layer;
 
@@ -872,8 +1011,8 @@ int NasrGraphicsAdd
 int NasrGraphicsAddCanvas
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     NasrColor color
 )
 {
@@ -890,8 +1029,8 @@ int NasrGraphicsAddCanvas
 int NasrGraphicsAddRect
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     NasrRect rect,
     NasrColor color
 )
@@ -906,8 +1045,8 @@ int NasrGraphicsAddRect
 int NasrGraphicsAddRectGradient
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     struct NasrRect rect,
     int dir,
     struct NasrColor color1,
@@ -1001,8 +1140,8 @@ int NasrGraphicsAddRectGradient
 int NasrGraphicsAddSprite
 (
     int abs,
-    int state,
-    int layer,
+    unsigned int state,
+    unsigned int layer,
     int texture,
     NasrRect src,
     NasrRect dest,
@@ -1081,19 +1220,23 @@ int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int hei
     return texture_count++;
 };
 
-static unsigned char * LoadTextureFileData( char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed )
+static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed )
 {
     int channels;
-    unsigned char * data = stbi_load( filename, width, height, &channels, STBI_rgb_alpha );
-    if ( data == NULL )
+    int w;
+    int h;
+    unsigned char * data = stbi_load( filename, &w, &h, &channels, STBI_rgb_alpha );
+    if ( data == NULL || w < 0 || h < 0 )
     {
         printf( "Couldn’t load texture file.\n" );
         return 0;
     }
+    *width = w;
+    *height = h;
     return data;
 };
 
-static void AddTexture( Texture * texture, unsigned int texture_id, unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed )
+static void AddTexture( Texture * texture, unsigned int texture_id, const unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed )
 {
     const GLint sample_type = GetGLSamplingType( sampling );
     const GLint index_type = GetGLRGBA( indexed );
@@ -1621,4 +1764,9 @@ static GLint GetGLRGBA( int indexed )
         case ( NASR_INDEXED_NO ): return GL_RGBA;
         default: return default_indexed_mode;
     }
+};
+
+static unsigned int GetStateLayerIndex( unsigned int state, unsigned int layer )
+{
+    return state * max_gfx_layers + layer;
 };
