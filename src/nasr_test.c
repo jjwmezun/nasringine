@@ -138,11 +138,72 @@ void NasrTestRun( void )
     );
 
 
+    int tilemap_texture = NasrLoadFileAsTextureEx( "assets/tilemap.png", NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
+    /*
+    NasrRect tiledest = { 0.0f, 0.0f, 256.0f, 48.0f };
+    NasrGraphicsAddSprite
+    (
+        0,
+        1,
+        3,
+        tilemap_texture,
+        tiledest,
+        tiledest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        128
+    );*/
+    unsigned int tilesw = 70;
+    unsigned int tilesh = 16;
+    NasrTile * tiles = calloc( tilesw * tilesh, sizeof( NasrTile ) );
+    for ( int i = 0; i < tilesw * tilesh; ++i ) {
+        tiles[ i ].animation = 255;
+    }
+    const int i1 = tilesw * ( tilesh - 1 );
+    for ( int i = 0; i < tilesw; ++i )
+    {
+        tiles[ i1 + i ].y = 1;
+        tiles[ i1 + i ].x = 0;
+        tiles[ i1 + i ].palette = 128;
+        tiles[ i1 + i ].animation = 0;
+    }
+    const int i2 = tilesw * ( tilesh - 2 );
+    for ( int i = 0; i < tilesw; ++i )
+    {
+        tiles[ i2 + i ].y = 0;
+        tiles[ i2 + i ].x = 0;
+        tiles[ i2 + i ].palette = 128;
+        tiles[ i2 + i ].animation = 0;
+    }
+    int tilemap_id = NasrGraphicsAddTilemap( 0, 1, 3, tilemap_texture, tiles, tilesw, tilesh );
+
+    /*
+    NasrRect tilemaptestdest = { 0.0f, 0.0f, 70.0f, 32.0f };
+    NasrGraphicsAddSprite
+    (
+        1,
+        3,
+        0,
+        1,
+        tilemaptestdest,
+        tilemaptestdest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0
+    );*/
+
     int nasrin_texture1 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     int nasrin_texture2 = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     int autumn_texture = NasrLoadFileAsTexture( "assets/autumn.png" );
     //printf( "%d, %d, %d\n", nasrin_texture1, nasrin_texture2, autumn_texture );
-    NasrClearTextures();
     
     const unsigned int texwidth = 8;
     const unsigned int texheight = 8;
@@ -365,7 +426,7 @@ void NasrTestRun( void )
                 --lock;
             }
 
-            NasrAdjustCamera( dest, 1024.0f, 640.0f );
+            NasrAdjustCamera( dest, 6000.0f, 640.0f );
             NasrUpdate();
         }
     }

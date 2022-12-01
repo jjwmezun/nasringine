@@ -45,6 +45,7 @@ typedef struct NasrShader
 #define NASR_GRAPHIC_RECT          0
 #define NASR_GRAPHIC_RECT_GRADIENT 1
 #define NASR_GRAPHIC_SPRITE        2
+#define NASR_GRAPHIC_TILEMAP       3
 
 typedef struct NasrGraphicRect
 {
@@ -75,11 +76,20 @@ typedef struct NasrGraphicSprite
     unsigned char palette;
 } NasrGraphicSprite;
 
+typedef struct NasrGraphicTilemap
+{
+    unsigned int texture;
+    unsigned int tilemap;
+    NasrRect src;
+    NasrRect dest;
+} NasrGraphicTilemap;
+
 typedef union NasrGraphicData
 {
     NasrGraphicRect         rect;
     NasrGraphicRectGradient gradient;
     NasrGraphicSprite       sprite;
+    NasrGraphicTilemap      tilemap;
 } NasrGraphicData;
 
 typedef struct NasrGraphic
@@ -87,6 +97,14 @@ typedef struct NasrGraphic
     int type;
     NasrGraphicData data;
 } NasrGraphic;
+
+typedef struct NasrTile
+{
+    unsigned char x;
+    unsigned char y;
+    unsigned char palette;
+    unsigned char animation;
+} NasrTile;
 
 #define NASR_KEY_UNKNOWN		GLFW_KEY_UNKNOWN
 #define NASR_KEY_SPACE			GLFW_KEY_SPACE
@@ -319,6 +337,17 @@ int NasrGraphicsAddSprite
     float rotation_z,
     float opacity,
     unsigned char palette
+);
+
+int NasrGraphicsAddTilemap
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int texture,
+    const NasrTile * tiles,
+    unsigned int w,
+    unsigned int h
 );
 
 int NasrLoadFileAsTexture( char * filename );

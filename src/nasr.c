@@ -44,7 +44,8 @@ static unsigned int indices[] =
     1, 2, 3    // second triangle
 };
 
-#define NUMBER_O_BASE_SHADERS 3
+#define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
+#define NUMBER_O_BASE_SHADERS 4
 
 typedef uint32_t hash_t;
 typedef struct { char * string; hash_t hash; } TextureMapKey;
@@ -56,7 +57,8 @@ static unsigned int VAO;
 static unsigned int rect_shader;
 static unsigned int sprite_shader;
 static unsigned int indexed_sprite_shader;
-static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] = { &rect_shader, &sprite_shader, &indexed_sprite_shader };
+static unsigned int tilemap_shader;
+static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] = { &rect_shader, &sprite_shader, &indexed_sprite_shader, &tilemap_shader };
 static NasrGraphic * graphics = NULL;
 static int max_graphics = 0;
 static int num_o_graphics = 0;
@@ -94,6 +96,8 @@ static int * gfx_ptrs_id_to_pos = NULL;
 static int * gfx_ptrs_pos_to_id = NULL;
 static int * state_for_gfx = NULL;
 static int * layer_for_gfx = NULL;
+static unsigned int animation_frame = 0;
+static unsigned int animation_timer = 0;
 
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
@@ -266,10 +270,20 @@ int NasrInit
             "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\nvec4 index = texture( texture_data, texture_coords );\nfloat palette = palette_id / 256.0;\nfinal_color = texture( palette_data, vec2( index.r / 16.0, palette ) );\nfinal_color.a *= opacity;\n}"
         }
     };
+
+    NasrShader tilemap_shaders[] =
+    {
+        vertex_shader,
+        {
+            NASR_SHADER_FRAGMENT,
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = tile.z;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r / 16.0, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
+        }
+    };
     
     rect_shader = GenerateShaderProgram( rect_shaders, 2 );
     sprite_shader = GenerateShaderProgram( sprite_shaders, 2 );
     indexed_sprite_shader = GenerateShaderProgram( indexed_sprite_shaders, 2 );
+    tilemap_shader = GenerateShaderProgram( tilemap_shaders, 2 );
 
     // Init camera
     NasrResetCamera();
@@ -476,6 +490,58 @@ void NasrUpdate( void )
                 SetupVertices();
             }
             break;
+            case ( NASR_GRAPHIC_TILEMAP ):
+            {
+                glUseProgram( tilemap_shader );
+
+                #define TG graphics[ i ].data.tilemap
+
+                vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ TG.tilemap ].width ) * TG.src.x; // Left X
+                vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ TG.tilemap ].width ) * ( TG.src.x + TG.src.w );  // Right X
+                vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ TG.tilemap ].height ) * ( TG.src.y + TG.src.h ); // Top Y
+                vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ TG.tilemap ].height ) * TG.src.y;  // Bottom Y
+
+                BufferVertices();
+                SetVerticesView( TG.dest.x + ( TG.dest.w / 2.0f ), TG.dest.y + ( TG.dest.h / 2.0f ) );
+
+                mat4 model = BASE_MATRIX;
+                vec3 scale = { TG.dest.w, TG.dest.h, 0.0 };
+                glm_scale( model, scale );
+                unsigned int model_location = glGetUniformLocation( tilemap_shader, "model" );
+                glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+
+                GLint map_width_location = glGetUniformLocation( tilemap_shader, "map_width" );
+                glUniform1f( map_width_location, ( float )( textures[ TG.tilemap ].width ) );
+
+                GLint map_height_location = glGetUniformLocation( tilemap_shader, "map_height" );
+                glUniform1f( map_height_location, ( float )( textures[ TG.tilemap ].height ) );
+
+                GLint tileset_width_location = glGetUniformLocation( tilemap_shader, "tileset_width" );
+                glUniform1f( tileset_width_location, ( float )( textures[ TG.texture ].width ) );
+
+                GLint tileset_height_location = glGetUniformLocation( tilemap_shader, "tileset_height" );
+                glUniform1f( tileset_height_location, ( float )( textures[ TG.texture ].height ) );
+
+                GLint animation_location = glGetUniformLocation( tilemap_shader, "animation" );
+                glUniform1ui( animation_location, animation_frame );
+
+                GLint texture_data_location = glGetUniformLocation(tilemap_shader, "texture_data");
+                GLint palette_data_location = glGetUniformLocation(tilemap_shader, "palette_data");
+                GLint map_data_location = glGetUniformLocation(tilemap_shader, "map_data");
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, texture_ids[ TG.texture ] );
+                glUniform1i(texture_data_location, 0);
+                glActiveTexture(GL_TEXTURE1 );
+                glBindTexture(GL_TEXTURE_2D, palette_texture_id );
+                glUniform1i(palette_data_location, 1);
+                glActiveTexture(GL_TEXTURE2 );
+                glBindTexture(GL_TEXTURE_2D, texture_ids[ TG.tilemap ] );
+                glUniform1i(map_data_location, 2);
+                SetupVertices();
+
+                #undef TG
+            }
+            break;
             default:
             {
                 printf( "¡Trying to render invalid graphic type #%d!\n", graphics[ i ].type );
@@ -487,6 +553,20 @@ void NasrUpdate( void )
     glfwSwapBuffers( window );
     glfwPollEvents();
     prev_camera = camera;
+
+    if ( animation_timer == 7 )
+    {
+        animation_timer = 0;
+        ++animation_frame;
+        if ( animation_frame == MAX_ANIMATION_FRAME )
+        {
+            animation_frame = 0;
+        }
+    }
+    else
+    {
+        ++animation_timer;
+    }
 };
 
 int NasrHasClosed( void )
@@ -1172,6 +1252,55 @@ int NasrGraphicsAddSprite
     graphic.data.sprite.palette = palette;
     return NasrGraphicsAdd( abs, state, layer, graphic );
 };
+
+int NasrGraphicsAddTilemap
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int texture,
+    const NasrTile * tiles,
+    unsigned int w,
+    unsigned int h
+)
+{
+    // Generate texture from tile data.
+    unsigned char * data = ( unsigned char * )( calloc( w * h * 4, sizeof( unsigned char ) ) );
+    int i4 = 0;
+    for ( int i = 0; i < w * h; ++i )
+    {
+        data[ i4 ] = tiles[ i ].x;
+        data[ i4 + 1 ] = tiles[ i ].y;
+        data[ i4 + 2 ] = tiles[ i ].palette;
+        data[ i4 + 3 ] = tiles[ i ].animation;
+        i4 += 4;
+    }
+    if ( data == NULL )
+    {
+        NasrLog( "Couldn’t generate tilemap." );
+        return -1;
+    }
+    const int tilemap_texture = NasrAddTextureEx( data, w, h, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+    free( data );
+    if ( tilemap_texture < 0 )
+    {
+        return -1;
+    }
+
+    struct NasrGraphic graphic;
+    graphic.type = NASR_GRAPHIC_TILEMAP;
+    graphic.data.tilemap.texture = texture;
+    graphic.data.tilemap.tilemap = ( unsigned int )( tilemap_texture );
+    graphic.data.tilemap.src.x = 0.0f;
+    graphic.data.tilemap.src.y = 0.0f;
+    graphic.data.tilemap.src.w = ( float )( w );
+    graphic.data.tilemap.src.h = ( float )( h );
+    graphic.data.tilemap.dest.x = 0.0f;
+    graphic.data.tilemap.dest.y = 0.0f;
+    graphic.data.tilemap.dest.w = ( float )( w ) * 16.0f;
+    graphic.data.tilemap.dest.h = ( float )( h ) * 16.0f;
+    return NasrGraphicsAdd( abs, state, layer, graphic );
+}
 
 int NasrLoadFileAsTexture( char * filename )
 {
