@@ -297,6 +297,7 @@ int NasrGraphicsAdd
     unsigned int layer,
     struct NasrGraphic graphic
 );
+void NasrGraphicsRemove( unsigned int id );
 int NasrGraphicsAddCanvas
 (
     int abs,
@@ -377,3 +378,5 @@ void NasrDrawSpriteToTexture(
     float rotation_z,
     float opacity
 );
+
+void NasrDebugGraphics( void );

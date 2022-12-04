@@ -295,7 +295,28 @@ void NasrTestRun( void )
     nasrin_dest.x = 300.0f;
     nasrin_dest.y = 180.0f;
 
-    const int nasrinid2 = NasrGraphicsAddSprite
+    int nasrinid2 = NasrGraphicsAddSprite
+    (
+        0,
+        0,
+        14,
+        nasrin_texture1,
+        nasrin_src,
+        nasrin_dest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0
+    );
+
+    #define MAXNAS 20
+    static int extranas[ MAXNAS ] = { -1 };
+    static int extranascount = 1;
+    nasrin_dest.x = 300.0f + ( extranascount * 20.0f );
+    extranas[ 0 ] = NasrGraphicsAddSprite
     (
         0,
         0,
@@ -391,15 +412,52 @@ void NasrTestRun( void )
 
             if ( NasrHeld( INPUT_X ) )
             {
-                sprite->rotation_x += 4.0f;
+                if ( lock == 0 )
+                {
+                    lock = 16;
+                    NasrDebugGraphics();
+                }
             }
             if ( NasrHeld( INPUT_Z ) )
             {
-                NasrSendGraphicToBackOLayer( nasrinid );
+                if ( extranascount > 0 )
+                {
+                    if ( lock == 0 )
+                    {
+                        lock = 16;
+                        NasrGraphicsRemove( extranas[ extranascount - 1 ] );
+                        extranas[ --extranascount ] = -1;
+                        continue;
+                    }
+                }
             }
             if ( NasrHeld( INPUT_Y ) )
             {
-                NasrSendGraphicToFrontOLayer( nasrinid );
+                if ( extranascount < MAXNAS )
+                {
+                    if ( lock == 0 )
+                    {
+                        lock = 16;
+                        nasrin_dest.x = 300.0f + ( extranascount * 20.0f );
+                        extranas[ extranascount++ ] = NasrGraphicsAddSprite
+                        (
+                            0,
+                            0,
+                            14,
+                            nasrin_texture1,
+                            nasrin_src,
+                            nasrin_dest,
+                            0,
+                            0,
+                            0.0f,
+                            0.0f,
+                            0.0f,
+                            1.0f,
+                            0
+                        );
+                        continue;
+                    }
+                }
             }
             if ( NasrHeld( INPUT_A ) )
             {

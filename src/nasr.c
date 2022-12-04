@@ -300,6 +300,12 @@ int NasrInit
     layer_for_gfx = calloc( max_graphics, sizeof( int ) );
     layer_pos = calloc( max_states * max_gfx_layers, sizeof( int ) );
 
+    // Initialize these to null values ( since 0 is a valid value, we use -1 ).
+    for ( int i = 0; i < max_graphics; ++i )
+    {
+        gfx_ptrs_id_to_pos[ i ] = gfx_ptrs_pos_to_id[ i ] = state_for_gfx[ i ] = layer_for_gfx[ i ] = -1;
+    }
+
     // Init framebuffer.
     glGenFramebuffers( 1, &framebuffer );
 
@@ -865,7 +871,7 @@ void NasrGraphicChangeLayer( unsigned int id, unsigned int layer )
 
             // Update pointers so they still point to correct graphics.
             const unsigned int t = gfx_ptrs_pos_to_id[ i - 1 ];
-            ++gfx_ptrs_id_to_pos[ t ];
+            ++gfx_ptrs_id_to_pos[ t ];            
             gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
         }
 
@@ -882,7 +888,7 @@ void NasrGraphicChangeLayer( unsigned int id, unsigned int layer )
     else
     {
         // Push down all graphics between them.
-        for ( unsigned int i = gfx_ptrs_id_to_pos[ id ]; i < target_layer_pos; ++i )
+        for ( unsigned int i = gfx_ptrs_id_to_pos[ id ]; i < target_layer_pos - 1; ++i )
         {
             graphics[ i ] = graphics[ i + 1 ];
 
@@ -1068,7 +1074,7 @@ int NasrGraphicsAdd
     }
 
     // Push forward all following graphics.
-    for ( unsigned int i = num_o_graphics; i > p; --i )
+    for ( unsigned int i = num_o_graphics++; i > p; --i )
     {
         graphics[ i ] = graphics[ i - 1 ];
 
@@ -1078,14 +1084,55 @@ int NasrGraphicsAdd
         gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
     }
 
+    // Find 1st free graphic ID.
+    int current_graphic_id = -1;
+    for ( int i = 0; i < max_graphics; ++i )
+    {
+        if ( gfx_ptrs_id_to_pos[ i ] == -1 )
+        {
+            current_graphic_id = i;
+            break;
+        }
+    }
+
+    if ( current_graphic_id == -1 )
+    {
+        NasrLog( "¡Strange error! ¡All graphics IDs filled e’en tho we’re apparently below max graphics!" );
+    }
+
     // Add current graphic & pointer.
     graphics[ p ] = graphic;
-    gfx_ptrs_id_to_pos[ num_o_graphics ] = p;
-    gfx_ptrs_pos_to_id[ p ] = num_o_graphics;
-    state_for_gfx[ num_o_graphics ] = state;
-    layer_for_gfx[ num_o_graphics ] = layer;
+    gfx_ptrs_id_to_pos[ current_graphic_id ] = p;
+    gfx_ptrs_pos_to_id[ p ] = current_graphic_id;
+    state_for_gfx[ current_graphic_id ] = state;
+    layer_for_gfx[ current_graphic_id ] = layer;
 
-    return num_o_graphics++;
+    return current_graphic_id;
+};
+
+void NasrGraphicsRemove( unsigned int id )
+{
+    // Push down all graphics ’bove
+    for ( unsigned int i = gfx_ptrs_id_to_pos[ id ]; i < num_o_graphics - 1; ++i )
+    {
+        graphics[ i ] = graphics[ i + 1 ];
+
+        // Update pointers so they still point to correct graphics.
+        const unsigned int t = gfx_ptrs_pos_to_id[ i + 1 ];
+        --gfx_ptrs_id_to_pos[ t ];
+        gfx_ptrs_pos_to_id[ gfx_ptrs_id_to_pos[ t ] ] = t;
+    }
+
+    // Decrease this & following layers.
+    const unsigned int current_layer_index = GetStateLayerIndex( state_for_gfx[ id ], layer_for_gfx[ id ] );
+    for ( unsigned int i = current_layer_index; i < max_gfx_layers * max_states; ++i )
+    {
+        --layer_pos[ i ];
+    }
+
+    --num_o_graphics;
+
+    gfx_ptrs_pos_to_id[ num_o_graphics ] = gfx_ptrs_id_to_pos[ id ] = state_for_gfx[ id ] = layer_for_gfx[ id ] = -1;
 };
 
 int NasrGraphicsAddCanvas
@@ -1898,4 +1945,28 @@ static GLint GetGLRGBA( int indexed )
 static unsigned int GetStateLayerIndex( unsigned int state, unsigned int layer )
 {
     return state * max_gfx_layers + layer;
+};
+
+void NasrDebugGraphics( void )
+{
+    printf( "=================\n" );
+    for ( int i = 0; i < num_o_graphics; ++i )
+    {
+        const int id = gfx_ptrs_pos_to_id[ i ];
+        const int pos = gfx_ptrs_id_to_pos[ id ];
+        const int state = state_for_gfx[ id ];
+        const int layer = layer_for_gfx[ id ];
+        printf( "%d : %d : %d : %d : %d\n", i, pos, id, state, layer );
+    }
+    printf( "=================\n" );
+    for ( int state = 0; state < max_states; ++state )
+    {
+        printf( "%d: ", state );
+        for ( int layer = 0; layer < max_gfx_layers; ++layer )
+        {
+            printf( "%d,", layer_pos[ GetStateLayerIndex( state, layer ) ] );
+        }
+        printf( "\n" );
+    }
+    printf( "=================\n" );
 };
