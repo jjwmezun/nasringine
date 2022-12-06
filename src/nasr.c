@@ -9,6 +9,8 @@
 #define DEGREES_TO_RADIANS( n ) ( ( n ) * 3.14159f / 180.0f )
 
 #define VERTEX_SIZE 8
+#define VERTEX_RECT_SIZE VERTEX_SIZE * 4
+#define INDICES_SIZE 6
 
 #define BASE_MATRIX {\
     { 1.0f, 0.0f, 0.0f, 0.0f },\
@@ -43,6 +45,9 @@ static unsigned int indices[] =
     0, 1, 3,   // first triangle
     1, 2, 3    // second triangle
 };
+
+static float * vertices2;
+static unsigned int * indices2;
 
 #define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
 #define NUMBER_O_BASE_SHADERS 4
@@ -217,11 +222,31 @@ int NasrInit
     texture_ids = calloc( max_textures, sizeof( unsigned int ) );
     glGenTextures( max_textures, texture_ids );
 
+    vertices2 = calloc( max_graphics * VERTEX_RECT_SIZE, sizeof( float ) );
+    indices2 = calloc( max_graphics * INDICES_SIZE, sizeof( unsigned int ) );
+
+    for ( int i = 0; i < max_graphics; ++i )
+    {
+        const int istep = INDICES_SIZE * i;
+        indices2[ istep ] = 0;
+        indices2[ istep + 1 ] = 1;
+        indices2[ istep + 2 ] = 3;
+        indices2[ istep + 3 ] = 1;
+        indices2[ istep + 4 ] = 2;
+        indices2[ istep + 5 ] = 3;
+
+        const int vstep = VERTEX_RECT_SIZE * i;
+        vertices2[ vstep ] = vertices2[ vstep + 1 ] = vertices2[ vstep + 8 ] = vertices2[ vstep + 25 ] = 0.5f;
+        vertices2[ vstep + 9 ] = vertices2[ vstep + 16 ] = vertices2[ vstep + 17 ] = vertices2[ vstep + 24 ] = -0.5f;
+        vertices2[ vstep + 11 ] = vertices2[ vstep + 18 ] = vertices2[ vstep + 19 ] = vertices2[ vstep + 26 ] = 0.0f;
+        vertices2[ vstep + 2 ] = vertices2[ vstep + 3 ] = vertices2[ vstep + 4 ] = vertices2[ vstep + 5 ] = vertices2[ vstep + 6 ] = vertices2[ vstep + 7 ] = vertices2[ vstep + 10 ] = vertices2[ vstep + 12 ] = vertices2[ vstep + 13 ] = vertices2[ vstep + 14 ] = vertices2[ vstep + 15 ] = vertices2[ vstep + 20 ] = vertices2[ vstep + 21 ] = vertices2[ vstep + 22 ] = vertices2[ vstep + 23 ] = vertices2[ vstep + 27 ] = vertices2[ vstep + 28 ] = vertices2[ vstep + 29 ] = vertices2[ vstep + 30 ] = vertices2[ vstep + 31 ] = 1.0f;
+    }
+
     // VBO
     unsigned int VBO;
     glGenBuffers( 1, &VBO );
     glBindBuffer( GL_ARRAY_BUFFER, VBO );
-    glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+    glBufferData( GL_ARRAY_BUFFER, sizeof( vertices2 ), vertices2, GL_STATIC_DRAW );
 
     // VAO
     glGenVertexArrays( 1, &VAO );
@@ -231,7 +256,7 @@ int NasrInit
     unsigned int EBO;
     glGenBuffers( 1, &EBO );
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, EBO );
-    glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+    glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices2 ), indices2, GL_STATIC_DRAW );
 
     // Bind buffers
     glBindBuffer( GL_ARRAY_BUFFER, VBO );
@@ -318,6 +343,8 @@ int NasrInit
     // Init texture map.
     texture_map = calloc( max_textures, sizeof( TextureMapEntry ) );
 
+    glfwSwapInterval(0);
+
     return 0;
 };
 
@@ -336,6 +363,8 @@ void NasrClose( void )
     glDeleteTextures( max_textures, texture_ids );
     free( texture_map );
     free( keydata );
+    free( vertices2 );
+    free( indices2 );
     if ( textures != NULL )
     {
         free( textures );
@@ -688,7 +717,7 @@ static void FramebufferSizeCallback( GLFWwindow * window, int screen_width, int 
 
 static void BufferVertices( void )
 {
-    glBufferData( GL_ARRAY_BUFFER, sizeof( vertices ), vertices, GL_STATIC_DRAW );
+    glBufferData( GL_ARRAY_BUFFER, VERTEX_RECT_SIZE, vertices2, GL_STATIC_DRAW );
     glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), 0 );
     glEnableVertexAttribArray( 0 );
     glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
@@ -713,25 +742,25 @@ static void DrawBox( const NasrRect * rect, const NasrColor * top_left_color, co
 
 static void SetVerticesColors( const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color )
 {
-    vertices[ 4 ] = bottom_right_color->r / 255.0f;
-    vertices[ 5 ] = bottom_right_color->g / 255.0f;
-    vertices[ 6 ] = bottom_right_color->b / 255.0f;
-    vertices[ 7 ] = bottom_right_color->a / 255.0f;
+    vertices2[ 4 ] = bottom_right_color->r / 255.0f;
+    vertices2[ 5 ] = bottom_right_color->g / 255.0f;
+    vertices2[ 6 ] = bottom_right_color->b / 255.0f;
+    vertices2[ 7 ] = bottom_right_color->a / 255.0f;
 
-    vertices[ 4 + VERTEX_SIZE ] = top_right_color->r / 255.0f;
-    vertices[ 5 + VERTEX_SIZE ] = top_right_color->g / 255.0f;
-    vertices[ 6 + VERTEX_SIZE ] = top_right_color->b / 255.0f;
-    vertices[ 7 + VERTEX_SIZE ] = top_right_color->a / 255.0f;
+    vertices2[ 4 + VERTEX_SIZE ] = top_right_color->r / 255.0f;
+    vertices2[ 5 + VERTEX_SIZE ] = top_right_color->g / 255.0f;
+    vertices2[ 6 + VERTEX_SIZE ] = top_right_color->b / 255.0f;
+    vertices2[ 7 + VERTEX_SIZE ] = top_right_color->a / 255.0f;
 
-    vertices[ 4 + VERTEX_SIZE * 2 ] = top_left_color->r / 255.0f;
-    vertices[ 5 + VERTEX_SIZE * 2 ] = top_left_color->g / 255.0f;
-    vertices[ 6 + VERTEX_SIZE * 2 ] = top_left_color->b / 255.0f;
-    vertices[ 7 + VERTEX_SIZE * 2 ] = top_left_color->a / 255.0f;
+    vertices2[ 4 + VERTEX_SIZE * 2 ] = top_left_color->r / 255.0f;
+    vertices2[ 5 + VERTEX_SIZE * 2 ] = top_left_color->g / 255.0f;
+    vertices2[ 6 + VERTEX_SIZE * 2 ] = top_left_color->b / 255.0f;
+    vertices2[ 7 + VERTEX_SIZE * 2 ] = top_left_color->a / 255.0f;
 
-    vertices[ 4 + VERTEX_SIZE * 3 ] = bottom_left_color->r / 255.0f;
-    vertices[ 5 + VERTEX_SIZE * 3 ] = bottom_left_color->g / 255.0f;
-    vertices[ 6 + VERTEX_SIZE * 3 ] = bottom_left_color->b / 255.0f;
-    vertices[ 7 + VERTEX_SIZE * 3 ] = bottom_left_color->a / 255.0f;
+    vertices2[ 4 + VERTEX_SIZE * 3 ] = bottom_left_color->r / 255.0f;
+    vertices2[ 5 + VERTEX_SIZE * 3 ] = bottom_left_color->g / 255.0f;
+    vertices2[ 6 + VERTEX_SIZE * 3 ] = bottom_left_color->b / 255.0f;
+    vertices2[ 7 + VERTEX_SIZE * 3 ] = bottom_left_color->a / 255.0f;
 };
 
 static void SetVerticesView( float x, float y )
@@ -746,7 +775,7 @@ static void SetVerticesView( float x, float y )
 static void SetupVertices( void )
 {
     glBindVertexArray( VAO );
-    glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
+    glDrawElements( GL_TRIANGLES, INDICES_SIZE * max_graphics, GL_UNSIGNED_INT, 0 );
     glBindVertexArray( 0 );
 };
 
