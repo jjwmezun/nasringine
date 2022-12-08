@@ -351,6 +351,56 @@ int NasrGraphicsAddTilemap
     unsigned int h
 );
 
+float NasrGraphicsSpriteGetDestY( unsigned int id );
+void NasrGraphicsSpriteSetDestY( unsigned int id, float v );
+float NasrGraphicsSpriteGetDestX( unsigned int id );
+void NasrGraphicsSpriteSetDestX( unsigned int id, float v );
+float NasrGraphicsSpriteGetDestH( unsigned int id );
+void NasrGraphicsSpriteSetDestH( unsigned int id, float v );
+float NasrGraphicsSpriteGetDestW( unsigned int id );
+void NasrGraphicsSpriteSetDestW( unsigned int id, float v );
+float NasrGraphicsSpriteGetSrcY( unsigned int id );
+void NasrGraphicsSpriteSetSrcY( unsigned int id, float v );
+float NasrGraphicsSpriteGetSrcX( unsigned int id );
+void NasrGraphicsSpriteSetSrcX( unsigned int id, float v );
+float NasrGraphicsSpriteGetSrcH( unsigned int id );
+void NasrGraphicsSpriteSetSrcH( unsigned int id, float v );
+float NasrGraphicsSpriteGetSrcW( unsigned int id );
+void NasrGraphicsSpriteSetSrcW( unsigned int id, float v );
+float NasrGraphicsSpriteGetRotationX( unsigned int id );
+void NasrGraphicsSpriteSetRotationX( unsigned int id, float v );
+float NasrGraphicsSpriteGetRotationY( unsigned int id );
+void NasrGraphicsSpriteSetRotationY( unsigned int id, float v );
+float NasrGraphicsSpriteGetRotationZ( unsigned int id );
+void NasrGraphicsSpriteSetRotationZ( unsigned int id, float v );
+float NasrGraphicsSpriteGetOpacity( unsigned int id );
+void NasrGraphicsSpriteSetOpacity( unsigned int id, float v );
+int NasrGraphicsSpriteGetFlipX( unsigned id );
+void NasrGraphicsSpriteSetFlipX( unsigned id, int v );
+void NasrGraphicsSpriteFlipX( unsigned id );
+int NasrGraphicsSpriteGetFlipY( unsigned id );
+void NasrGraphicsSpriteSetFlipY( unsigned id, int v );
+void NasrGraphicsSpriteFlipY( unsigned id );
+
+float NasrGraphicsRectGetX( unsigned int id );
+void NasrGraphicsRectSetX( unsigned int id, float v );
+void NasrGraphicsRectAddToX( unsigned int id, float v );
+float NasrGraphicsRectGetY( unsigned int id );
+void NasrGraphicsRectSetY( unsigned int id, float v );
+void NasrGraphicsRectAddToY( unsigned int id, float v );
+float NasrGraphicsRectGetW( unsigned int id );
+void NasrGraphicsRectSetW( unsigned int id, float v );
+void NasrGraphicsRectAddToW( unsigned int id, float v );
+float NasrGraphicsRectGetH( unsigned int id );
+void NasrGraphicsRectSetH( unsigned int id, float v );
+void NasrGraphicsRectAddToH( unsigned int id, float v );
+
+void NasrGraphicRectSetColor( unsigned int id, NasrColor v );
+void NasrGraphicRectSetColorR( unsigned int id, float v );
+void NasrGraphicRectSetColorG( unsigned int id, float v );
+void NasrGraphicRectSetColorB( unsigned int id, float v );
+void NasrGraphicRectSetColorA( unsigned int id, float v );
+
 int NasrLoadFileAsTexture( char * filename );
 int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed );
 int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height );

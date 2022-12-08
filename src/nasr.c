@@ -40,6 +40,15 @@ static float vertices[] =
     -0.5f,  0.5f,   0.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,  // top left 
 };
 
+static float vertices_base[] =
+{
+    // Vertices     // Texture coords   // Color
+    0.5f,  0.5f,   1.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,// top right
+    0.5f, -0.5f,   1.0f, 0.0f,         1.0f, 1.0f, 1.0f, 1.0f, // bottom right
+    -0.5f, -0.5f,   0.0f, 0.0f,         1.0f, 1.0f, 1.0f, 1.0f, // bottom left
+    -0.5f,  0.5f,   0.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,  // top left 
+};
+
 static float * vertices2;
 
 #define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
@@ -97,12 +106,14 @@ static int * state_for_gfx = NULL;
 static int * layer_for_gfx = NULL;
 static unsigned int animation_frame = 0;
 static unsigned int animation_timer = 0;
+static void UpdateSpriteX( unsigned int id );
+static void UpdateSpriteY( unsigned int id );
 
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
 static void BufferVertices( float * vptr );
 static void DrawBox( unsigned int vao, const NasrRect * rect );
-static void SetVerticesColors( float * vptr, unsigned int vbo, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
+static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesView( float x, float y );
 static void SetupVertices( unsigned int vao );
 static void UpdateShaderOrtho( void );
@@ -119,6 +130,10 @@ static unsigned char * LoadTextureFileData( const char * filename, unsigned int 
 static void AddTexture( Texture * texture, unsigned int texture_id, const unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
 static unsigned int GetStateLayerIndex( unsigned int state, unsigned int layer );
 static float * GetVertices( unsigned int id );
+static void ResetVertices( float * vptr );
+static void UpdateSpriteVertices( unsigned int id );
+static void BindBuffers( unsigned int id );
+static void ClearBufferBindings( void );
 
 void NasrColorPrint( const NasrColor * c )
 {
@@ -228,36 +243,33 @@ int NasrInit
         1, 2, 3    // second triangle
     };
 
-    float vertices_base[] =
-    {
-        // Vertices     // Texture coords   // Color
-        0.5f,  0.5f,   1.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,// top right
-        0.5f, -0.5f,   1.0f, 0.0f,         1.0f, 1.0f, 1.0f, 1.0f, // bottom right
-        -0.5f, -0.5f,   0.0f, 0.0f,         1.0f, 1.0f, 1.0f, 1.0f, // bottom left
-        -0.5f,  0.5f,   0.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,  // top left 
-    };
+    glGenVertexArrays( max_graphics, vaos );
+    glGenBuffers( max_graphics, vbos );
 
     for ( int i = 0; i < max_graphics; ++i )
     {
         float * vptr = GetVertices( i );
-        memcpy( vptr, &vertices_base, sizeof( vertices_base ) );
+        ResetVertices( vptr );
 
-        // vaos
-        glGenVertexArrays( 1, &vaos[ i ] );
-        glBindVertexArray( vaos[ i ] );
+        BindBuffers( i );
 
         // EBO
-        unsigned int EBO;
-        glGenBuffers( 1, &EBO );
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, EBO );
+        unsigned int ebo;
+        glGenBuffers( 1, &ebo );
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
         glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
 
         // VBO
-        glGenBuffers( 1, &vbos[ i ] );
-        glBindBuffer( GL_ARRAY_BUFFER, vbos[ i ] );
         glBufferData( GL_ARRAY_BUFFER, sizeof( vertices_base ), vptr, GL_STATIC_DRAW );
+        glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), 0 );
+        glEnableVertexAttribArray( 0 );
+        glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
+        glEnableVertexAttribArray( 1 );
+        glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 4 * sizeof( float ) ) );
+        glEnableVertexAttribArray( 2 );
         BufferVertices( vptr );
     }
+    ClearBufferBindings();
 
     // Set up shaders
     NasrShader vertex_shader =
@@ -426,6 +438,7 @@ void NasrUpdate( void )
         const unsigned int id = ( unsigned int )( gfx_ptrs_pos_to_id[ i ] );
         const unsigned vao = vaos[ id ];
         float * vptr = GetVertices( id );
+        BindBuffers( id );
         switch ( graphics[ i ].type )
         {
             case ( NASR_GRAPHIC_RECT ):
@@ -448,59 +461,35 @@ void NasrUpdate( void )
             break;
             case ( NASR_GRAPHIC_SPRITE ):
             {
-                const NasrGraphicSprite * sprite = &graphics[ i ].data.sprite;
-                unsigned int texture_id = sprite->texture;
+                #define SPRITE graphics[ i ].data.sprite
+                #define SRC SPRITE.src
+                #define DEST SPRITE.dest
+                unsigned int texture_id = ( unsigned int )( SPRITE.texture );
                 const unsigned int shader = textures[ texture_id ].indexed ? indexed_sprite_shader : sprite_shader;
-                const NasrRect * src = &sprite->src;
-                const NasrRect * dest = &sprite->dest;
                 glUseProgram( shader );
 
-                // Src Coords
-                if ( sprite->flip_x )
-                {
-                    vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].width ) * src->x; // Left X
-                    vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture_id ].width ) * ( src->x + src->w );  // Right X
-                }
-                else
-                {
-                    vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture_id ].width ) * src->x; // Left X
-                    vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].width ) * ( src->x + src->w );  // Right X
-                }
-
-                if ( sprite->flip_y )
-                {
-                    vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * ( src->y + src->h ); // Top Y
-                    vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ texture_id ].height ) * src->y;  // Bottom Y
-                }
-                else
-                {
-                    vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ texture_id ].height ) * ( src->y + src->h ); // Top Y
-                    vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * src->y;  // Bottom Y
-                }
-
-                //BufferVertices();
-                SetVerticesView( dest->x + ( dest->w / 2.0f ), dest->y + ( dest->h / 2.0f ) );
+                SetVerticesView( DEST.x + ( DEST.w / 2.0f ), DEST.y + ( DEST.h / 2.0f ) );
 
                 mat4 model = BASE_MATRIX;
-                vec3 scale = { dest->w, dest->h, 0.0 };
+                vec3 scale = { DEST.w, DEST.h, 0.0 };
                 glm_scale( model, scale );
                 vec3 xrot = { 0.0, 1.0, 0.0 };
-                glm_rotate( model, DEGREES_TO_RADIANS( sprite->rotation_x ), xrot );
+                glm_rotate( model, DEGREES_TO_RADIANS( SPRITE.rotation_x ), xrot );
                 vec3 yrot = { 0.0, 0.0, 1.0 };
-                glm_rotate( model, DEGREES_TO_RADIANS( sprite->rotation_y ), yrot );
+                glm_rotate( model, DEGREES_TO_RADIANS( SPRITE.rotation_y ), yrot );
                 vec3 zrot = { 1.0, 0.0, 0.0 };
-                glm_rotate( model, DEGREES_TO_RADIANS( sprite->rotation_z ), zrot );
+                glm_rotate( model, DEGREES_TO_RADIANS( SPRITE.rotation_z ), zrot );
                 unsigned int model_location = glGetUniformLocation( shader, "model" );
                 glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
 
                 if ( textures[ texture_id ].indexed )
                 {
                     GLint palette_id_location = glGetUniformLocation( shader, "palette_id" );
-                    glUniform1f( palette_id_location, ( float )( sprite->palette ) );
+                    glUniform1f( palette_id_location, ( float )( SPRITE.palette ) );
                 }
 
                 GLint opacity_location = glGetUniformLocation( shader, "opacity" );
-                glUniform1f( opacity_location, ( float )( sprite->opacity ) );
+                glUniform1f( opacity_location, ( float )( SPRITE.opacity ) );
 
                 GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
                 glActiveTexture( GL_TEXTURE0 );
@@ -509,11 +498,14 @@ void NasrUpdate( void )
                 if ( textures[ texture_id ].indexed )
                 {
                     GLint palette_data_location = glGetUniformLocation(shader, "palette_data");
-                    glActiveTexture(GL_TEXTURE1 );
+                    glActiveTexture(GL_TEXTURE1);
                     glBindTexture(GL_TEXTURE_2D, palette_texture_id );
                     glUniform1i(palette_data_location, 1);
                 }
-                SetupVertices( vao );
+
+                #undef SPRITE
+                #undef SRC
+                #undef DEST
             }
             break;
             case ( NASR_GRAPHIC_TILEMAP ):
@@ -574,6 +566,8 @@ void NasrUpdate( void )
             }
             break;
         }
+        SetupVertices( vao );
+        ClearBufferBindings();
     }
 
     glfwSwapBuffers( window );
@@ -709,12 +703,6 @@ static void FramebufferSizeCallback( GLFWwindow * window, int screen_width, int 
 static void BufferVertices( float * vptr )
 {
     glBufferData( GL_ARRAY_BUFFER, sizeof( float ) * VERTEX_RECT_SIZE, vptr, GL_STATIC_DRAW );
-    glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), 0 );
-    glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
-    glEnableVertexAttribArray( 1 );
-    glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 4 * sizeof( float ) ) );
-    glEnableVertexAttribArray( 2 );
 };
 
 static void DrawBox( unsigned int vao, const NasrRect * rect )
@@ -726,12 +714,12 @@ static void DrawBox( unsigned int vao, const NasrRect * rect )
     glm_scale( model, scale );
     unsigned int model_location = glGetUniformLocation( rect_shader, "model" );
     glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
-    SetupVertices( vao );
 };
 
-static void SetVerticesColors( float * vptr, unsigned int vbo, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color )
+static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color )
 {
-    glBindBuffer( GL_ARRAY_BUFFER, vbo );
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
 
     vptr[ 4 ] = bottom_right_color->r / 255.0f;
     vptr[ 5 ] = bottom_right_color->g / 255.0f;
@@ -754,6 +742,7 @@ static void SetVerticesColors( float * vptr, unsigned int vbo, const NasrColor *
     vptr[ 7 + VERTEX_SIZE * 3 ] = bottom_left_color->a / 255.0f;
 
     BufferVertices( vptr );
+    ClearBufferBindings();
 };
 
 static void SetVerticesView( float x, float y )
@@ -767,9 +756,7 @@ static void SetVerticesView( float x, float y )
 
 static void SetupVertices( unsigned int vao )
 {
-    glBindVertexArray( vao );
     glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
-    glBindVertexArray( 0 );
 };
 
 static void UpdateShaderOrtho( void )
@@ -1189,8 +1176,9 @@ int NasrGraphicsAddRect
     graphic.data.rect.rect = rect;
     graphic.data.rect.color = color;
     int id = NasrGraphicsAdd( abs, state, layer, graphic );
-    if ( id ) {
-        SetVerticesColors( GetVertices( id ), vbos[ id ], &graphic.data.rect.color, &graphic.data.rect.color, &graphic.data.rect.color, &graphic.data.rect.color );
+    if ( id > -1 ) {
+        ResetVertices( GetVertices( id ) );
+        SetVerticesColors( id, &graphic.data.rect.color, &graphic.data.rect.color, &graphic.data.rect.color, &graphic.data.rect.color );
     }
     return id;
 };
@@ -1288,8 +1276,10 @@ int NasrGraphicsAddRectGradient
         break;
     }
     const int id = NasrGraphicsAdd( abs, state, layer, graphic );
-    if ( id ) {
-        SetVerticesColors( GetVertices( id ), vbos[ id ], &graphic.data.gradient.color1, &graphic.data.gradient.color2, &graphic.data.gradient.color3, &graphic.data.gradient.color4 );
+    if ( id > -1 )
+    {
+        ResetVertices( GetVertices( id ) );
+        SetVerticesColors( id, &graphic.data.gradient.color1, &graphic.data.gradient.color2, &graphic.data.gradient.color3, &graphic.data.gradient.color4 );
     }
     return id;
 };
@@ -1327,7 +1317,13 @@ int NasrGraphicsAddSprite
     graphic.data.sprite.rotation_z = rotation_z;
     graphic.data.sprite.opacity = opacity;
     graphic.data.sprite.palette = palette;
-    return NasrGraphicsAdd( abs, state, layer, graphic );
+    const int id = NasrGraphicsAdd( abs, state, layer, graphic );
+    if ( id > -1 )
+    {
+        ResetVertices( GetVertices( id ) );
+        UpdateSpriteVertices( id );
+    }
+    return id;
 };
 
 int NasrGraphicsAddTilemap
@@ -1378,6 +1374,268 @@ int NasrGraphicsAddTilemap
     graphic.data.tilemap.dest.h = ( float )( h ) * 16.0f;
     return NasrGraphicsAdd( abs, state, layer, graphic );
 }
+
+float NasrGraphicsSpriteGetDestY( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.dest.y;
+};
+
+void NasrGraphicsSpriteSetDestY( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.dest.y = v;
+};
+
+float NasrGraphicsSpriteGetDestX( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.dest.x;
+};
+
+void NasrGraphicsSpriteSetDestX( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.dest.x = v;
+};
+
+float NasrGraphicsSpriteGetDestH( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.dest.h;
+};
+
+void NasrGraphicsSpriteSetDestH( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.dest.h = v;
+};
+
+float NasrGraphicsSpriteGetDestW( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.dest.w;
+};
+
+void NasrGraphicsSpriteSetDestW( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.dest.w = v;
+};
+
+float NasrGraphicsSpriteGetSrcY( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.src.y;
+};
+
+void NasrGraphicsSpriteSetSrcY( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.src.y = v;
+};
+
+float NasrGraphicsSpriteGetSrcX( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.src.x;
+};
+
+void NasrGraphicsSpriteSetSrcX( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.src.x = v;
+};
+
+float NasrGraphicsSpriteGetSrcH( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.src.h;
+};
+
+void NasrGraphicsSpriteSetSrcH( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.src.h = v;
+};
+
+float NasrGraphicsSpriteGetSrcW( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.src.w;
+};
+
+void NasrGraphicsSpriteSetSrcW( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.src.w = v;
+};
+
+float NasrGraphicsSpriteGetRotationX( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.rotation_x;
+};
+
+void NasrGraphicsSpriteSetRotationX( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.rotation_x = v;
+};
+
+float NasrGraphicsSpriteGetRotationY( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.rotation_y;
+};
+
+void NasrGraphicsSpriteSetRotationY( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.rotation_y = v;
+};
+
+float NasrGraphicsSpriteGetRotationZ( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.rotation_z;
+};
+
+void NasrGraphicsSpriteSetRotationZ( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.rotation_z = v;
+};
+
+float NasrGraphicsSpriteGetOpacity( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.opacity;
+};
+
+void NasrGraphicsSpriteSetOpacity( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.opacity = v;
+};
+
+int NasrGraphicsSpriteGetFlipX( unsigned id )
+{
+    return NasrGraphicGet( id )->data.sprite.flip_x;
+};
+
+void NasrGraphicsSpriteSetFlipX( unsigned id, int v )
+{
+    NasrGraphicGet( id )->data.sprite.flip_x = v;
+    UpdateSpriteX( id );
+};
+
+void NasrGraphicsSpriteFlipX( unsigned id )
+{
+    NasrGraphicGet( id )->data.sprite.flip_x = !NasrGraphicGet( id )->data.sprite.flip_x;
+    UpdateSpriteX( id );
+};
+
+int NasrGraphicsSpriteGetFlipY( unsigned id )
+{
+    return NasrGraphicGet( id )->data.sprite.flip_y;
+};
+
+void NasrGraphicsSpriteSetFlipY( unsigned id, int v )
+{
+    NasrGraphicGet( id )->data.sprite.flip_y = v;
+    UpdateSpriteY( id );
+};
+
+void NasrGraphicsSpriteFlipY( unsigned id )
+{
+    NasrGraphicGet( id )->data.sprite.flip_y = !NasrGraphicGet( id )->data.sprite.flip_y;
+    UpdateSpriteY( id );
+};
+
+float NasrGraphicsRectGetX( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.rect.rect.x;
+};
+
+void NasrGraphicsRectSetX( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.rect.rect.x = v;
+};
+
+void NasrGraphicsRectAddToX( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.rect.rect.x += v;
+};
+
+float NasrGraphicsRectGetY( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.rect.rect.y;
+};
+
+void NasrGraphicsRectSetY( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.rect.rect.y = v;
+};
+
+void NasrGraphicsRectAddToY( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.rect.rect.y += v;
+};
+
+float NasrGraphicsRectGetW( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.rect.rect.w;
+};
+
+void NasrGraphicsRectSetW( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.rect.rect.w = v;
+};
+
+void NasrGraphicsRectAddToW( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.rect.rect.w += v;
+};
+
+float NasrGraphicsRectGetH( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.rect.rect.h;
+};
+
+void NasrGraphicsRectSetH( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.rect.rect.h = v;
+};
+
+void NasrGraphicsRectAddToH( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.rect.rect.h += v;
+};
+
+void NasrGraphicRectSetColor( unsigned int id, NasrColor v )
+{
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
+    vptr[ 4 ] = vptr[ 4 + VERTEX_SIZE ] = vptr[ 4 + VERTEX_SIZE * 2 ] = vptr[ 4 + VERTEX_SIZE * 3 ] = v.r / 255.0f;
+    vptr[ 5 ] = vptr[ 5 + VERTEX_SIZE ] = vptr[ 5 + VERTEX_SIZE * 2 ] = vptr[ 5 + VERTEX_SIZE * 3 ] = v.g / 255.0f;
+    vptr[ 6 ] = vptr[ 6 + VERTEX_SIZE ] = vptr[ 6 + VERTEX_SIZE * 2 ] = vptr[ 6 + VERTEX_SIZE * 3 ] = v.b / 255.0f;
+    vptr[ 7 ] = vptr[ 7 + VERTEX_SIZE ] = vptr[ 7 + VERTEX_SIZE * 2 ] = vptr[ 7 + VERTEX_SIZE * 3 ] = v.a / 255.0f;
+    BufferVertices( vptr );
+    ClearBufferBindings();
+};
+
+void NasrGraphicRectSetColorR( unsigned int id, float v )
+{
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
+    vptr[ 4 ] = vptr[ 4 + VERTEX_SIZE ] = vptr[ 4 + VERTEX_SIZE * 2 ] = vptr[ 4 + VERTEX_SIZE * 3 ] = v / 255.0f;
+    BufferVertices( vptr );
+    ClearBufferBindings();
+};
+
+void NasrGraphicRectSetColorG( unsigned int id, float v )
+{
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
+    vptr[ 5 ] = vptr[ 5 + VERTEX_SIZE ] = vptr[ 5 + VERTEX_SIZE * 2 ] = vptr[ 5 + VERTEX_SIZE * 3 ] = v / 255.0f;
+    BufferVertices( vptr );
+    ClearBufferBindings();
+};
+
+void NasrGraphicRectSetColorB( unsigned int id, float v )
+{
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
+    vptr[ 6 ] = vptr[ 6 + VERTEX_SIZE ] = vptr[ 6 + VERTEX_SIZE * 2 ] = vptr[ 6 + VERTEX_SIZE * 3 ] = v / 255.0f;
+    BufferVertices( vptr );
+    ClearBufferBindings();
+};
+
+void NasrGraphicRectSetColorA( unsigned int id, float v )
+{
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
+    vptr[ 7 ] = vptr[ 7 + VERTEX_SIZE ] = vptr[ 7 + VERTEX_SIZE * 2 ] = vptr[ 7 + VERTEX_SIZE * 3 ] = v / 255.0f;
+    BufferVertices( vptr );
+    ClearBufferBindings();
+};
 
 int NasrLoadFileAsTexture( char * filename )
 {
@@ -2006,4 +2264,94 @@ void NasrDebugGraphics( void )
 static float * GetVertices( unsigned int id )
 {
     return &vertices2[ id * VERTEX_RECT_SIZE ];
+};
+
+static void ResetVertices( float * vptr )
+{
+    memcpy( vptr, &vertices_base, sizeof( vertices_base ) );
+};
+
+static void UpdateSpriteVertices( unsigned int id )
+{
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
+    const NasrGraphicSprite * sprite = &graphics[ gfx_ptrs_id_to_pos[ id ] ].data.sprite;
+    const unsigned int texture_id = sprite->texture;
+
+    if ( sprite->flip_x )
+    {
+        vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].width ) * sprite->src.x; // Left X
+        vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture_id ].width ) * ( sprite->src.x + sprite->src.w );  // Right X
+    }
+    else
+    {
+        vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture_id ].width ) * sprite->src.x; // Left X
+        vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].width ) * ( sprite->src.x + sprite->src.w );  // Right X
+    }
+
+    if ( sprite->flip_y )
+    {
+        vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * ( sprite->src.y + sprite->src.h ); // Top Y
+        vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / ( float )( textures[ texture_id ].height ) * sprite->src.y;  // Bottom Y
+    }
+    else
+    {
+        vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / ( float )( textures[ texture_id ].height ) * ( sprite->src.y + sprite->src.h ); // Top Y
+        vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * sprite->src.y;  // Bottom Y
+    }
+    BufferVertices( vptr );
+    ClearBufferBindings();
+};
+
+static void UpdateSpriteX( unsigned int id )
+{
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
+    const NasrGraphicSprite * sprite = &graphics[ gfx_ptrs_id_to_pos[ id ] ].data.sprite;
+    const unsigned int texture_id = sprite->texture;
+    if ( sprite->flip_x )
+    {
+        vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].width ) * sprite->src.x; // Left X
+        vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture_id ].width ) * ( sprite->src.x + sprite->src.w );  // Right X
+    }
+    else
+    {
+        vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture_id ].width ) * sprite->src.x; // Left X
+        vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].width ) * ( sprite->src.x + sprite->src.w );  // Right X
+    }
+    BufferVertices( vptr );
+    ClearBufferBindings();
+};
+
+static void UpdateSpriteY( unsigned int id )
+{
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
+    const NasrGraphicSprite * sprite = &graphics[ gfx_ptrs_id_to_pos[ id ] ].data.sprite;
+    const unsigned int texture_id = sprite->texture;
+    if ( sprite->flip_y )
+    {
+        vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * ( sprite->src.y + sprite->src.h ); // Top Y
+        vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / ( float )( textures[ texture_id ].height ) * sprite->src.y;  // Bottom Y
+    }
+    else
+    {
+        vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / ( float )( textures[ texture_id ].height ) * ( sprite->src.y + sprite->src.h ); // Top Y
+        vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * sprite->src.y;  // Bottom Y
+    }
+    BufferVertices( vptr );
+    ClearBufferBindings();
+};
+
+static void BindBuffers( unsigned int id )
+{
+    glBindVertexArray( vaos[ id ] );
+    glBindBuffer( GL_ARRAY_BUFFER, vbos[ id ] );
+};
+
+static void ClearBufferBindings( void )
+{
+    glBindVertexArray( 0 );
+    glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
 };
