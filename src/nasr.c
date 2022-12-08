@@ -40,14 +40,7 @@ static float vertices[] =
     -0.5f,  0.5f,   0.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,  // top left 
 };
 
-static unsigned int indices[] =
-{  // note that we start from 0!
-    0, 1, 3,   // first triangle
-    1, 2, 3    // second triangle
-};
-
 static float * vertices2;
-static unsigned int * indices2;
 
 #define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
 #define NUMBER_O_BASE_SHADERS 4
@@ -58,7 +51,8 @@ typedef struct { TextureMapKey key; unsigned int value; } TextureMapEntry;
 
 static int magnification = 1;
 static GLFWwindow * window;
-static unsigned int VAO;
+static unsigned int * vaos;
+static unsigned int * vbos;
 static unsigned int rect_shader;
 static unsigned int sprite_shader;
 static unsigned int indexed_sprite_shader;
@@ -106,11 +100,11 @@ static unsigned int animation_timer = 0;
 
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
-static void BufferVertices();
-static void DrawBox( const NasrRect * rect, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
-static void SetVerticesColors( const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
+static void BufferVertices( float * vptr );
+static void DrawBox( unsigned int vao, const NasrRect * rect );
+static void SetVerticesColors( float * vptr, unsigned int vbo, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesView( float x, float y );
-static void SetupVertices();
+static void SetupVertices( unsigned int vao );
 static void UpdateShaderOrtho( void );
 static void HandleInput( GLFWwindow * window, int key, int scancode, int action, int mods );
 static int * GetKeyInputs( int key );
@@ -124,6 +118,7 @@ static GLint GetGLRGBA( int indexed );
 static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
 static void AddTexture( Texture * texture, unsigned int texture_id, const unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
 static unsigned int GetStateLayerIndex( unsigned int state, unsigned int layer );
+static float * GetVertices( unsigned int id );
 
 void NasrColorPrint( const NasrColor * c )
 {
@@ -222,45 +217,47 @@ int NasrInit
     texture_ids = calloc( max_textures, sizeof( unsigned int ) );
     glGenTextures( max_textures, texture_ids );
 
+    max_graphics = init_max_graphics;
+    vaos = calloc( max_graphics, sizeof( unsigned int ) );
+    vbos = calloc( max_graphics, sizeof( unsigned int ) );
     vertices2 = calloc( max_graphics * VERTEX_RECT_SIZE, sizeof( float ) );
-    indices2 = calloc( max_graphics * INDICES_SIZE, sizeof( unsigned int ) );
+
+    const unsigned int indices[] =
+    {  // note that we start from 0!
+        0, 1, 3,   // first triangle
+        1, 2, 3    // second triangle
+    };
+
+    float vertices_base[] =
+    {
+        // Vertices     // Texture coords   // Color
+        0.5f,  0.5f,   1.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,// top right
+        0.5f, -0.5f,   1.0f, 0.0f,         1.0f, 1.0f, 1.0f, 1.0f, // bottom right
+        -0.5f, -0.5f,   0.0f, 0.0f,         1.0f, 1.0f, 1.0f, 1.0f, // bottom left
+        -0.5f,  0.5f,   0.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,  // top left 
+    };
 
     for ( int i = 0; i < max_graphics; ++i )
     {
-        const int istep = INDICES_SIZE * i;
-        indices2[ istep ] = 0;
-        indices2[ istep + 1 ] = 1;
-        indices2[ istep + 2 ] = 3;
-        indices2[ istep + 3 ] = 1;
-        indices2[ istep + 4 ] = 2;
-        indices2[ istep + 5 ] = 3;
+        float * vptr = GetVertices( i );
+        memcpy( vptr, &vertices_base, sizeof( vertices_base ) );
 
-        const int vstep = VERTEX_RECT_SIZE * i;
-        vertices2[ vstep ] = vertices2[ vstep + 1 ] = vertices2[ vstep + 8 ] = vertices2[ vstep + 25 ] = 0.5f;
-        vertices2[ vstep + 9 ] = vertices2[ vstep + 16 ] = vertices2[ vstep + 17 ] = vertices2[ vstep + 24 ] = -0.5f;
-        vertices2[ vstep + 11 ] = vertices2[ vstep + 18 ] = vertices2[ vstep + 19 ] = vertices2[ vstep + 26 ] = 0.0f;
-        vertices2[ vstep + 2 ] = vertices2[ vstep + 3 ] = vertices2[ vstep + 4 ] = vertices2[ vstep + 5 ] = vertices2[ vstep + 6 ] = vertices2[ vstep + 7 ] = vertices2[ vstep + 10 ] = vertices2[ vstep + 12 ] = vertices2[ vstep + 13 ] = vertices2[ vstep + 14 ] = vertices2[ vstep + 15 ] = vertices2[ vstep + 20 ] = vertices2[ vstep + 21 ] = vertices2[ vstep + 22 ] = vertices2[ vstep + 23 ] = vertices2[ vstep + 27 ] = vertices2[ vstep + 28 ] = vertices2[ vstep + 29 ] = vertices2[ vstep + 30 ] = vertices2[ vstep + 31 ] = 1.0f;
+        // vaos
+        glGenVertexArrays( 1, &vaos[ i ] );
+        glBindVertexArray( vaos[ i ] );
+
+        // EBO
+        unsigned int EBO;
+        glGenBuffers( 1, &EBO );
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, EBO );
+        glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
+
+        // VBO
+        glGenBuffers( 1, &vbos[ i ] );
+        glBindBuffer( GL_ARRAY_BUFFER, vbos[ i ] );
+        glBufferData( GL_ARRAY_BUFFER, sizeof( vertices_base ), vptr, GL_STATIC_DRAW );
+        BufferVertices( vptr );
     }
-
-    // VBO
-    unsigned int VBO;
-    glGenBuffers( 1, &VBO );
-    glBindBuffer( GL_ARRAY_BUFFER, VBO );
-    glBufferData( GL_ARRAY_BUFFER, sizeof( vertices2 ), vertices2, GL_STATIC_DRAW );
-
-    // VAO
-    glGenVertexArrays( 1, &VAO );
-    glBindVertexArray( VAO );
-
-    // EBO
-    unsigned int EBO;
-    glGenBuffers( 1, &EBO );
-    glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, EBO );
-    glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices2 ), indices2, GL_STATIC_DRAW );
-
-    // Bind buffers
-    glBindBuffer( GL_ARRAY_BUFFER, VBO );
-    BufferVertices();
 
     // Set up shaders
     NasrShader vertex_shader =
@@ -315,7 +312,6 @@ int NasrInit
     UpdateShaderOrtho();
 
     // Init graphics list
-    max_graphics = init_max_graphics;
     max_states = init_max_states;
     max_gfx_layers = init_max_gfx_layers;
     graphics = calloc( max_graphics, sizeof( NasrGraphic ) );
@@ -363,8 +359,6 @@ void NasrClose( void )
     glDeleteTextures( max_textures, texture_ids );
     free( texture_map );
     free( keydata );
-    free( vertices2 );
-    free( indices2 );
     if ( textures != NULL )
     {
         free( textures );
@@ -429,17 +423,17 @@ void NasrUpdate( void )
 
     for ( int i = 0; i < num_o_graphics; ++i )
     {
+        const unsigned int id = ( unsigned int )( gfx_ptrs_pos_to_id[ i ] );
+        const unsigned vao = vaos[ id ];
+        float * vptr = GetVertices( id );
         switch ( graphics[ i ].type )
         {
             case ( NASR_GRAPHIC_RECT ):
             {
                 DrawBox
                 (
-                    &graphics[ i ].data.rect.rect,
-                    &graphics[ i ].data.rect.color,
-                    &graphics[ i ].data.rect.color,
-                    &graphics[ i ].data.rect.color,
-                    &graphics[ i ].data.rect.color
+                    vao,
+                    &graphics[ i ].data.rect.rect
                 );
             }
             break;
@@ -447,11 +441,8 @@ void NasrUpdate( void )
             {
                 DrawBox
                 (
-                    &graphics[ i ].data.gradient.rect,
-                    &graphics[ i ].data.gradient.color1,
-                    &graphics[ i ].data.gradient.color2,
-                    &graphics[ i ].data.gradient.color3,
-                    &graphics[ i ].data.gradient.color4
+                    vao,
+                    &graphics[ i ].data.gradient.rect
                 );
             }
             break;
@@ -487,7 +478,7 @@ void NasrUpdate( void )
                     vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * src->y;  // Bottom Y
                 }
 
-                BufferVertices();
+                //BufferVertices();
                 SetVerticesView( dest->x + ( dest->w / 2.0f ), dest->y + ( dest->h / 2.0f ) );
 
                 mat4 model = BASE_MATRIX;
@@ -522,7 +513,7 @@ void NasrUpdate( void )
                     glBindTexture(GL_TEXTURE_2D, palette_texture_id );
                     glUniform1i(palette_data_location, 1);
                 }
-                SetupVertices();
+                SetupVertices( vao );
             }
             break;
             case ( NASR_GRAPHIC_TILEMAP ):
@@ -536,7 +527,7 @@ void NasrUpdate( void )
                 vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ TG.tilemap ].height ) * ( TG.src.y + TG.src.h ); // Top Y
                 vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ TG.tilemap ].height ) * TG.src.y;  // Bottom Y
 
-                BufferVertices();
+                //BufferVertices();
                 SetVerticesView( TG.dest.x + ( TG.dest.w / 2.0f ), TG.dest.y + ( TG.dest.h / 2.0f ) );
 
                 mat4 model = BASE_MATRIX;
@@ -572,7 +563,7 @@ void NasrUpdate( void )
                 glActiveTexture(GL_TEXTURE2 );
                 glBindTexture(GL_TEXTURE_2D, texture_ids[ TG.tilemap ] );
                 glUniform1i(map_data_location, 2);
-                SetupVertices();
+                SetupVertices( vao );
 
                 #undef TG
             }
@@ -715,9 +706,9 @@ static void FramebufferSizeCallback( GLFWwindow * window, int screen_width, int 
     glViewport( magnified_canvas_x, magnified_canvas_y, magnified_canvas_width, magnified_canvas_height );
 };
 
-static void BufferVertices( void )
+static void BufferVertices( float * vptr )
 {
-    glBufferData( GL_ARRAY_BUFFER, VERTEX_RECT_SIZE, vertices2, GL_STATIC_DRAW );
+    glBufferData( GL_ARRAY_BUFFER, sizeof( float ) * VERTEX_RECT_SIZE, vptr, GL_STATIC_DRAW );
     glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), 0 );
     glEnableVertexAttribArray( 0 );
     glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
@@ -726,41 +717,43 @@ static void BufferVertices( void )
     glEnableVertexAttribArray( 2 );
 };
 
-static void DrawBox( const NasrRect * rect, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color )
+static void DrawBox( unsigned int vao, const NasrRect * rect )
 {
     glUseProgram( rect_shader );
-    SetVerticesColors( top_left_color, top_right_color, bottom_left_color, bottom_right_color );
-    BufferVertices();
     SetVerticesView( rect->x + ( rect->w / 2.0f ), rect->y + ( rect->h / 2.0f ) );
     mat4 model = BASE_MATRIX;
     vec3 scale = { rect->w, rect->h, 0.0 };
     glm_scale( model, scale );
     unsigned int model_location = glGetUniformLocation( rect_shader, "model" );
     glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
-    SetupVertices();
+    SetupVertices( vao );
 };
 
-static void SetVerticesColors( const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color )
+static void SetVerticesColors( float * vptr, unsigned int vbo, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color )
 {
-    vertices2[ 4 ] = bottom_right_color->r / 255.0f;
-    vertices2[ 5 ] = bottom_right_color->g / 255.0f;
-    vertices2[ 6 ] = bottom_right_color->b / 255.0f;
-    vertices2[ 7 ] = bottom_right_color->a / 255.0f;
+    glBindBuffer( GL_ARRAY_BUFFER, vbo );
 
-    vertices2[ 4 + VERTEX_SIZE ] = top_right_color->r / 255.0f;
-    vertices2[ 5 + VERTEX_SIZE ] = top_right_color->g / 255.0f;
-    vertices2[ 6 + VERTEX_SIZE ] = top_right_color->b / 255.0f;
-    vertices2[ 7 + VERTEX_SIZE ] = top_right_color->a / 255.0f;
+    vptr[ 4 ] = bottom_right_color->r / 255.0f;
+    vptr[ 5 ] = bottom_right_color->g / 255.0f;
+    vptr[ 6 ] = bottom_right_color->b / 255.0f;
+    vptr[ 7 ] = bottom_right_color->a / 255.0f;
 
-    vertices2[ 4 + VERTEX_SIZE * 2 ] = top_left_color->r / 255.0f;
-    vertices2[ 5 + VERTEX_SIZE * 2 ] = top_left_color->g / 255.0f;
-    vertices2[ 6 + VERTEX_SIZE * 2 ] = top_left_color->b / 255.0f;
-    vertices2[ 7 + VERTEX_SIZE * 2 ] = top_left_color->a / 255.0f;
+    vptr[ 4 + VERTEX_SIZE ] = top_right_color->r / 255.0f;
+    vptr[ 5 + VERTEX_SIZE ] = top_right_color->g / 255.0f;
+    vptr[ 6 + VERTEX_SIZE ] = top_right_color->b / 255.0f;
+    vptr[ 7 + VERTEX_SIZE ] = top_right_color->a / 255.0f;
 
-    vertices2[ 4 + VERTEX_SIZE * 3 ] = bottom_left_color->r / 255.0f;
-    vertices2[ 5 + VERTEX_SIZE * 3 ] = bottom_left_color->g / 255.0f;
-    vertices2[ 6 + VERTEX_SIZE * 3 ] = bottom_left_color->b / 255.0f;
-    vertices2[ 7 + VERTEX_SIZE * 3 ] = bottom_left_color->a / 255.0f;
+    vptr[ 4 + VERTEX_SIZE * 2 ] = top_left_color->r / 255.0f;
+    vptr[ 5 + VERTEX_SIZE * 2 ] = top_left_color->g / 255.0f;
+    vptr[ 6 + VERTEX_SIZE * 2 ] = top_left_color->b / 255.0f;
+    vptr[ 7 + VERTEX_SIZE * 2 ] = top_left_color->a / 255.0f;
+
+    vptr[ 4 + VERTEX_SIZE * 3 ] = bottom_left_color->r / 255.0f;
+    vptr[ 5 + VERTEX_SIZE * 3 ] = bottom_left_color->g / 255.0f;
+    vptr[ 6 + VERTEX_SIZE * 3 ] = bottom_left_color->b / 255.0f;
+    vptr[ 7 + VERTEX_SIZE * 3 ] = bottom_left_color->a / 255.0f;
+
+    BufferVertices( vptr );
 };
 
 static void SetVerticesView( float x, float y )
@@ -772,10 +765,10 @@ static void SetVerticesView( float x, float y )
     glUniformMatrix4fv( view_location, 1, GL_FALSE, ( float * )( view ) );
 };
 
-static void SetupVertices( void )
+static void SetupVertices( unsigned int vao )
 {
-    glBindVertexArray( VAO );
-    glDrawElements( GL_TRIANGLES, INDICES_SIZE * max_graphics, GL_UNSIGNED_INT, 0 );
+    glBindVertexArray( vao );
+    glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
     glBindVertexArray( 0 );
 };
 
@@ -1195,7 +1188,11 @@ int NasrGraphicsAddRect
     graphic.type = NASR_GRAPHIC_RECT;
     graphic.data.rect.rect = rect;
     graphic.data.rect.color = color;
-    return NasrGraphicsAdd( abs, state, layer, graphic );
+    int id = NasrGraphicsAdd( abs, state, layer, graphic );
+    if ( id ) {
+        SetVerticesColors( GetVertices( id ), vbos[ id ], &graphic.data.rect.color, &graphic.data.rect.color, &graphic.data.rect.color, &graphic.data.rect.color );
+    }
+    return id;
 };
 
 int NasrGraphicsAddRectGradient
@@ -1290,7 +1287,11 @@ int NasrGraphicsAddRectGradient
         }
         break;
     }
-    return NasrGraphicsAdd( abs, state, layer, graphic );
+    const int id = NasrGraphicsAdd( abs, state, layer, graphic );
+    if ( id ) {
+        SetVerticesColors( GetVertices( id ), vbos[ id ], &graphic.data.gradient.color1, &graphic.data.gradient.color2, &graphic.data.gradient.color3, &graphic.data.gradient.color4 );
+    }
+    return id;
 };
 
 int NasrGraphicsAddSprite
@@ -1593,6 +1594,7 @@ void NasrDrawRectToTexture( NasrRect rect, NasrColor color )
     rect.y = ( textures[ selected_texture ].height - ( rect.y + rect.h ) ) * ( canvas.h / textures[ selected_texture ].height );
     rect.w *= canvas.w / textures[ selected_texture ].width;
     rect.h *= canvas.h / textures[ selected_texture ].height;
+    /*
     DrawBox
     (
         &rect,
@@ -1600,7 +1602,7 @@ void NasrDrawRectToTexture( NasrRect rect, NasrColor color )
         &color,
         &color,
         &color
-    );
+    );*/
 };
 
 void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, NasrColor color2 )
@@ -1681,6 +1683,7 @@ void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, Na
         }
         break;
     }
+    /*
     DrawBox
     (
         &rect,
@@ -1688,7 +1691,7 @@ void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, Na
         &cbr,
         &cur,
         &cul
-    );
+    );*/
 };
 
 void NasrDrawSpriteToTexture(
@@ -1733,7 +1736,7 @@ void NasrDrawSpriteToTexture(
         vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ texture ].height ) * src.y;  // Bottom Y
     }
 
-    BufferVertices();
+    //BufferVertices();
     SetVerticesView( dest.x + ( dest.w / 2.0f ), dest.y + ( dest.h / 2.0f ) );
 
     mat4 model = BASE_MATRIX;
@@ -1755,7 +1758,7 @@ void NasrDrawSpriteToTexture(
     glActiveTexture( GL_TEXTURE0 );
     glBindTexture( GL_TEXTURE_2D, texture_ids[ texture ] );
     glUniform1i( texture_data_location, 0 );
-    SetupVertices();
+    //SetupVertices();
 };
 
 int NasrHeld( int id )
@@ -1998,4 +2001,9 @@ void NasrDebugGraphics( void )
         printf( "\n" );
     }
     printf( "=================\n" );
+};
+
+static float * GetVertices( unsigned int id )
+{
+    return &vertices2[ id * VERTEX_RECT_SIZE ];
 };

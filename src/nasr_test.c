@@ -39,8 +39,8 @@ void NasrTestRun( void )
     };
     NasrRegisterInputs( inputs, 10 );
 
-
     #define RECTCOUNT 128
+    #define SPEED 1.0f
 
     time_t t;
     srand( ( unsigned )( time( &t ) ) );
@@ -51,64 +51,67 @@ void NasrTestRun( void )
     for ( int i = 0; i < RECTCOUNT; ++i )
     {
         NasrRect r = { ( i % 16 ) * 32.0f + 16.0f, floor( i / 16 ) * 32.0f + 16.0f, 16.0f, 16.0f };
-        NasrColor c = { ( i % 8 ) * 32.0f, floor( i / 8 ) * 32.0f, 255.0f, 255.0f };
-        ids[ i ] = NasrGraphicsAddRect
+        NasrColor c1 = { ( i % 8 ) * 32.0f, floor( i / 8 ) * 32.0f, 255.0f, 255.0f };
+        NasrColor c2 = {  255.0f, ( i % 8 ) * 32.0f, floor( i / 8 ) * 32.0f, 255.0f };
+        int d = rand() % 8;
+        ids[ i ] = NasrGraphicsAddRectGradient
         (
             0,
             0,
             0,
             r,
-            c
+            d,
+            c1,
+            c2
         );
-        int d = rand() % 8;
         switch ( d )
         {
             case ( NASR_DIR_UP ):
             {
-                accy[ i ] = -1.0f;
+                accy[ i ] = -SPEED;
                 accx[ i ] = 0.0f;
             }
             break;
             case ( NASR_DIR_UPRIGHT ):
             {
-                accy[ i ] = -1.0f;
-                accx[ i ] = 1.0f;
+                accy[ i ] = -SPEED;
+                accx[ i ] = SPEED;
             }
             break;
             case ( NASR_DIR_RIGHT ):
             {
                 accy[ i ] = 0.0f;
-                accx[ i ] = 1.0f;
+                accx[ i ] = SPEED;
             }
             break;
             case ( NASR_DIR_DOWNRIGHT ):
             {
-                accy[ i ] = 1.0f;
-                accx[ i ] = 1.0f;
+                accy[ i ] = SPEED;
+                accx[ i ] = SPEED;
             }
             break;
             case ( NASR_DIR_DOWN ):
             {
-                accy[ i ] = 1.0f;
+                accy[ i ] = SPEED;
                 accx[ i ] = 0.0f;
             }
             break;
             case ( NASR_DIR_DOWNLEFT ):
             {
-                accy[ i ] = 1.0f;
-                accx[ i ] = -1.0f;
+                accy[ i ] = SPEED;
+                accx[ i ] = -SPEED;
             }
             break;
             case ( NASR_DIR_LEFT ):
             {
                 accy[ i ] = 0.0f;
-                accx[ i ] = -1.0f;
+                accx[ i ] = -SPEED;
             }
             break;
             case ( NASR_DIR_UPLEFT ):
             {
-                accy[ i ] = -1.0f;
-                accx[ i ] = -1.0f;
+                accy[ i ] = -SPEED;
+                accx[ i ] = -SPEED;
             }
             break;
         }
@@ -129,19 +132,19 @@ void NasrTestRun( void )
                 g->data.rect.rect.y += accy[ i ];
                 if ( g->data.rect.rect.x > 520.0f )
                 {
-                    accx[ i ] = -1.0f;
+                    accx[ i ] = -SPEED;
                 }
                 else if ( g->data.rect.rect.x < 0.0f )
                 {
-                    accx[ i ] = 1.0f;
+                    accx[ i ] = SPEED;
                 }
                 if ( g->data.rect.rect.y > 320.0f )
                 {
-                    accy[ i ] = -1.0f;
+                    accy[ i ] = -SPEED;
                 }
                 else if ( g->data.rect.rect.y < 0.0f )
                 {
-                    accy[ i ] = 1.0f;
+                    accy[ i ] = SPEED;
                 }
             }
             NasrUpdate();
