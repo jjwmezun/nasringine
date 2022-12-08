@@ -514,12 +514,6 @@ void NasrUpdate( void )
 
                 #define TG graphics[ i ].data.tilemap
 
-                vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ TG.tilemap ].width ) * TG.src.x; // Left X
-                vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ TG.tilemap ].width ) * ( TG.src.x + TG.src.w );  // Right X
-                vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ TG.tilemap ].height ) * ( TG.src.y + TG.src.h ); // Top Y
-                vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ TG.tilemap ].height ) * TG.src.y;  // Bottom Y
-
-                //BufferVertices();
                 SetVerticesView( TG.dest.x + ( TG.dest.w / 2.0f ), TG.dest.y + ( TG.dest.h / 2.0f ) );
 
                 mat4 model = BASE_MATRIX;
@@ -555,7 +549,6 @@ void NasrUpdate( void )
                 glActiveTexture(GL_TEXTURE2 );
                 glBindTexture(GL_TEXTURE_2D, texture_ids[ TG.tilemap ] );
                 glUniform1i(map_data_location, 2);
-                SetupVertices( vao );
 
                 #undef TG
             }
@@ -1372,7 +1365,20 @@ int NasrGraphicsAddTilemap
     graphic.data.tilemap.dest.y = 0.0f;
     graphic.data.tilemap.dest.w = ( float )( w ) * 16.0f;
     graphic.data.tilemap.dest.h = ( float )( h ) * 16.0f;
-    return NasrGraphicsAdd( abs, state, layer, graphic );
+    const int id = NasrGraphicsAdd( abs, state, layer, graphic );
+    if ( id > -1 )
+    {
+        BindBuffers( id );
+        float * vptr = GetVertices( id );
+        ResetVertices( vptr );
+        vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ tilemap_texture ].width ) * graphic.data.tilemap.src.x; // Left X
+        vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ tilemap_texture ].width ) * ( graphic.data.tilemap.src.x + graphic.data.tilemap.src.w );  // Right X
+        vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / ( float )( textures[ tilemap_texture ].height ) * ( graphic.data.tilemap.src.y + graphic.data.tilemap.src.h ); // Top Y
+        vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ tilemap_texture ].height ) * graphic.data.tilemap.src.y;  // Bottom Y
+        BufferVertices( vptr );
+        ClearBufferBindings();
+    }
+    return id;
 }
 
 float NasrGraphicsSpriteGetDestY( unsigned int id )
@@ -1385,6 +1391,11 @@ void NasrGraphicsSpriteSetDestY( unsigned int id, float v )
     NasrGraphicGet( id )->data.sprite.dest.y = v;
 };
 
+void NasrGraphicsSpriteAddToDestY( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.dest.y += v;
+};
+
 float NasrGraphicsSpriteGetDestX( unsigned int id )
 {
     return NasrGraphicGet( id )->data.sprite.dest.x;
@@ -1393,6 +1404,11 @@ float NasrGraphicsSpriteGetDestX( unsigned int id )
 void NasrGraphicsSpriteSetDestX( unsigned int id, float v )
 {
     NasrGraphicGet( id )->data.sprite.dest.x = v;
+};
+
+void NasrGraphicsSpriteAddToDestX( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.dest.x += v;
 };
 
 float NasrGraphicsSpriteGetDestH( unsigned int id )
@@ -1473,6 +1489,16 @@ float NasrGraphicsSpriteGetRotationY( unsigned int id )
 void NasrGraphicsSpriteSetRotationY( unsigned int id, float v )
 {
     NasrGraphicGet( id )->data.sprite.rotation_y = v;
+};
+
+unsigned char NasrGraphicsSpriteGetPalette( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.palette;
+};
+
+void NasrGraphicsSpriteSetPalette( unsigned int id, unsigned char v )
+{
+    NasrGraphicGet( id )->data.sprite.palette = v;
 };
 
 float NasrGraphicsSpriteGetRotationZ( unsigned int id )

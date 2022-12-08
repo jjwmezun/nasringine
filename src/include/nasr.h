@@ -353,8 +353,10 @@ int NasrGraphicsAddTilemap
 
 float NasrGraphicsSpriteGetDestY( unsigned int id );
 void NasrGraphicsSpriteSetDestY( unsigned int id, float v );
+void NasrGraphicsSpriteAddToDestY( unsigned int id, float v );
 float NasrGraphicsSpriteGetDestX( unsigned int id );
 void NasrGraphicsSpriteSetDestX( unsigned int id, float v );
+void NasrGraphicsSpriteAddToDestX( unsigned int id, float v );
 float NasrGraphicsSpriteGetDestH( unsigned int id );
 void NasrGraphicsSpriteSetDestH( unsigned int id, float v );
 float NasrGraphicsSpriteGetDestW( unsigned int id );
@@ -381,6 +383,8 @@ void NasrGraphicsSpriteFlipX( unsigned id );
 int NasrGraphicsSpriteGetFlipY( unsigned id );
 void NasrGraphicsSpriteSetFlipY( unsigned id, int v );
 void NasrGraphicsSpriteFlipY( unsigned id );
+unsigned char NasrGraphicsSpriteGetPalette( unsigned int id );
+void NasrGraphicsSpriteSetPalette( unsigned int id, unsigned char v );
 
 float NasrGraphicsRectGetX( unsigned int id );
 void NasrGraphicsRectSetX( unsigned int id, float v );

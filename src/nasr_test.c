@@ -51,10 +51,15 @@ void NasrTestRun( void )
 
     #define RECTCOUNT 128
     #define SPEED 1.0f
+    #define NASRSPEED 4.0f
 
     time_t t;
     srand( ( unsigned )( time( &t ) ) );
     int counter = 0;
+    int paltimer = 0;
+    int paloffset = 0;
+    int pald = 0;
+    int pal[ RECTCOUNT ];
     int ids[ RECTCOUNT ];
     float accx[ RECTCOUNT ];
     float accy[ RECTCOUNT ];
@@ -64,6 +69,7 @@ void NasrTestRun( void )
     int cdb[ RECTCOUNT ];
 
     int texture = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
+    int tilestext = NasrLoadFileAsTexture( "assets/tilemap.png" );
 
     NasrRect src = { 0.0f, 0.0f, 1083.0f, 1881.0f };
     NasrRect dest = { 200.0f, 100.0f, 108.3f, 188.1f };
@@ -71,7 +77,7 @@ void NasrTestRun( void )
     (
         0,
         0,
-        2,
+        4,
         texture,
         src,
         dest,
@@ -83,22 +89,119 @@ void NasrTestRun( void )
         1.0f,
         0
     );
+
+
+    const unsigned int tilesw = 48;
+    const unsigned int tilesh = 16;
+    NasrTile tiles[ tilesw * tilesh ];
+    for ( int i = 0; i < tilesw * tilesh; ++i )
+    {
+        tiles[ i ].animation = 255;
+    }
+    for ( int i = tilesw * ( tilesh - 1 ); i < tilesw * tilesh; ++i )
+    {
+        tiles[ i ].x = 0;
+        tiles[ i ].y = 1;
+        tiles[ i ].palette = 5;
+        tiles[ i ].animation = 0;
+    }
+    for ( int i = tilesw * ( tilesh - 2 ); i < tilesw * ( tilesh - 1 ); ++i )
+    {
+        tiles[ i ].x = 0;
+        tiles[ i ].y = 0;
+        tiles[ i ].palette = 5;
+        tiles[ i ].animation = 0;
+    }
+    NasrGraphicsAddTilemap
+    (
+        0,
+        0,
+        2,
+        tilestext,
+        tiles,
+        tilesw,
+        tilesh
+    );
+
+    NasrTile tiles2[ tilesw * tilesh ];
+    for ( int i = 0; i < tilesw * tilesh; ++i )
+    {
+        tiles2[ i ].animation = 255;
+    }
+    for ( int i = tilesw * ( tilesh - 3 ); i < tilesw * ( tilesh - 2 ); ++i )
+    {
+        tiles2[ i ].x = i % 3 == 0 ? 11 : 10;
+        tiles2[ i ].y = 1;
+        tiles2[ i ].palette = 0;
+        tiles2[ i ].animation = 0;
+    }
+    for ( int i = tilesw * ( tilesh - 4 ); i < tilesw * ( tilesh - 3 ); ++i )
+    {
+        tiles2[ i ].x = i % 3 == 0 ? 11 : 10;
+        tiles2[ i ].y = 0;
+        tiles2[ i ].palette = 0;
+        tiles2[ i ].animation = 0;
+    }
+    NasrGraphicsAddTilemap
+    (
+        0,
+        0,
+        2,
+        tilestext,
+        tiles2,
+        tilesw,
+        tilesh
+    );
+
+    NasrTile tiles3[ tilesw * tilesh ];
+    for ( int i = 0; i < tilesw * tilesh; ++i )
+    {
+        tiles3[ i ].animation = 255;
+    }
+    for ( int i = tilesw * ( tilesh - 4 ) + 5; i < tilesw * ( tilesh - 3 ) - 28; ++i )
+    {
+        tiles3[ i ].x = 5;
+        tiles3[ i ].y = 0;
+        tiles3[ i ].palette = 0;
+        tiles3[ i ].animation = 0;
+    }
+    NasrGraphicsAddTilemap
+    (
+        0,
+        0,
+        3,
+        tilestext,
+        tiles3,
+        tilesw,
+        tilesh
+    );
+
     for ( int i = 0; i < RECTCOUNT; ++i )
     {
-        NasrRect r = { ( i % 16 ) * 32.0f + 16.0f, floor( i / 16 ) * 32.0f + 16.0f, 16.0f, 16.0f };
+        NasrRect tilesdest = { ( i % 16 ) * 32.0f + 16.0f, floor( i / 16 ) * 32.0f + 16.0f, 16.0f, 16.0f };
+        NasrRect tilessrc = { 16.0f * ( rand() % 12 ), 16.0f * ( rand() % 2 ), 16.0f, 16.0f };
         c1[ i ].r = ( i % 8 ) * 32.0f;
         c1[ i ].g = floor( i / 8 ) * 32.0f;
         c1[ i ].b = 255.0f;
         c1[ i ].a = 255.0f;
         //NasrColor c2 = {  255.0f, ( i % 8 ) * 32.0f, floor( i / 8 ) * 32.0f, 255.0f };
         int d = rand() % 8;
-        ids[ i ] = NasrGraphicsAddRect
+        pal[ i ] = ( rand() % 5 ) * 5;
+        ids[ i ] = NasrGraphicsAddSprite
         (
             0,
             0,
             0,
-            r,
-            c1[ i ]
+            tilestext,
+            tilessrc,
+            tilesdest,
+            0,
+            0,
+            0.0f,
+            0.0f,
+            0.0f,
+            1.0f,
+            pal[ i ]
         );
         switch ( d )
         {
@@ -163,8 +266,9 @@ void NasrTestRun( void )
         {
             for ( int i = 0; i < RECTCOUNT; ++i )
             {
-                NasrGraphicsRectAddToX( ids[ i ], accx[ i ] );
-                NasrGraphicsRectAddToY( ids[ i ], accy[ i ] );
+                NasrGraphicsSpriteAddToDestX( ids[ i ], accx[ i ] );
+                NasrGraphicsSpriteAddToDestY( ids[ i ], accy[ i ] );
+                /*
                 const float rchange = cdr[ i ] ? 1.0f : -1.0f;
                 c1[ i ].r += rchange;
                 if ( c1[ i ].r > 255.0f ) {
@@ -189,20 +293,25 @@ void NasrTestRun( void )
                 else if ( c1[ i ].b < 0.0f ) {
                     cdb[ i ] = 1;
                 }
-                NasrGraphicRectSetColor( ids[ i ], c1[ i ] );
-                if ( NasrGraphicsRectGetX( ids[ i ] ) > 520.0f )
+                NasrGraphicRectSetColor( ids[ i ], c1[ i ] );*/
+                if ( paltimer == 31 || paltimer == 7 )
+                {
+                    NasrGraphicsSpriteSetPalette( ids[ i ], pal[ i ] + paloffset );
+                }
+
+                if ( NasrGraphicsSpriteGetDestX( ids[ i ] ) > 520.0f )
                 {
                     accx[ i ] = -SPEED;
                 }
-                else if ( NasrGraphicsRectGetX( ids[ i ] ) < 0.0f )
+                else if ( NasrGraphicsSpriteGetDestX( ids[ i ] ) < 0.0f )
                 {
                     accx[ i ] = SPEED;
                 }
-                if ( NasrGraphicsRectGetY( ids[ i ] ) > 320.0f )
+                if ( NasrGraphicsSpriteGetDestY( ids[ i ] ) > 320.0f )
                 {
                     accy[ i ] = -SPEED;
                 }
-                else if ( NasrGraphicsRectGetY( ids[ i ] ) < 0.0f )
+                else if ( NasrGraphicsSpriteGetDestY( ids[ i ] ) < 0.0f )
                 {
                     accy[ i ] = SPEED;
                 }
@@ -210,35 +319,35 @@ void NasrTestRun( void )
 
             if ( NasrHeld( INPUT_UP ) )
             {
-                NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) - 1.0f );
+                NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) - NASRSPEED );
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {
-                NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) + 1.0f );
+                NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) + NASRSPEED );
             }
 
             if ( NasrHeld( INPUT_LEFT ) )
             {
-                NasrGraphicsSpriteSetDestX( nasrinid, NasrGraphicsSpriteGetDestX( nasrinid ) - 1.0f );
+                NasrGraphicsSpriteSetDestX( nasrinid, NasrGraphicsSpriteGetDestX( nasrinid ) - NASRSPEED );
             }
             else if ( NasrHeld( INPUT_RIGHT ) )
             {
-                NasrGraphicsSpriteSetDestX( nasrinid, NasrGraphicsSpriteGetDestX( nasrinid ) + 1.0f );
+                NasrGraphicsSpriteSetDestX( nasrinid, NasrGraphicsSpriteGetDestX( nasrinid ) + NASRSPEED );
             }
 
             if ( NasrHeld( INPUT_X ) )
             {
-                NasrGraphicsSpriteSetRotationX( nasrinid, NasrGraphicsSpriteGetRotationX( nasrinid ) + 1.0f );
+                NasrGraphicsSpriteSetRotationX( nasrinid, NasrGraphicsSpriteGetRotationX( nasrinid ) + NASRSPEED );
             }
 
             if ( NasrHeld( INPUT_Z ) )
             {
-                NasrGraphicsSpriteSetRotationZ( nasrinid, NasrGraphicsSpriteGetRotationZ( nasrinid ) + 1.0f );
+                NasrGraphicsSpriteSetRotationZ( nasrinid, NasrGraphicsSpriteGetRotationZ( nasrinid ) + NASRSPEED );
             }
 
             if ( NasrHeld( INPUT_Y ) )
             {
-                NasrGraphicsSpriteSetRotationY( nasrinid, NasrGraphicsSpriteGetRotationY( nasrinid ) + 1.0f );
+                NasrGraphicsSpriteSetRotationY( nasrinid, NasrGraphicsSpriteGetRotationY( nasrinid ) + NASRSPEED );
             }
 
             if ( NasrHeld( INPUT_F ) )
@@ -276,6 +385,39 @@ void NasrTestRun( void )
                 --counter;
             }
 
+            if ( paltimer == 0 )
+            {
+                if ( pald )
+                {
+                    --paloffset;
+                    if ( paloffset == 0 )
+                    {
+                        pald = 0;
+                        paltimer = 31;
+                    }
+                    else
+                    {
+                        paltimer = 7;
+                    }
+                }
+                else
+                {
+                    ++paloffset;
+                    if ( paloffset == 4 )
+                    {
+                        pald = 1;
+                        paltimer = 31;
+                    }
+                    else
+                    {
+                        paltimer = 7;
+                    }
+                }
+            }
+            else
+            {
+                --paltimer;
+            }
             NasrUpdate();
         }
     }
