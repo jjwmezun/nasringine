@@ -176,6 +176,61 @@ void NasrTestRun( void )
         tilesh
     );
 
+    const board = NasrAddTextureBlankEx( 400, 300, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+    NasrSetTextureAsTarget( board );
+    const NasrRect boardrect = { 0.0f, 0.0f, 400.0f, 300.0f };
+    const NasrRect boardrect2 = { 16.0f, 16.0f, 400.0f - 32.0f, 300.0f - 32.0f };
+    const NasrColor boardcolor = { 32.0f, 0.0f, 16.0f, 255.0f };
+    const NasrColor boardcolor2 = { 255.0f, 180.0f, 16.0f, 255.0f };
+    const NasrColor boardcolor3 = { 0.0f, 180.0f, 255.0f, 255.0f };
+    NasrDrawRectToTexture( boardrect, boardcolor );
+    NasrDrawGradientRectToTexture( boardrect2, NASR_DIR_DOWNRIGHT, boardcolor2, boardcolor3 );
+
+    const NasrRect boardtilesrc = { 32.0f, 16.0f, 16.0f, 16.0f };
+    NasrRect boardtiledest = { 0.0f, 0.0f, 16.0f, 16.0f };
+    NasrGraphicSprite boardsprite =
+    {
+        tilestext,
+        boardtilesrc,
+        boardtiledest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0
+    };
+    for ( int y = 0; y < 8; ++y )
+    {
+        boardsprite.dest.y = 16.0f + y * 16.0f;
+        for ( int x = 0; x < 8; ++x )
+        {
+            boardsprite.dest.x = 16.0f + x * 16.0f;
+            NasrDrawSpriteToTexture( boardsprite );
+        }
+    }
+
+    NasrReleaseTextureTarget();
+
+    const NasrRect boarddest = { 32.0f, 32.0f, 400.0f, 300.0f };
+    NasrGraphicsAddSprite
+    (
+        0,
+        0,
+        0,
+        board,
+        boardrect,
+        boarddest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0
+    );
+
     for ( int i = 0; i < RECTCOUNT; ++i )
     {
         NasrRect tilesdest = { ( i % 16 ) * 32.0f + 16.0f, floor( i / 16 ) * 32.0f + 16.0f, 16.0f, 16.0f };

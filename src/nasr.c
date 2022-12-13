@@ -114,6 +114,7 @@ static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shade
 static void BufferVertices( float * vptr );
 static void DrawBox( unsigned int vao, const NasrRect * rect );
 static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
+static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesView( float x, float y );
 static void SetupVertices( unsigned int vao );
 static void UpdateShaderOrtho( void );
@@ -132,6 +133,7 @@ static unsigned int GetStateLayerIndex( unsigned int state, unsigned int layer )
 static float * GetVertices( unsigned int id );
 static void ResetVertices( float * vptr );
 static void UpdateSpriteVertices( unsigned int id );
+static void UpdateSpriteVerticesValues( float * vptr, const NasrGraphicSprite * sprite );
 static void BindBuffers( unsigned int id );
 static void ClearBufferBindings( void );
 
@@ -233,9 +235,9 @@ int NasrInit
     glGenTextures( max_textures, texture_ids );
 
     max_graphics = init_max_graphics;
-    vaos = calloc( max_graphics, sizeof( unsigned int ) );
-    vbos = calloc( max_graphics, sizeof( unsigned int ) );
-    vertices2 = calloc( max_graphics * VERTEX_RECT_SIZE, sizeof( float ) );
+    vaos = calloc( ( max_graphics + 1 ), sizeof( unsigned int ) );
+    vbos = calloc( ( max_graphics + 1 ), sizeof( unsigned int ) );
+    vertices2 = calloc( ( max_graphics + 1 ) * VERTEX_RECT_SIZE, sizeof( float ) );
 
     const unsigned int indices[] =
     {  // note that we start from 0!
@@ -243,10 +245,10 @@ int NasrInit
         1, 2, 3    // second triangle
     };
 
-    glGenVertexArrays( max_graphics, vaos );
-    glGenBuffers( max_graphics, vbos );
+    glGenVertexArrays( max_graphics + 1, vaos );
+    glGenBuffers( max_graphics + 1, vbos );
 
-    for ( int i = 0; i < max_graphics; ++i )
+    for ( int i = 0; i < max_graphics + 1; ++i )
     {
         float * vptr = GetVertices( i );
         ResetVertices( vptr );
@@ -713,7 +715,12 @@ static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color
 {
     BindBuffers( id );
     float * vptr = GetVertices( id );
+    SetVerticesColorValues( vptr, top_left_color, top_right_color, bottom_left_color, bottom_right_color );
+    ClearBufferBindings();
+};
 
+static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color )
+{
     vptr[ 4 ] = bottom_right_color->r / 255.0f;
     vptr[ 5 ] = bottom_right_color->g / 255.0f;
     vptr[ 6 ] = bottom_right_color->b / 255.0f;
@@ -735,7 +742,6 @@ static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color
     vptr[ 7 + VERTEX_SIZE * 3 ] = bottom_left_color->a / 255.0f;
 
     BufferVertices( vptr );
-    ClearBufferBindings();
 };
 
 static void SetVerticesView( float x, float y )
@@ -1758,6 +1764,7 @@ void NasrSetTextureAsTarget( int texture )
     glFramebufferTexture( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_ids[ texture ], 0 );
     glViewport( 0, 0, textures[ texture ].width, textures[ texture ].height );
     selected_texture = texture;
+    BindBuffers( max_graphics );
 };
 
 void NasrReleaseTextureTarget()
@@ -1765,6 +1772,7 @@ void NasrReleaseTextureTarget()
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
     glViewport( magnified_canvas_x, magnified_canvas_y, magnified_canvas_width, magnified_canvas_height );
     selected_texture = -1;
+    ClearBufferBindings();
 };
 
 void NasrGetTexturePixels( unsigned int texture, void * pixels )
@@ -1874,27 +1882,22 @@ void NasrTileTexture( unsigned int texture, void * pixels, NasrRectInt srccoords
 
 void NasrDrawRectToTexture( NasrRect rect, NasrColor color )
 {
+    ResetVertices( GetVertices( max_graphics ) );
+    SetVerticesColorValues( GetVertices( max_graphics ), &color, &color, &color, &color );
     rect.x *= canvas.w / textures[ selected_texture ].width;
     rect.y = ( textures[ selected_texture ].height - ( rect.y + rect.h ) ) * ( canvas.h / textures[ selected_texture ].height );
     rect.w *= canvas.w / textures[ selected_texture ].width;
     rect.h *= canvas.h / textures[ selected_texture ].height;
-    /*
     DrawBox
     (
-        &rect,
-        &color,
-        &color,
-        &color,
-        &color
-    );*/
+        vaos[ max_graphics ],
+        &rect
+    );
+    SetupVertices( vaos[ max_graphics ] );
 };
 
 void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, NasrColor color2 )
 {
-    rect.x *= canvas.w / textures[ selected_texture ].width;
-    rect.y = ( textures[ selected_texture ].height - ( rect.y + rect.h ) ) * ( canvas.h / textures[ selected_texture ].height );
-    rect.w *= canvas.w / textures[ selected_texture ].width;
-    rect.h *= canvas.h / textures[ selected_texture ].height;
     NasrColor cul = color2;
     NasrColor cur = color2;
     NasrColor cbr = color1;
@@ -1967,82 +1970,54 @@ void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, Na
         }
         break;
     }
-    /*
+    ResetVertices( GetVertices( max_graphics ) );
+    SetVerticesColorValues( GetVertices( max_graphics ), &cbl, &cbr, &cur, &cul );
+    rect.x *= canvas.w / textures[ selected_texture ].width;
+    rect.y = ( textures[ selected_texture ].height - ( rect.y + rect.h ) ) * ( canvas.h / textures[ selected_texture ].height );
+    rect.w *= canvas.w / textures[ selected_texture ].width;
+    rect.h *= canvas.h / textures[ selected_texture ].height;
     DrawBox
     (
-        &rect,
-        &cbl,
-        &cbr,
-        &cur,
-        &cul
-    );*/
+        vaos[ max_graphics ],
+        &rect
+    );
+    SetupVertices( vaos[ max_graphics ] );
 };
 
-void NasrDrawSpriteToTexture(
-    int texture,
-    NasrRect src,
-    NasrRect dest,
-    int flip_x,
-    int flip_y,
-    float rotation_x,
-    float rotation_y,
-    float rotation_z,
-    float opacity
-)
+void NasrDrawSpriteToTexture( NasrGraphicSprite sprite )
 {
-    dest.x *= canvas.w / textures[ selected_texture ].width;
-    dest.y = ( textures[ selected_texture ].height - ( dest.y + dest.h ) ) * ( canvas.h / textures[ selected_texture ].height );
-    dest.w *= canvas.w / textures[ selected_texture ].width;
-    dest.h *= canvas.h / textures[ selected_texture ].height;
+    ResetVertices( GetVertices( max_graphics ) );
+    sprite.dest.x *= canvas.w / textures[ selected_texture ].width;
+    sprite.dest.y = ( textures[ selected_texture ].height - ( sprite.dest.y + sprite.dest.h ) ) * ( canvas.h / textures[ selected_texture ].height );
+    sprite.dest.w *= canvas.w / textures[ selected_texture ].width;
+    sprite.dest.h *= canvas.h / textures[ selected_texture ].height;
 
     glUseProgram( sprite_shader );
 
-    // Src Coords
-    if ( flip_x )
-    {
-        vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture ].width ) * src.x; // Left X
-        vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture ].width ) * ( src.x + src.w );  // Right X
-    }
-    else
-    {
-        vertices[ 2 + VERTEX_SIZE * 3 ] = vertices[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( textures[ texture ].width ) * src.x; // Left X
-        vertices[ 2 ] = vertices[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture ].width ) * ( src.x + src.w );  // Right X
-    }
+    UpdateSpriteVerticesValues( GetVertices( max_graphics ), &sprite );
 
-    if ( flip_y )
-    {
-        vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ texture ].height ) * ( src.y + src.h ); // Top Y
-        vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture ].height ) * src.y;  // Bottom Y
-    }
-    else
-    {
-        vertices[ 3 + VERTEX_SIZE * 2 ] = vertices[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture ].height ) * ( src.y + src.h ); // Top Y
-        vertices[ 3 + VERTEX_SIZE * 3 ] = vertices[ 3 ] = 1.0f / ( float )( textures[ texture ].height ) * src.y;  // Bottom Y
-    }
-
-    //BufferVertices();
-    SetVerticesView( dest.x + ( dest.w / 2.0f ), dest.y + ( dest.h / 2.0f ) );
+    SetVerticesView( sprite.dest.x + ( sprite.dest.w / 2.0f ), sprite.dest.y + ( sprite.dest.h / 2.0f ) );
 
     mat4 model = BASE_MATRIX;
-    vec3 scale = { dest.w, dest.h, 0.0 };
+    vec3 scale = { sprite.dest.w, sprite.dest.h, 0.0 };
     glm_scale( model, scale );
     vec3 xrot = { 0.0, 1.0, 0.0 };
-    glm_rotate( model, DEGREES_TO_RADIANS( rotation_x ), xrot );
+    glm_rotate( model, DEGREES_TO_RADIANS( sprite.rotation_x ), xrot );
     vec3 yrot = { 0.0, 0.0, 1.0 };
-    glm_rotate( model, DEGREES_TO_RADIANS( rotation_y ), yrot );
+    glm_rotate( model, DEGREES_TO_RADIANS( sprite.rotation_y ), yrot );
     vec3 zrot = { 1.0, 0.0, 0.0 };
-    glm_rotate( model, DEGREES_TO_RADIANS( rotation_z ), zrot );
+    glm_rotate( model, DEGREES_TO_RADIANS( sprite.rotation_z ), zrot );
     unsigned int model_location = glGetUniformLocation( sprite_shader, "model" );
     glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
 
     GLint opacity_location = glGetUniformLocation( sprite_shader, "opacity" );
-    glUniform1f( opacity_location, ( float )( opacity ) );
+    glUniform1f( opacity_location, ( float )( sprite.opacity ) );
 
     GLint texture_data_location = glGetUniformLocation( sprite_shader, "texture_data" );
     glActiveTexture( GL_TEXTURE0 );
-    glBindTexture( GL_TEXTURE_2D, texture_ids[ texture ] );
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ sprite.texture ] );
     glUniform1i( texture_data_location, 0 );
-    //SetupVertices();
+    SetupVertices( vaos[ max_graphics ] );
 };
 
 int NasrHeld( int id )
@@ -2297,13 +2272,9 @@ static void ResetVertices( float * vptr )
     memcpy( vptr, &vertices_base, sizeof( vertices_base ) );
 };
 
-static void UpdateSpriteVertices( unsigned int id )
+static void UpdateSpriteVerticesValues( float * vptr, const NasrGraphicSprite * sprite )
 {
-    BindBuffers( id );
-    float * vptr = GetVertices( id );
-    const NasrGraphicSprite * sprite = &graphics[ gfx_ptrs_id_to_pos[ id ] ].data.sprite;
     const unsigned int texture_id = sprite->texture;
-
     if ( sprite->flip_x )
     {
         vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].width ) * sprite->src.x; // Left X
@@ -2326,6 +2297,14 @@ static void UpdateSpriteVertices( unsigned int id )
         vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( textures[ texture_id ].height ) * sprite->src.y;  // Bottom Y
     }
     BufferVertices( vptr );
+};
+
+static void UpdateSpriteVertices( unsigned int id )
+{
+    BindBuffers( id );
+    float * vptr = GetVertices( id );
+    const NasrGraphicSprite * sprite = &graphics[ gfx_ptrs_id_to_pos[ id ] ].data.sprite;
+    UpdateSpriteVerticesValues( vptr, sprite );
     ClearBufferBindings();
 };
 
