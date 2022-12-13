@@ -31,15 +31,6 @@ typedef struct Texture
     unsigned int indexed;
 } Texture;
 
-static float vertices[] =
-{
-    // Vertices     // Texture coords   // Color
-     0.5f,  0.5f,   1.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,// top right
-     0.5f, -0.5f,   1.0f, 0.0f,         1.0f, 1.0f, 1.0f, 1.0f, // bottom right
-    -0.5f, -0.5f,   0.0f, 0.0f,         1.0f, 1.0f, 1.0f, 1.0f, // bottom left
-    -0.5f,  0.5f,   0.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,  // top left 
-};
-
 static float vertices_base[] =
 {
     // Vertices     // Texture coords   // Color
@@ -49,7 +40,7 @@ static float vertices_base[] =
     -0.5f,  0.5f,   0.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,  // top left 
 };
 
-static float * vertices2;
+static float * vertices;
 
 #define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
 #define NUMBER_O_BASE_SHADERS 4
@@ -62,6 +53,7 @@ static int magnification = 1;
 static GLFWwindow * window;
 static unsigned int * vaos;
 static unsigned int * vbos;
+static unsigned int ebo;
 static unsigned int rect_shader;
 static unsigned int sprite_shader;
 static unsigned int indexed_sprite_shader;
@@ -237,7 +229,7 @@ int NasrInit
     max_graphics = init_max_graphics;
     vaos = calloc( ( max_graphics + 1 ), sizeof( unsigned int ) );
     vbos = calloc( ( max_graphics + 1 ), sizeof( unsigned int ) );
-    vertices2 = calloc( ( max_graphics + 1 ) * VERTEX_RECT_SIZE, sizeof( float ) );
+    vertices = calloc( ( max_graphics + 1 ) * VERTEX_RECT_SIZE, sizeof( float ) );
 
     const unsigned int indices[] =
     {  // note that we start from 0!
@@ -256,7 +248,6 @@ int NasrInit
         BindBuffers( i );
 
         // EBO
-        unsigned int ebo;
         glGenBuffers( 1, &ebo );
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
         glBufferData( GL_ELEMENT_ARRAY_BUFFER, sizeof( indices ), indices, GL_STATIC_DRAW );
@@ -364,44 +355,66 @@ void NasrSetPalette( const char * filename )
     unsigned int height;
     const unsigned char * data = LoadTextureFileData( filename, &width, &height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
     AddTexture( &palette_texture, palette_texture_id, data, width, height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+    free( data );
 };
 
 void NasrClose( void )
 {
+    glDeleteBuffers( 1, &ebo );
+    if ( vaos )
+    {
+        glDeleteVertexArrays( max_graphics + 1, vaos );
+        free( vaos );
+    }
+    if ( vbos )
+    {
+        glDeleteBuffers( max_graphics + 1, vbos );
+        free( vbos );
+    }
+    if ( vertices )
+    {
+        free( vertices );
+    }
     glDeleteFramebuffers( 1, &framebuffer );
     NasrClearTextures();
-    glDeleteTextures( max_textures, texture_ids );
-    free( texture_map );
-    free( keydata );
-    if ( textures != NULL )
+    if ( texture_map )
+    {
+        free( texture_map );
+    }
+    if ( keydata )
+    {
+        free( keydata );
+    }
+    if ( textures )
     {
         free( textures );
     }
-    if ( texture_ids != NULL )
+    if ( texture_ids )
     {
+        glDeleteTextures( max_textures, texture_ids );
         free( texture_ids );
     }
-    if ( graphics != NULL )
+    if ( graphics )
     {
         free( graphics );
     }
-    if ( gfx_ptrs_id_to_pos != NULL )
+    if ( gfx_ptrs_id_to_pos )
     {
         free( gfx_ptrs_id_to_pos );
     }
-    if ( gfx_ptrs_pos_to_id != NULL )
+    if ( gfx_ptrs_pos_to_id )
     {
         free( gfx_ptrs_pos_to_id );
     }
-    if ( layer_pos != NULL )
+    if ( layer_pos )
     {
         free( layer_pos );
     }
-    if ( state_for_gfx != NULL )
+    if ( state_for_gfx )
     {
         free( state_for_gfx );
     }
-    if ( layer_for_gfx != NULL )
+    if ( layer_for_gfx )
     {
         free( layer_for_gfx );
     }
@@ -2264,7 +2277,7 @@ void NasrDebugGraphics( void )
 
 static float * GetVertices( unsigned int id )
 {
-    return &vertices2[ id * VERTEX_RECT_SIZE ];
+    return &vertices[ id * VERTEX_RECT_SIZE ];
 };
 
 static void ResetVertices( float * vptr )
