@@ -68,11 +68,26 @@ void NasrTestRun( void )
     int cdg[ RECTCOUNT ];
     int cdb[ RECTCOUNT ];
 
+
+    NasrRect basicr = { 32.0f, 32.0f, 300.0f, 200.0f };
+    NasrColor basicc1 = { 32.0f, 200.0f, 144.0f, 64.0f };
+    NasrColor basicc2 = { 200.0f, 64.0f, 144.0f, 200.0f };
+    NasrGraphicsAddRectGradient
+    (
+        1,
+        3,
+        0,
+        basicr,
+        NASR_DIR_UPLEFT,
+        basicc1,
+        basicc2
+    );
+
     int texture = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     int tilestext = NasrLoadFileAsTexture( "assets/tilemap.png" );
 
     NasrRect src = { 0.0f, 0.0f, 1083.0f, 1881.0f };
-    NasrRect dest = { 200.0f, 100.0f, 108.3f, 188.1f };
+    NasrRect dest = { 200.0f, 100.0f, 54.15f, 94.05f };
     int nasrinid = NasrGraphicsAddSprite
     (
         0,
@@ -114,7 +129,7 @@ void NasrTestRun( void )
     }
     NasrGraphicsAddTilemap
     (
-        0,
+        1,
         0,
         2,
         tilestext,
@@ -144,7 +159,7 @@ void NasrTestRun( void )
     }
     NasrGraphicsAddTilemap
     (
-        0,
+        1,
         0,
         2,
         tilestext,
@@ -167,7 +182,7 @@ void NasrTestRun( void )
     }
     NasrGraphicsAddTilemap
     (
-        0,
+        1,
         0,
         3,
         tilestext,
@@ -176,7 +191,7 @@ void NasrTestRun( void )
         tilesh
     );
 
-    const board = NasrAddTextureBlankEx( 400, 300, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+    const board = NasrAddTextureBlankEx( 400, 300, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
     NasrSetTextureAsTarget( board );
     const NasrRect boardrect = { 0.0f, 0.0f, 400.0f, 300.0f };
     const NasrRect boardrect2 = { 16.0f, 16.0f, 400.0f - 32.0f, 300.0f - 32.0f };
@@ -216,7 +231,7 @@ void NasrTestRun( void )
     const NasrRect boarddest = { 32.0f, 32.0f, 400.0f, 300.0f };
     NasrGraphicsAddSprite
     (
-        0,
+        1,
         0,
         0,
         board,
@@ -473,6 +488,8 @@ void NasrTestRun( void )
             {
                 --paltimer;
             }
+            const NasrRect d = NasrGraphicsSpriteGetDest( nasrinid );
+            NasrAdjustCamera( &d, 800.0f, 800.0f );
             NasrUpdate();
         }
     }

@@ -96,6 +96,7 @@ typedef struct NasrGraphic
 {
     int type;
     NasrGraphicData data;
+    int abs;
 } NasrGraphic;
 
 typedef struct NasrTile
@@ -292,7 +293,6 @@ unsigned int NasrGetLayerPosition( unsigned int id );
 unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer );
 int NasrGraphicsAdd
 (
-    int abs,
     unsigned int state,
     unsigned int layer,
     struct NasrGraphic graphic
@@ -351,6 +351,7 @@ int NasrGraphicsAddTilemap
     unsigned int h
 );
 
+NasrRect NasrGraphicsSpriteGetDest( unsigned int id );
 float NasrGraphicsSpriteGetDestY( unsigned int id );
 void NasrGraphicsSpriteSetDestY( unsigned int id, float v );
 void NasrGraphicsSpriteAddToDestY( unsigned int id, float v );

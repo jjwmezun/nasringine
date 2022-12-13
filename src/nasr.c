@@ -112,10 +112,10 @@ static void UpdateSpriteY( unsigned int id );
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
 static void BufferVertices( float * vptr );
-static void DrawBox( unsigned int vao, const NasrRect * rect );
+static void DrawBox( unsigned int vao, const NasrRect * rect, int abs );
 static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
-static void SetVerticesView( float x, float y );
+static void SetVerticesView( float x, float y, int abs );
 static void SetupVertices( unsigned int vao );
 static void UpdateShaderOrtho( void );
 static void HandleInput( GLFWwindow * window, int key, int scancode, int action, int mods );
@@ -448,7 +448,8 @@ void NasrUpdate( void )
                 DrawBox
                 (
                     vao,
-                    &graphics[ i ].data.rect.rect
+                    &graphics[ i ].data.rect.rect,
+                    graphics[ i ].abs
                 );
             }
             break;
@@ -457,7 +458,8 @@ void NasrUpdate( void )
                 DrawBox
                 (
                     vao,
-                    &graphics[ i ].data.gradient.rect
+                    &graphics[ i ].data.gradient.rect,
+                    graphics[ i ].abs
                 );
             }
             break;
@@ -470,7 +472,7 @@ void NasrUpdate( void )
                 const unsigned int shader = textures[ texture_id ].indexed ? indexed_sprite_shader : sprite_shader;
                 glUseProgram( shader );
 
-                SetVerticesView( DEST.x + ( DEST.w / 2.0f ), DEST.y + ( DEST.h / 2.0f ) );
+                SetVerticesView( DEST.x + ( DEST.w / 2.0f ), DEST.y + ( DEST.h / 2.0f ), graphics[ i ].abs );
 
                 mat4 model = BASE_MATRIX;
                 vec3 scale = { DEST.w, DEST.h, 0.0 };
@@ -516,7 +518,7 @@ void NasrUpdate( void )
 
                 #define TG graphics[ i ].data.tilemap
 
-                SetVerticesView( TG.dest.x + ( TG.dest.w / 2.0f ), TG.dest.y + ( TG.dest.h / 2.0f ) );
+                SetVerticesView( TG.dest.x + ( TG.dest.w / 2.0f ), TG.dest.y + ( TG.dest.h / 2.0f ), graphics[ i ].abs );
 
                 mat4 model = BASE_MATRIX;
                 vec3 scale = { TG.dest.w, TG.dest.h, 0.0 };
@@ -700,10 +702,10 @@ static void BufferVertices( float * vptr )
     glBufferData( GL_ARRAY_BUFFER, sizeof( float ) * VERTEX_RECT_SIZE, vptr, GL_STATIC_DRAW );
 };
 
-static void DrawBox( unsigned int vao, const NasrRect * rect )
+static void DrawBox( unsigned int vao, const NasrRect * rect, int abs )
 {
     glUseProgram( rect_shader );
-    SetVerticesView( rect->x + ( rect->w / 2.0f ), rect->y + ( rect->h / 2.0f ) );
+    SetVerticesView( rect->x + ( rect->w / 2.0f ), rect->y + ( rect->h / 2.0f ), abs );
     mat4 model = BASE_MATRIX;
     vec3 scale = { rect->w, rect->h, 0.0 };
     glm_scale( model, scale );
@@ -744,8 +746,13 @@ static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_col
     BufferVertices( vptr );
 };
 
-static void SetVerticesView( float x, float y )
+static void SetVerticesView( float x, float y, int abs )
 {
+    if ( abs )
+    {
+        x += camera.x;
+        y += camera.y;
+    }
     mat4 view = BASE_MATRIX;
     vec3 trans = { x, y, 0.0f };
     glm_translate( view, trans );
@@ -1060,7 +1067,6 @@ unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer )
 
 int NasrGraphicsAdd
 (
-    int abs,
     unsigned int state,
     unsigned int layer,
     struct NasrGraphic graphic
@@ -1171,10 +1177,11 @@ int NasrGraphicsAddRect
 )
 {
     struct NasrGraphic graphic;
+    graphic.abs = abs;
     graphic.type = NASR_GRAPHIC_RECT;
     graphic.data.rect.rect = rect;
     graphic.data.rect.color = color;
-    int id = NasrGraphicsAdd( abs, state, layer, graphic );
+    int id = NasrGraphicsAdd( state, layer, graphic );
     if ( id > -1 ) {
         ResetVertices( GetVertices( id ) );
         SetVerticesColors( id, &graphic.data.rect.color, &graphic.data.rect.color, &graphic.data.rect.color, &graphic.data.rect.color );
@@ -1194,6 +1201,7 @@ int NasrGraphicsAddRectGradient
 )
 {
     struct NasrGraphic graphic;
+    graphic.abs = abs;
     graphic.type = NASR_GRAPHIC_RECT_GRADIENT;
     graphic.data.gradient.rect = rect;
     switch ( dir )
@@ -1274,7 +1282,7 @@ int NasrGraphicsAddRectGradient
         }
         break;
     }
-    const int id = NasrGraphicsAdd( abs, state, layer, graphic );
+    const int id = NasrGraphicsAdd( state, layer, graphic );
     if ( id > -1 )
     {
         ResetVertices( GetVertices( id ) );
@@ -1305,6 +1313,7 @@ int NasrGraphicsAddSprite
         return -1;
     }
     struct NasrGraphic graphic;
+    graphic.abs = abs;
     graphic.type = NASR_GRAPHIC_SPRITE;
     graphic.data.sprite.texture = texture;
     graphic.data.sprite.src = src;
@@ -1316,7 +1325,7 @@ int NasrGraphicsAddSprite
     graphic.data.sprite.rotation_z = rotation_z;
     graphic.data.sprite.opacity = opacity;
     graphic.data.sprite.palette = palette;
-    const int id = NasrGraphicsAdd( abs, state, layer, graphic );
+    const int id = NasrGraphicsAdd( state, layer, graphic );
     if ( id > -1 )
     {
         ResetVertices( GetVertices( id ) );
@@ -1360,6 +1369,7 @@ int NasrGraphicsAddTilemap
     }
 
     struct NasrGraphic graphic;
+    graphic.abs = abs;
     graphic.type = NASR_GRAPHIC_TILEMAP;
     graphic.data.tilemap.texture = texture;
     graphic.data.tilemap.tilemap = ( unsigned int )( tilemap_texture );
@@ -1371,7 +1381,7 @@ int NasrGraphicsAddTilemap
     graphic.data.tilemap.dest.y = 0.0f;
     graphic.data.tilemap.dest.w = ( float )( w ) * 16.0f;
     graphic.data.tilemap.dest.h = ( float )( h ) * 16.0f;
-    const int id = NasrGraphicsAdd( abs, state, layer, graphic );
+    const int id = NasrGraphicsAdd( state, layer, graphic );
     if ( id > -1 )
     {
         BindBuffers( id );
@@ -1386,6 +1396,11 @@ int NasrGraphicsAddTilemap
     }
     return id;
 }
+
+NasrRect NasrGraphicsSpriteGetDest( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.sprite.dest;
+};
 
 float NasrGraphicsSpriteGetDestY( unsigned int id )
 {
@@ -1891,7 +1906,8 @@ void NasrDrawRectToTexture( NasrRect rect, NasrColor color )
     DrawBox
     (
         vaos[ max_graphics ],
-        &rect
+        &rect,
+        0
     );
     SetupVertices( vaos[ max_graphics ] );
 };
@@ -1979,7 +1995,8 @@ void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, Na
     DrawBox
     (
         vaos[ max_graphics ],
-        &rect
+        &rect,
+        0
     );
     SetupVertices( vaos[ max_graphics ] );
 };
@@ -1996,7 +2013,7 @@ void NasrDrawSpriteToTexture( NasrGraphicSprite sprite )
 
     UpdateSpriteVerticesValues( GetVertices( max_graphics ), &sprite );
 
-    SetVerticesView( sprite.dest.x + ( sprite.dest.w / 2.0f ), sprite.dest.y + ( sprite.dest.h / 2.0f ) );
+    SetVerticesView( sprite.dest.x + ( sprite.dest.w / 2.0f ), sprite.dest.y + ( sprite.dest.h / 2.0f ), 0 );
 
     mat4 model = BASE_MATRIX;
     vec3 scale = { sprite.dest.w, sprite.dest.h, 0.0 };
