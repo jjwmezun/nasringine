@@ -27,6 +27,17 @@ typedef struct NasrRectInt
     int h;
 } NasrRectInt;
 
+#define NASR_CHAR_NORMAL     0
+#define NASR_CHAR_WHITESPACE 1
+#define NASR_CHAR_NEWLINE    2
+
+typedef struct NasrChar
+{
+    NasrRect src;
+    NasrRect dest;
+    uint_fast8_t type;
+} NasrChar;
+
 float NasrRectRight( const struct NasrRect * r );
 float NasrRectBottom( const struct NasrRect * r );
 int NasrRectEqual( const struct NasrRect * a, const struct NasrRect * b );
@@ -42,10 +53,16 @@ typedef struct NasrShader
     const char * code;
 } NasrShader;
 
-#define NASR_GRAPHIC_RECT          0
-#define NASR_GRAPHIC_RECT_GRADIENT 1
-#define NASR_GRAPHIC_SPRITE        2
-#define NASR_GRAPHIC_TILEMAP       3
+#define NASR_GRAPHIC_NONE          0
+#define NASR_GRAPHIC_RECT          1
+#define NASR_GRAPHIC_RECT_GRADIENT 2
+#define NASR_GRAPHIC_SPRITE        3
+#define NASR_GRAPHIC_TILEMAP       4
+#define NASR_GRAPHIC_TEXT          5
+
+#define NASR_PALETTE_NONE    0
+#define NASR_PALETTE_SET     1
+#define NASR_PALETTE_DEFAULT 2
 
 typedef struct NasrGraphicRect
 {
@@ -86,12 +103,25 @@ typedef struct NasrGraphicTilemap
     int_fast8_t useglobalpal;
 } NasrGraphicTilemap;
 
+typedef struct NasrGraphicText
+{
+    unsigned int capacity;
+    unsigned int count;
+    NasrChar * chars;
+    float * vertices;
+    unsigned int * vaos;
+    unsigned int * vbos;
+    uint_fast8_t palette;
+    uint_fast8_t palette_type;
+} NasrGraphicText;
+
 typedef union NasrGraphicData
 {
     NasrGraphicRect         rect;
     NasrGraphicRectGradient gradient;
     NasrGraphicSprite       sprite;
     NasrGraphicTilemap      tilemap;
+    NasrGraphicText         text;
 } NasrGraphicData;
 
 typedef struct NasrGraphic
@@ -271,6 +301,7 @@ int NasrInit
     int default_indexed_type
 );
 void NasrSetPalette( const char * filename );
+void NasrSetCharset( const char * filename );
 void NasrClose( void );
 void NasrClearTextures( void );
 void NasrUpdate( void );
@@ -353,6 +384,39 @@ int NasrGraphicsAddTilemap
     unsigned int w,
     unsigned int h,
     int_fast8_t useglobalpal
+);
+
+int NasrGraphicAddText
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int count,
+    const NasrChar * chars,
+    NasrColor color
+);
+
+int NasrGraphicAddTextGradient
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int count,
+    const NasrChar * chars,
+    int_fast8_t dir,
+    NasrColor color1,
+    NasrColor color2
+);
+
+int NasrGraphicAddTextPalette
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int count,
+    const NasrChar * chars,
+    uint_fast8_t palette,
+    uint_fast8_t useglobalpal
 );
 
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );

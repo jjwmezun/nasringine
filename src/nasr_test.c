@@ -29,6 +29,7 @@ void NasrTestRun( void )
 {
     NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
     NasrSetPalette( "assets/palette2.png" );
+    NasrSetCharset( "assets/latin.png" );
     NasrInput inputs[] =
     {
         { INPUT_RIGHT, NASR_KEY_RIGHT },
@@ -233,7 +234,7 @@ void NasrTestRun( void )
     NasrReleaseTextureTarget();
 
     const NasrRect boarddest = { 32.0f, 32.0f, 400.0f, 300.0f };
-    NasrGraphicsAddSprite
+    /*NasrGraphicsAddSprite
     (
         1,
         0,
@@ -249,7 +250,7 @@ void NasrTestRun( void )
         1.0f,
         0,
         1
-    );
+    );*/
 
     for ( int i = 0; i < RECTCOUNT; ++i )
     {
@@ -336,6 +337,69 @@ void NasrTestRun( void )
     static float tiley = 32.0f;
     static float tileaccy = TILEACCVAL;
     static float tilevy = 0.0f;
+
+    NasrChar text1[2] = {
+        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 0.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
+        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 0.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
+    };
+    NasrColor textcolor = { 128.0f, 64.0f, 255.0f, 255.0f };
+
+    NasrGraphicAddText(
+        1,
+        0,
+        0,
+        2,
+        text1,
+        textcolor
+    );
+
+    NasrChar text2[2] = {
+        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 32.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
+        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 32.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
+    };
+    NasrColor textcolor2 = { 255.0f, 255.0f, 255.0f, 255.0f };
+    NasrColor textcolor3 = { 0.0f, 0.0f, 0.0f, 255.0f };
+
+    NasrGraphicAddTextGradient(
+        1,
+        0,
+        0,
+        2,
+        text2,
+        NASR_DIR_DOWN,
+        textcolor2,
+        textcolor3
+    );
+
+    NasrChar text3[2] = {
+        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 64.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
+        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 64.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
+    };
+
+    NasrGraphicAddTextPalette(
+        1,
+        0,
+        0,
+        2,
+        text3,
+        0,
+        0
+    );
+
+    NasrChar text4[2] = {
+        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 80.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
+        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 80.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
+    };
+
+    int ntextid = NasrGraphicAddTextPalette(
+        1,
+        0,
+        0,
+        2,
+        text4,
+        0,
+        1
+    );
 
     static unsigned char globalpal;
     NasrSetGlobalPalette( globalpal );
@@ -452,11 +516,28 @@ void NasrTestRun( void )
             if ( NasrHeld( INPUT_Z ) )
             {
                 NasrGraphicsSpriteSetRotationZ( nasrinid, NasrGraphicsSpriteGetRotationZ( nasrinid ) + NASRSPEED );
+                if ( ntextid > -1 )
+                {
+                    NasrGraphicsRemove( ntextid );
+                    ntextid = -1;
+                }
             }
 
             if ( NasrHeld( INPUT_Y ) )
             {
                 NasrGraphicsSpriteSetRotationY( nasrinid, NasrGraphicsSpriteGetRotationY( nasrinid ) + NASRSPEED );
+                if ( ntextid < 0 )
+                {
+                    ntextid = NasrGraphicAddTextPalette(
+                        1,
+                        0,
+                        0,
+                        2,
+                        text4,
+                        0,
+                        1
+                    );
+                }
             }
 
             if ( NasrHeld( INPUT_F ) )
