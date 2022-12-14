@@ -406,6 +406,9 @@ void NasrGraphicRectSetColorG( unsigned int id, float v );
 void NasrGraphicRectSetColorB( unsigned int id, float v );
 void NasrGraphicRectSetColorA( unsigned int id, float v );
 
+void NasrGraphicsTilemapSetX( unsigned int id, float v );
+void NasrGraphicsTilemapSetY( unsigned int id, float v );
+
 int NasrLoadFileAsTexture( char * filename );
 int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed );
 int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height );

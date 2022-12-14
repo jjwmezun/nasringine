@@ -1697,6 +1697,16 @@ void NasrGraphicRectSetColorA( unsigned int id, float v )
     ClearBufferBindings();
 };
 
+void NasrGraphicsTilemapSetX( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.tilemap.dest.x = v;
+};
+
+void NasrGraphicsTilemapSetY( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.tilemap.dest.y = v;
+};
+
 int NasrLoadFileAsTexture( char * filename )
 {
     return NasrLoadFileAsTextureEx( filename, NASR_SAMPLING_DEFAULT, NASR_INDEXED_DEFAULT );

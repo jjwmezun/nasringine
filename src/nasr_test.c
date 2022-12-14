@@ -127,7 +127,7 @@ void NasrTestRun( void )
         tiles[ i ].palette = 5;
         tiles[ i ].animation = 0;
     }
-    NasrGraphicsAddTilemap
+    const int tilemap1 = NasrGraphicsAddTilemap
     (
         1,
         0,
@@ -157,7 +157,7 @@ void NasrTestRun( void )
         tiles2[ i ].palette = 0;
         tiles2[ i ].animation = 0;
     }
-    NasrGraphicsAddTilemap
+    const int tilemap2 = NasrGraphicsAddTilemap
     (
         1,
         0,
@@ -326,6 +326,11 @@ void NasrTestRun( void )
         }
     }
 
+    #define TILEACCVAL 0.001f
+    static float tiley = 32.0f;
+    static float tileaccy = TILEACCVAL;
+    static float tilevy = 0.0f;
+
     while ( running )
     {
         if ( NasrHasClosed() )
@@ -334,6 +339,30 @@ void NasrTestRun( void )
         }
         else
         {
+            tilevy += tileaccy;
+            if ( tilevy > 0.1f )
+            {
+                tilevy = 0.1f;
+            }
+            else if ( tilevy < -0.1f )
+            {
+                tilevy = -0.1f;
+            }
+            tiley += tilevy;
+
+            if ( tiley >= 34.0f )
+            {
+                tileaccy = -TILEACCVAL;
+            }
+            else if ( tiley <= 30.0f )
+            {
+                tileaccy = TILEACCVAL;
+            }
+
+            NasrGraphicsTilemapSetY( tilemap1, tiley );
+            NasrGraphicsTilemapSetY( tilemap2, tiley );
+            NasrGraphicsTilemapSetX( tilemap1, tiley );
+
             for ( int i = 0; i < RECTCOUNT; ++i )
             {
                 NasrGraphicsSpriteAddToDestX( ids[ i ], accx[ i ] );
