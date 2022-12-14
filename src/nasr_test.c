@@ -28,7 +28,7 @@ typedef enum Input {
 void NasrTestRun( void )
 {
     NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
-    NasrSetPalette( "assets/palette.png" );
+    NasrSetPalette( "assets/palette2.png" );
     NasrInput inputs[] =
     {
         { INPUT_RIGHT, NASR_KEY_RIGHT },
@@ -102,6 +102,7 @@ void NasrTestRun( void )
         0.0f,
         0.0f,
         1.0f,
+        0,
         0
     );
 
@@ -135,7 +136,8 @@ void NasrTestRun( void )
         tilestext,
         tiles,
         tilesw,
-        tilesh
+        tilesh,
+        1
     );
 
     NasrTile tiles2[ tilesw * tilesh ];
@@ -165,7 +167,8 @@ void NasrTestRun( void )
         tilestext,
         tiles2,
         tilesw,
-        tilesh
+        tilesh,
+        1
     );
 
     NasrTile tiles3[ tilesw * tilesh ];
@@ -188,7 +191,8 @@ void NasrTestRun( void )
         tilestext,
         tiles3,
         tilesw,
-        tilesh
+        tilesh,
+        0
     );
 
     const board = NasrAddTextureBlankEx( 400, 300, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
@@ -243,7 +247,8 @@ void NasrTestRun( void )
         0.0f,
         0.0f,
         1.0f,
-        0
+        0,
+        1
     );
 
     for ( int i = 0; i < RECTCOUNT; ++i )
@@ -271,7 +276,8 @@ void NasrTestRun( void )
             0.0f,
             0.0f,
             1.0f,
-            pal[ i ]
+            pal[ i ],
+            1
         );
         switch ( d )
         {
@@ -331,6 +337,8 @@ void NasrTestRun( void )
     static float tileaccy = TILEACCVAL;
     static float tilevy = 0.0f;
 
+    static unsigned char globalpal;
+    NasrSetGlobalPalette( globalpal );
     while ( running )
     {
         if ( NasrHasClosed() )
@@ -363,6 +371,8 @@ void NasrTestRun( void )
             NasrGraphicsTilemapSetY( tilemap2, tiley );
             NasrGraphicsTilemapSetX( tilemap1, tiley );
 
+            NasrSetGlobalPalette( globalpal );
+
             for ( int i = 0; i < RECTCOUNT; ++i )
             {
                 NasrGraphicsSpriteAddToDestX( ids[ i ], accx[ i ] );
@@ -392,11 +402,11 @@ void NasrTestRun( void )
                 else if ( c1[ i ].b < 0.0f ) {
                     cdb[ i ] = 1;
                 }
-                NasrGraphicRectSetColor( ids[ i ], c1[ i ] );*/
+                NasrGraphicRectSetColor( ids[ i ], c1[ i ] );
                 if ( paltimer == 31 || paltimer == 7 )
                 {
                     NasrGraphicsSpriteSetPalette( ids[ i ], pal[ i ] + paloffset );
-                }
+                }*/
 
                 if ( NasrGraphicsSpriteGetDestX( ids[ i ] ) > 520.0f )
                 {
@@ -482,6 +492,16 @@ void NasrTestRun( void )
             if ( counter > 0 )
             {
                 --counter;
+            }
+
+
+            if ( globalpal == 255 )
+            {
+                globalpal = 0;
+            }
+            else
+            {
+                ++globalpal;
             }
 
             if ( paltimer == 0 )

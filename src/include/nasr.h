@@ -74,6 +74,7 @@ typedef struct NasrGraphicSprite
     float rotation_z;
     float opacity;
     unsigned char palette;
+    int_fast8_t useglobalpal;
 } NasrGraphicSprite;
 
 typedef struct NasrGraphicTilemap
@@ -82,6 +83,7 @@ typedef struct NasrGraphicTilemap
     unsigned int tilemap;
     NasrRect src;
     NasrRect dest;
+    int_fast8_t useglobalpal;
 } NasrGraphicTilemap;
 
 typedef union NasrGraphicData
@@ -337,7 +339,8 @@ int NasrGraphicsAddSprite
     float rotation_y,
     float rotation_z,
     float opacity,
-    unsigned char palette
+    unsigned char palette,
+    int_fast8_t useglobalpal
 );
 
 int NasrGraphicsAddTilemap
@@ -348,7 +351,8 @@ int NasrGraphicsAddTilemap
     unsigned int texture,
     const NasrTile * tiles,
     unsigned int w,
-    unsigned int h
+    unsigned int h,
+    int_fast8_t useglobalpal
 );
 
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );
@@ -426,5 +430,7 @@ void NasrReleaseTextureTarget( void );
 void NasrDrawRectToTexture( NasrRect rect, NasrColor color );
 void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, NasrColor color2 );
 void NasrDrawSpriteToTexture( NasrGraphicSprite sprite );
+
+void NasrSetGlobalPalette( uint_fast8_t palette );
 
 void NasrDebugGraphics( void );

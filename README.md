@@ -8,7 +8,6 @@ General 2D game engine based on OpenGL.
 
 ## TODO
 
-* Global palette
 * Charset graphics
 * Localization
 * Customizable shaders
