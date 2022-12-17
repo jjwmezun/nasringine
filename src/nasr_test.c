@@ -403,6 +403,24 @@ void NasrTestRun( void )
         7
     );
 
+    NasrChar text5[2] = {
+        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 100.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
+        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 100.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
+    };
+
+    NasrGraphicAddTextGradientPalette(
+        1,
+        0,
+        0,
+        2,
+        text5,
+        0,
+        1,
+        NASR_DIR_UP,
+        7,
+        3
+    );
+
     static unsigned char globalpal;
     NasrSetGlobalPalette( globalpal );
     while ( running )

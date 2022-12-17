@@ -1649,7 +1649,7 @@ int NasrGraphicAddTextGradient
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddRectGradient! %d\n", dir );
+            printf( "¡Invalid gradient direction for NasrGraphicAddTextGradient! %d\n", dir );
 
             // Default direction.
             top_left_color = color2;
@@ -1705,6 +1705,124 @@ int NasrGraphicAddTextPalette
         &c,
         &c,
         &c,
+        palette,
+        useglobalpal ? NASR_PALETTE_DEFAULT : NASR_PALETTE_SET
+    );
+};
+
+int NasrGraphicAddTextGradientPalette
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int count,
+    const NasrChar * chars,
+    uint_fast8_t palette,
+    uint_fast8_t useglobalpal,
+    int_fast8_t dir,
+    uint_fast8_t color1,
+    uint_fast8_t color2
+)
+{
+    uint_fast8_t c[4];
+
+    switch ( dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            c[ 0 ] = color2;
+            c[ 1 ] = color2;
+            c[ 2 ] = color1;
+            c[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color2;
+            c[ 2 ] = color1;
+            c[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color2;
+            c[ 2 ] = color1;
+            c[ 3 ] = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color1;
+            c[ 2 ] = color1;
+            c[ 3 ] = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color1;
+            c[ 2 ] = color2;
+            c[ 3 ] = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color1;
+            c[ 2 ] = color2;
+            c[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            c[ 0 ] = color2;
+            c[ 1 ] = color1;
+            c[ 2 ] = color2;
+            c[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            c[ 0 ] = color2;
+            c[ 1 ] = color1;
+            c[ 2 ] = color1;
+            c[ 3 ] = color1;
+        }
+        break;
+        default:
+        {
+            printf( "¡Invalid gradient direction for NasrGraphicAddTextGradientPalette! %d\n", dir );
+
+            // Default direction.
+            c[ 0 ] = color2;
+            c[ 1 ] = color2;
+            c[ 2 ] = color1;
+            c[ 3 ] = color1;
+        }
+        break;
+    }
+
+    NasrColor cobj[ 4 ];
+    for ( int i = 0; i < 4; ++i )
+    {
+        cobj[ i ].r = ( float )( c[ i ] );
+        cobj[ i ].a = 255.0f;
+    }
+
+    return GraphicAddText
+    (
+        abs,
+        state,
+        layer,
+        count,
+        chars,
+        &cobj[ 0 ],
+        &cobj[ 1 ],
+        &cobj[ 2 ],
+        &cobj[ 3 ],
         palette,
         useglobalpal ? NASR_PALETTE_DEFAULT : NASR_PALETTE_SET
     );

@@ -420,6 +420,20 @@ int NasrGraphicAddTextPalette
     uint_fast8_t color
 );
 
+int NasrGraphicAddTextGradientPalette
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int count,
+    const NasrChar * chars,
+    uint_fast8_t palette,
+    uint_fast8_t useglobalpal,
+    int_fast8_t dir,
+    uint_fast8_t color1,
+    uint_fast8_t color2
+);
+
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );
 float NasrGraphicsSpriteGetDestY( unsigned int id );
 void NasrGraphicsSpriteSetDestY( unsigned int id, float v );
