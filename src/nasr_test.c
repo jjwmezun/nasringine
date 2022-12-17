@@ -383,7 +383,8 @@ void NasrTestRun( void )
         2,
         text3,
         0,
-        0
+        0,
+        4
     );
 
     NasrChar text4[2] = {
@@ -398,7 +399,8 @@ void NasrTestRun( void )
         2,
         text4,
         0,
-        1
+        1,
+        7
     );
 
     static unsigned char globalpal;
@@ -535,7 +537,8 @@ void NasrTestRun( void )
                         2,
                         text4,
                         0,
-                        1
+                        1,
+                        7
                     );
                 }
             }

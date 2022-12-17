@@ -356,7 +356,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\n  \nvoid main()\n{\n    vec4 index = texture( texture_data, texture_coords );\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( index.r / 16.0, palette ) );\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= texture( texture_data, texture_coords ).a;\n}"
         }
     };
     
@@ -1683,9 +1683,17 @@ int NasrGraphicAddTextPalette
     unsigned int count,
     const NasrChar * chars,
     uint_fast8_t palette,
-    uint_fast8_t useglobalpal
+    uint_fast8_t useglobalpal,
+    uint_fast8_t color
 )
 {
+    NasrColor c =
+    {
+        ( float )( color ),
+        0.0f,
+        0.0f,
+        255.0f
+    };
     return GraphicAddText
     (
         abs,
@@ -1693,10 +1701,10 @@ int NasrGraphicAddTextPalette
         layer,
         count,
         chars,
-        0,
-        0,
-        0,
-        0,
+        &c,
+        &c,
+        &c,
+        &c,
         palette,
         useglobalpal ? NASR_PALETTE_DEFAULT : NASR_PALETTE_SET
     );

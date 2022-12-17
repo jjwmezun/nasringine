@@ -416,7 +416,8 @@ int NasrGraphicAddTextPalette
     unsigned int count,
     const NasrChar * chars,
     uint_fast8_t palette,
-    uint_fast8_t useglobalpal
+    uint_fast8_t useglobalpal,
+    uint_fast8_t color
 );
 
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );
