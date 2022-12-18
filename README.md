@@ -11,6 +11,7 @@ General 2D game engine based on OpenGL.
 * Charset graphics
     * Justified text
     * Offset text ( for marquees )
+    * Dropshadows
 * Palette Rects
 * Localization
 * Customizable shaders

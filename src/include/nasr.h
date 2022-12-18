@@ -140,10 +140,11 @@ typedef struct NasrTile
     unsigned char animation;
 } NasrTile;
 
-#define NASR_ALIGN_DEFAULT 0
-#define NASR_ALIGN_LEFT    1
-#define NASR_ALIGN_RIGHT   2
-#define NASR_ALIGN_CENTER  3
+#define NASR_ALIGN_DEFAULT   0
+#define NASR_ALIGN_LEFT      1
+#define NASR_ALIGN_RIGHT     2
+#define NASR_ALIGN_CENTER    3
+#define NASR_ALIGN_JUSTIFIED 4
 
 #define NASR_VALIGN_DEFAULT 0
 #define NASR_VALIGN_TOP     1

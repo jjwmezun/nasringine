@@ -328,19 +328,39 @@ void NasrTestRun( void )
 
     NasrText text1 =
     {
-        "thru frostgrass\ntwigs & crisp leaves jogs\nlone black crow\n\ntatata\nmarch the frosty streets\ndry warm leaves",
+        "As A. awoke 1 morn from uneasy dreams she found herself a target o’ a gang. Every day @ 8 in the morn she was brought home breakfast by Edgar Winters before heading off for his friend’s, but today he didn’t come. That had ne’er happened before. But A. didn’t let it bother her: ’haps he woke late & didn’t want to be late for whate’er excursion he had planned with his friend, or ’haps he had woken earlier than she did & didn’t want to wake her. She was not all that hungry, anyway, & didn’t waste any mo’ time thinking ’bout breakfast but immediately set to work on her laptop, only to be interrupted by a knock on her door.",
         ( unsigned int )( charset1 ),
         { 32.0f, 32.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
-        NASR_ALIGN_CENTER,
+        NASR_ALIGN_JUSTIFIED,
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f
     };
 
     NasrText text2 =
     {
-        "thru frostgrass\ntwigs & crisp leaves jogs\nlone black crow\n\ntatata\nmarch the frosty streets\ndry warm leaves",
+        "As A. awoke 1 morn from uneasy dreams she found herself a target o’ a gang. Every day @ 8 in the morn she was brought home breakfast by Edgar Winters before heading off for his friend’s, but today he didn’t come. That had ne’er happened before. But A. didn’t let it bother her: ’haps he woke late & didn’t want to be late for whate’er excursion he had planned with his friend, or ’haps he had woken earlier than she did & didn’t want to wake her. She was not all that hungry, anyway, & didn’t waste any mo’ time thinking ’bout breakfast but immediately set to work on her laptop, only to be interrupted by a knock on her door.\n\nAs A. awoke 1 morn from uneasy dreams she found herself a target o’ a gang. Every day @ 8 in the morn she was brought home breakfast by Edgar Winters before heading off for his friend’s, but today he didn’t come. That had ne’er happened before. But A. didn’t let it bother her: ’haps he woke late & didn’t want to be late for whate’er excursion he had planned with his friend, or ’haps he had woken earlier than she did & didn’t want to wake her. She was not all that hungry, anyway, & didn’t waste any mo’ time thinking ’bout breakfast but immediately set to work on her laptop, only to be interrupted by a knock on her door.",
         ( unsigned int )( charset2 ),
         { 32.0f, 128.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
+        NASR_ALIGN_JUSTIFIED,
+        NASR_VALIGN_DEFAULT,
+        0.0f, 0.0f, 0.0f, 0.0f
+    };
+
+    NasrText text3 =
+    {
+        "thru frostgrass\ntwigs & crisp leaves jogs\nlone black crow\n\ntatata\nmarch the frosty streets\ndry warm leaves",
+        ( unsigned int )( charset1 ),
+        { 32.0f, 256.0f + 128.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
+        NASR_ALIGN_CENTER,
+        NASR_VALIGN_DEFAULT,
+        0.0f, 0.0f, 0.0f, 0.0f
+    };
+
+    NasrText text4 =
+    {
+        "thru frostgrass\ntwigs & crisp leaves jogs\nlone black crow\n\ntatata\nmarch the frosty streets\ndry warm leaves",
+        ( unsigned int )( charset2 ),
+        { 32.0f, 512.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
         NASR_ALIGN_CENTER,
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f
@@ -366,7 +386,24 @@ void NasrTestRun( void )
         texcolor1,
         texcolor2
     );
-    NasrRemoveCharset( charset2 );
+    NasrGraphicAddTextGradient(
+        0,
+        2,
+        0,
+        text3,
+        NASR_DIR_DOWN,
+        texcolor1,
+        texcolor2
+    );
+    NasrGraphicAddTextGradient(
+        0,
+        2,
+        0,
+        text4,
+        NASR_DIR_DOWN,
+        texcolor1,
+        texcolor2
+    );
 
     static unsigned char globalpal;
     NasrSetGlobalPalette( globalpal );

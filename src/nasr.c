@@ -2217,6 +2217,7 @@ static int GraphicAddText
     int line_character = 0;
     long unsigned int i = 0;
     int lx = ( int )( charx );
+    int endswithnewline[ maxlines ];
     while ( i < lettercount )
     {
         long unsigned int ib = i;
@@ -2245,6 +2246,7 @@ static int GraphicAddText
             {
                 lx = ( int )( charx );
                 line_character_counts[ line_count ] = line_character;
+                endswithnewline[ line_count ] = 0;
                 ++line_count;
                 line_widths[ line_count ] = 0;
                 line_character = 0;
@@ -2265,23 +2267,19 @@ static int GraphicAddText
             {
                 lx = ( int )( charx );
                 line_character_counts[ line_count ] = line_character;
+                endswithnewline[ line_count ] = letters[ i ].chartype == NASR_CHAR_NEWLINE;
                 ++line_count;
                 line_widths[ line_count ] = 0;
                 line_character = 0;
-
-                if ( letters[ i ].chartype == NASR_CHAR_NEWLINE )
-                {
-                    lines[ line_count ][ line_character ] = letters[ i ];
-                }
             }
             else
             {
                 lines[ line_count ][ line_character ] = letters[ i ];
                 line_widths[ line_count ] += letters[ i ].src.w;
+                ++line_character;
+                lx += letters[ i ].src.w;
             }
             ++i;
-            ++line_character;
-            lx += letters[ i ].src.w;
         }
     }
     line_character_counts[ line_count ] = line_character;
@@ -2327,6 +2325,12 @@ static int GraphicAddText
             : ( text.align == NASR_ALIGN_RIGHT )
                 ? lnend - line_widths[ l ]
                 : charx;
+
+        // Add justified spacing if set to justified & not an endline.
+        float letterspace = text.align == NASR_ALIGN_JUSTIFIED && line_character_counts[ l ] > 0 && l < line_count - 1 && !endswithnewline[ l ]
+            ? ( charw - line_widths[ l ] ) / ( float )( line_character_counts[ l ] - 1 )
+            : 0.0f;
+
         for ( int c = 0; c < line_character_counts[ l ]; ++c )
         {
             // Just in case o’ character index misalignment, just copy o’er whole characters.
@@ -2337,7 +2341,9 @@ static int GraphicAddText
                 chars[ count ].dest.y = dy + ( ( maxh[ l ] - lines[ l ][ c ].src.h ) / 2.0 );
                 ++count;
             }
-            dx += lines[ l ][ c ].src.w;
+            if ( lines[ l ][ c ].src.w > 0.0f ) {
+                dx += ( lines[ l ][ c ].src.w + letterspace );
+            }
         }
         dy += maxh[ l ];
     }
