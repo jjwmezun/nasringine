@@ -127,6 +127,7 @@ typedef struct NasrGraphicText
     unsigned int charset;
     float xoffset;
     float yoffset;
+    float shadow;
 } NasrGraphicText;
 
 typedef union NasrGraphicData
@@ -178,6 +179,7 @@ typedef struct NasrText
     float padding_bottom;
     float xoffset;
     float yoffset;
+    float shadow;
 } NasrText;
 
 #define NASR_KEY_UNKNOWN		GLFW_KEY_UNKNOWN

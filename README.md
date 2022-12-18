@@ -8,8 +8,6 @@ General 2D game engine based on OpenGL.
 
 ## TODO
 
-* Charset graphics
-    * Dropshadows
 * Localization
 * Customizable shaders
 * Sound

@@ -389,7 +389,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\n  \nvoid main()\n{\n    final_color = vec4( out_color.rgb, out_color.a * texture( texture_data, texture_coords ).a );\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform float shadow;\n  \nvoid main()\n{\n    vec4 texture_color = texture( texture_data, texture_coords );\n    if ( texture_color.r < 1.0 )\n    {\n        final_color = vec4( vec3( out_color.rgb * texture_color.rgb ), texture_color.a * shadow );\n    }\n    else\n    {\n        final_color = out_color * texture_color;\n    }\n}"
         }
     };
 
@@ -398,7 +398,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= texture( texture_data, texture_coords ).a;\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float shadow;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    vec4 texture_color = texture( texture_data, texture_coords );\n    final_color = texture_color * texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= texture_color.a;\n    if ( texture_color.r < 1.0 )\n    {\n        final_color.a *= shadow;\n    }\n}"
         }
     };
 
@@ -999,6 +999,8 @@ void NasrUpdate( void )
                     glm_scale( model, scale );
                     unsigned int model_location = glGetUniformLocation( shader, "model" );
                     glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+                    GLint shadow_location = glGetUniformLocation( shader, "shadow" );
+                    glUniform1f( shadow_location, graphics[ i ].data.text.shadow );
 
                     if ( graphics[ i ].data.text.palette_type )
                     {
@@ -2555,6 +2557,7 @@ static int GraphicAddText
     graphic.data.text.capacity = graphic.data.text.count = count;
     graphic.data.text.xoffset = text.xoffset;
     graphic.data.text.yoffset = text.yoffset;
+    graphic.data.text.shadow = text.shadow;
     graphic.data.text.vaos = calloc( count, sizeof( unsigned int ) );
     graphic.data.text.vbos = calloc( count, sizeof( unsigned int ) );
     graphic.data.text.vertices = calloc( count * VERTEX_RECT_SIZE, sizeof( float ) );
