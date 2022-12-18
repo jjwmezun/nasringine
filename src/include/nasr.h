@@ -113,6 +113,7 @@ typedef struct NasrGraphicText
     unsigned int * vbos;
     uint_fast8_t palette;
     uint_fast8_t palette_type;
+    unsigned int charset;
 } NasrGraphicText;
 
 typedef union NasrGraphicData
@@ -152,6 +153,7 @@ typedef struct NasrTile
 typedef struct NasrText
 {
     char * string;
+    unsigned int charset;
     NasrRect coords;
     uint_fast8_t align;
     uint_fast8_t valign;
@@ -323,7 +325,8 @@ int NasrInit
     int default_indexed_type
 );
 void NasrSetPalette( const char * filename );
-int NasrSetCharset( const char * texture, const char * chardata );
+int NasrAddCharset( const char * texture, const char * chardata );
+void NasrRemoveCharset( unsigned int charset );
 void NasrClose( void );
 void NasrClearTextures( void );
 void NasrUpdate( void );
@@ -533,3 +536,5 @@ void NasrDrawSpriteToTexture( NasrGraphicSprite sprite );
 void NasrSetGlobalPalette( uint_fast8_t palette );
 
 void NasrDebugGraphics( void );
+
+int NasrMathIsPrime( int n );

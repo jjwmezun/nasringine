@@ -61,6 +61,19 @@ typedef struct CharTemplate
 } CharTemplate;
 typedef struct { char * string; hash_t hash; } CharMapKey;
 typedef struct { TextureMapKey key; CharTemplate value; } CharMapEntry;
+typedef struct CharMap
+{
+    unsigned int capacity;
+    unsigned int hashmax;
+    CharMapEntry * list;
+    unsigned int texture_id;
+    Texture texture;
+} CharMap;
+typedef struct CharMapList
+{
+    unsigned int capacity;
+    CharMap * list
+} CharMapList;
 
 static CharTemplate default_char_temp = { { 0.0f, 0.0f, 8.0f, 8.0f }, 0.0f, 0.0f, NASR_CHAR_NORMAL };
 
@@ -107,8 +120,6 @@ static TextureMapEntry * texture_map;
 static GLint default_indexed_mode = GL_RGBA;
 static unsigned int palette_texture_id;
 static Texture palette_texture;
-static unsigned int charset_texture_id;
-static Texture charset_texture;
 static int max_states;
 static int max_gfx_layers;
 static int * layer_pos = NULL;
@@ -119,8 +130,7 @@ static int * layer_for_gfx = NULL;
 static unsigned int animation_frame = 0;
 static unsigned int animation_timer = 0;
 static uint_fast8_t global_palette = 0;
-static CharMapEntry * char_map;
-static int max_chars;
+static CharMapList charmaps = { 0, 0, 0 };
 
 static void UpdateSpriteX( unsigned int id );
 static void UpdateSpriteY( unsigned int id );
@@ -141,8 +151,9 @@ static int * GetHeld( int id );
 static GLint GetGLSamplingType( int sampling );
 static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash );
 static uint32_t TextureMapHashString( const char * key );
-static CharMapEntry * CharMapHashFindEntry( const char * needle_string, hash_t needle_hash );
-static uint32_t CharMapHashString( const char * key );
+static CharMapEntry * CharMapHashFindEntry( unsigned int id, const char * needle_string, hash_t needle_hash );
+static CharMapEntry * CharMapGenEntry( unsigned int id, const char * key );
+static uint32_t CharMapHashString( unsigned int id, const char * key );
 static uint32_t HashString( const char * key, int max );
 static GLint GetGLRGBA( int indexed );
 static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
@@ -267,7 +278,6 @@ int NasrInit
     texture_ids = calloc( max_textures, sizeof( unsigned int ) );
     glGenTextures( max_textures, texture_ids );
     glGenTextures( 1, &palette_texture_id );
-    glGenTextures( 1, &charset_texture_id );
 
     max_graphics = init_max_graphics;
     vaos = calloc( ( max_graphics + 1 ), sizeof( unsigned int ) );
@@ -420,35 +430,6 @@ int NasrInit
     // Init texture map.
     texture_map = calloc( max_textures, sizeof( TextureMapEntry ) );
 
-    // Init charset
-    max_chars = MAX_CHARACTER_TYPES;
-    char_map = calloc( max_chars, sizeof( CharMapEntry ) );
-
-    hash_t needle_hash = CharMapHashString( "\n" );
-    CharMapEntry * entry = CharMapHashFindEntry( "\n", needle_hash );
-    if ( entry->key.string != NULL )
-    {
-        printf( "ERROR: This char should be null.\n" );
-    }
-    entry->key.string = ( char * )( malloc( strlen( "\n" ) + 1 ) );
-    strcpy( entry->key.string, "\n" );
-    entry->key.hash = needle_hash;
-    entry->value.src.w = entry->value.src.h = 0.0f;
-    entry->value.chartype = NASR_CHAR_NEWLINE;
-
-    needle_hash = CharMapHashString( " " );
-    entry = CharMapHashFindEntry( " ", needle_hash );
-    if ( entry->key.string != NULL )
-    {
-        printf( "ERROR: This char should be null.\n" );
-    }
-    entry->key.string = ( char * )( malloc( strlen( " " ) + 1 ) );
-    strcpy( entry->key.string, " " );
-    entry->key.hash = needle_hash;
-    entry->value.src.w = 5.0f;
-    entry->value.src.h = 8.0f;
-    entry->value.chartype = NASR_CHAR_WHITESPACE;
-
     // Set framerate
     glfwSwapInterval(0);
 
@@ -464,24 +445,23 @@ void NasrSetPalette( const char * filename )
     free( data );
 };
 
-int NasrSetCharset( const char * texture, const char * chardata )
+int NasrAddCharset( const char * texture, const char * chardata )
 {
-    unsigned int width;
-    unsigned int height;
-    const unsigned char * data = LoadTextureFileData( texture, &width, &height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
-    AddTexture( &charset_texture, charset_texture_id, data, width, height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
-    free( data );
-
     char * text = NasrReadFile( chardata );
+    if ( !text )
+    {
+        return -1;
+    }
     json_char * json = ( json_char * )( text );
     json_value * root = json_parse( json, strlen( text ) + 1 );
     free( text );
     if ( !root || root->type != json_object )
     {
         NasrLog( "¡Charset failed to load!\n" );
-        return false;
+        return -1;
     }
 
+    int id = -1;
     for ( unsigned int i = 0; i < root->u.object.length; ++i )
     {
         const json_object_entry root_entry = root->u.object.values[ i ];
@@ -490,8 +470,11 @@ int NasrSetCharset( const char * texture, const char * chardata )
             if ( root_entry.value->type != json_array )
             {
                 NasrLog( "Localization file malformed: characters is not an array." );
-                return false;
+                return -1;
             }
+
+            CharTemplate chars[ root_entry.value->u.array.length ];
+            char * keys[ root_entry.value->u.array.length ];
 
             for ( unsigned int j = 0; j < root_entry.value->u.array.length; ++j )
             {
@@ -502,8 +485,10 @@ int NasrSetCharset( const char * texture, const char * chardata )
                     return false;
                 }
 
-                CharTemplate c = { { 0.0f, 0.0f, 8.0f, 8.0f }, 0.0f, 0.0f, NASR_CHAR_NORMAL };
-                const char * key;
+                // Setup defaults.
+                chars[ j ].src.x = chars[ j ].src.y = 0.0f;
+                chars[ j ].src.w = chars[ j ].src.h = 8.0f;
+                chars[ j ].chartype = NASR_CHAR_NORMAL;
 
                 for ( unsigned int k = 0; k < char_item->u.object.length; ++k )
                 {
@@ -515,7 +500,7 @@ int NasrSetCharset( const char * texture, const char * chardata )
                             NasrLog( "Localization file malformed: character key is not a string." );
                             return false;
                         }
-                        key = char_entry.value->u.string.ptr;
+                        keys[ j ] = char_entry.value->u.string.ptr;
                     }
                     else if ( strcmp( "type", char_entry.name ) == 0 )
                     {
@@ -526,18 +511,18 @@ int NasrSetCharset( const char * texture, const char * chardata )
                         }
                         if ( strcmp( "whitespace", char_entry.value->u.string.ptr ) == 0 )
                         {
-                            c.chartype = NASR_CHAR_WHITESPACE;
+                            chars[ j ].chartype = NASR_CHAR_WHITESPACE;
                         }
                     }
                     else if ( strcmp( "x", char_entry.name ) == 0 )
                     {
                         if ( char_entry.value->type == json_integer )
                         {
-                            c.src.x = ( float )( char_entry.value->u.integer );
+                            chars[ j ].src.x = ( float )( char_entry.value->u.integer );
                         }
                         else if ( char_entry.value->type == json_double )
                         {
-                            c.src.x = ( float )( char_entry.value->u.dbl );
+                            chars[ j ].src.x = ( float )( char_entry.value->u.dbl );
                         }
                         else
                         {
@@ -549,11 +534,11 @@ int NasrSetCharset( const char * texture, const char * chardata )
                     {
                         if ( char_entry.value->type == json_integer )
                         {
-                            c.src.y = ( float )( char_entry.value->u.integer );
+                            chars[ j ].src.y = ( float )( char_entry.value->u.integer );
                         }
                         else if ( char_entry.value->type == json_double )
                         {
-                            c.src.y = ( float )( char_entry.value->u.dbl );
+                            chars[ j ].src.y = ( float )( char_entry.value->u.dbl );
                         }
                         else
                         {
@@ -565,11 +550,11 @@ int NasrSetCharset( const char * texture, const char * chardata )
                     {
                         if ( char_entry.value->type == json_integer )
                         {
-                            c.src.w = ( float )( char_entry.value->u.integer );
+                            chars[ j ].src.w = ( float )( char_entry.value->u.integer );
                         }
                         else if ( char_entry.value->type == json_double )
                         {
-                            c.src.w = ( float )( char_entry.value->u.dbl );
+                            chars[ j ].src.w = ( float )( char_entry.value->u.dbl );
                         }
                         else
                         {
@@ -581,11 +566,11 @@ int NasrSetCharset( const char * texture, const char * chardata )
                     {
                         if ( char_entry.value->type == json_integer )
                         {
-                            c.src.h = ( float )( char_entry.value->u.integer );
+                            chars[ j ].src.h = ( float )( char_entry.value->u.integer );
                         }
                         else if ( char_entry.value->type == json_double )
                         {
-                            c.src.h = ( float )( char_entry.value->u.dbl );
+                            chars[ j ].src.h = ( float )( char_entry.value->u.dbl );
                         }
                         else
                         {
@@ -594,23 +579,92 @@ int NasrSetCharset( const char * texture, const char * chardata )
                         }
                     }
                 }
-                
-                if ( key )
+            }
+
+            if ( !charmaps.list )
+            {
+                charmaps.capacity = 5;
+                charmaps.list = calloc( charmaps.capacity, sizeof( CharMap ) );
+            }
+
+            // Find 1st unused charmaps slot.
+            for ( int i = 0; i < charmaps.capacity; ++i )
+            {
+                if ( !charmaps.list[ i ].list )
                 {
-                    hash_t needle_hash = CharMapHashString( key );
-                    CharMapEntry * entry = CharMapHashFindEntry( key, needle_hash );
-                    entry->key.string = ( char * )( malloc( strlen( key ) + 1 ) );
-                    strcpy( entry->key.string, key );
-                    entry->key.hash = needle_hash;
-                    entry->value = c;
+                    id = i;
+                    break;
                 }
             }
 
+            // If all available slots used, add mo’ slots.
+            if ( id == -1 )
+            {
+                size_t newcapacity = charmaps.capacity == 0 ? 5 : charmaps.capacity * 2;
+                CharMap * newlist = calloc( newcapacity, sizeof( CharMap ) );
+                for ( int l = 0; l < charmaps.capacity; ++l )
+                {
+                    newlist[ l ] = charmaps.list[ l ];
+                }
+                free( charmaps.list );
+                charmaps.list = newlist;
+                id = charmaps.capacity;
+                charmaps.capacity = newcapacity;
+            }
+
+            charmaps.list[ id ].capacity = root_entry.value->u.array.length + 2;
+
+            while ( !NasrMathIsPrime( charmaps.list[ id ].capacity ) )
+            {
+                ++charmaps.list[ id ].capacity;
+            }
+
+            charmaps.list[ id ].hashmax = charmaps.list[ id ].capacity;
+            charmaps.list[ id ].list = calloc( charmaps.list[ id ].capacity, sizeof( CharMapEntry ) );
+
+            unsigned int width;
+            unsigned int height;
+            const unsigned char * data = LoadTextureFileData( texture, &width, &height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+            glGenTextures( 1, &charmaps.list[ id ].texture_id );
+            AddTexture( &charmaps.list[ id ].texture, charmaps.list[ id ].texture_id, data, width, height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+            free( data );
+
+            // Autogenerate newline & whitespace characters.
+            CharMapEntry * entry = CharMapGenEntry( ( unsigned int )( id ), "\n" );
+            entry->value.src.w = entry->value.src.h = 0.0f;
+            entry->value.chartype = NASR_CHAR_NEWLINE;
+            entry = CharMapGenEntry( ( unsigned int )( id ), " " );
+            entry->value.src.w = 5.0f;
+            entry->value.src.h = 8.0f;
+            entry->value.chartype = NASR_CHAR_WHITESPACE;
+
+            for ( unsigned int c = 0; c < root_entry.value->u.array.length; ++c )
+            {
+                entry = CharMapGenEntry( id, keys[ c ] );
+                entry->value = chars[ c ];
+            }
         }
     }
 
     json_value_free( root );
-    return true;
+    return id;
+};
+
+void NasrRemoveCharset( unsigned int charset )
+{
+    if ( charmaps.list[ charset ].list )
+    {
+        for ( int j = 0; j < charmaps.list[ charset ].capacity; ++j )
+        {
+            if ( charmaps.list[ charset ].list[ j ].key.string )
+            {
+                free( charmaps.list[ charset ].list[ j ].key.string );
+            }
+        }
+        glDeleteTextures( 1, &charmaps.list[ charset ].texture_id );
+        free( charmaps.list[ charset ].list );
+        charmaps.list[ charset ].list = 0;
+    }
 };
 
 char * NasrReadFile( const char * filename )
@@ -655,22 +709,14 @@ char * NasrReadFile( const char * filename )
 
 void NasrClose( void )
 {
-    // Close charmap
-    for ( int i = 0; i < max_chars; ++i )
+    // Close charmaps
+    if ( charmaps.list )
     {
-        if
-        (
-            char_map[ i ].key.string != NULL
-        )
+        for ( int i = 0; i < charmaps.capacity; ++i )
         {
-            free( char_map[ i ].key.string );
-            char_map[ i ].key.string = 0;
-            char_map[ i ].key.hash = 0;
+            NasrRemoveCharset( i );
         }
-    }
-    if ( char_map )
-    {
-        free( char_map );
+        free( charmaps.list );
     }
 
     for ( int i = 0; i < num_o_graphics; ++i )
@@ -707,7 +753,6 @@ void NasrClose( void )
         free( textures );
     }
     glDeleteTextures( 1, &palette_texture_id );
-    glDeleteTextures( 1, &charset_texture_id );
     if ( texture_ids )
     {
         glDeleteTextures( max_textures, texture_ids );
@@ -922,7 +967,7 @@ void NasrUpdate( void )
 
                     GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
                     glActiveTexture( GL_TEXTURE0 );
-                    glBindTexture( GL_TEXTURE_2D, charset_texture_id );
+                    glBindTexture( GL_TEXTURE_2D, charmaps.list[ graphics[ i ].data.text.charset ].texture_id );
                     glUniform1i( texture_data_location, 0 );
                     if ( graphics[ i ].data.text.palette_type )
                     {
@@ -2124,6 +2169,11 @@ static int GraphicAddText
     uint_fast8_t palette_type
 )
 {
+    if ( text.charset >= charmaps.capacity || !charmaps.list[ text.charset ].list )
+    {
+        return -1;
+    }
+
     // Generate char list from string.
     float charw = text.coords.w - text.padding_left - text.padding_right;
     float charh = text.coords.h - text.padding_top - text.padding_bottom;
@@ -2144,8 +2194,8 @@ static int GraphicAddText
         letter[ charlen ] = 0;
 
         // Find character
-        const hash_t needle_hash = CharMapHashString( letter );
-        CharMapEntry * entry = CharMapHashFindEntry( letter, needle_hash );
+        const hash_t needle_hash = CharMapHashString( text.charset, letter );
+        CharMapEntry * entry = CharMapHashFindEntry( text.charset, letter, needle_hash );
         if ( entry->key.string == NULL )
         {
             letters[ lettercount ] = default_char_temp;
@@ -2302,6 +2352,7 @@ static int GraphicAddText
     struct NasrGraphic graphic;
     graphic.abs = abs;
     graphic.type = NASR_GRAPHIC_TEXT;
+    graphic.data.text.charset = text.charset;
     graphic.data.text.palette = palette;
     graphic.data.text.palette_type = palette_type;
     graphic.data.text.capacity = graphic.data.text.count = count;
@@ -2325,10 +2376,12 @@ static int GraphicAddText
         glBindBuffer( GL_ARRAY_BUFFER, g->data.text.vbos[ i ] );
 
         ResetVertices( vptr );
-        vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( charset_texture.width ) * CHARACTER.src.x; // Left X
-        vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / ( float )( charset_texture.width ) * ( CHARACTER.src.x + CHARACTER.src.w );  // Right X
-        vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / ( float )( charset_texture.height ) * ( CHARACTER.src.y + CHARACTER.src.h ); // Top Y
-        vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / ( float )( charset_texture.height ) * CHARACTER.src.y;  // Bottom Y
+        const float texturew = ( float )( charmaps.list[ text.charset ].texture.width );
+        const float textureh = ( float )( charmaps.list[ text.charset ].texture.height );
+        vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / texturew * CHARACTER.src.x; // Left X
+        vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / texturew * ( CHARACTER.src.x + CHARACTER.src.w );  // Right X
+        vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / textureh * ( CHARACTER.src.y + CHARACTER.src.h ); // Top Y
+        vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / textureh * CHARACTER.src.y;  // Bottom Y
 
         if ( bottom_right_color )
         {
@@ -3225,22 +3278,35 @@ static uint32_t TextureMapHashString( const char * key )
     return HashString( key, max_textures );
 };
 
-static CharMapEntry * CharMapHashFindEntry( const char * needle_string, hash_t needle_hash )
+static CharMapEntry * CharMapHashFindEntry( unsigned int id, const char * needle_string, hash_t needle_hash )
 {
     while ( 1 )
     {
-        CharMapEntry * entry = &char_map[ needle_hash ];
+        CharMapEntry * entry = &charmaps.list[ id ].list[ needle_hash ];
         if ( entry->key.string == NULL || strcmp( entry->key.string, needle_string ) == 0 )
         {
             return entry;
         }
-        needle_hash = ( needle_hash + 1 ) % max_chars;
+        needle_hash = ( needle_hash + 1 ) % charmaps.list[ id ].hashmax;
     }
 };
 
-static uint32_t CharMapHashString( const char * key )
+static CharMapEntry * CharMapGenEntry( unsigned int id, const char * key )
 {
-    return HashString( key, max_chars );
+    hash_t needle_hash = CharMapHashString( id, key );
+    CharMapEntry * entry = CharMapHashFindEntry( id, key, needle_hash );
+    if ( !entry->key.string )
+    {
+        entry->key.string = ( char * )( malloc( strlen( key ) + 1 ) );
+        strcpy( entry->key.string, key );
+        entry->key.hash = needle_hash;
+    }
+    return entry;
+};
+
+static uint32_t CharMapHashString( unsigned int id, const char * key )
+{
+    return HashString( key, charmaps.list[ id ].hashmax );
 };
 
 static uint32_t HashString( const char * key, int max )
@@ -3391,4 +3457,13 @@ static void ClearBufferBindings( void )
     glBindVertexArray( 0 );
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
+};
+
+int NasrMathIsPrime( int n )
+{
+    for ( int i = 2; i < n; ++i )
+    {
+        if ( n % i == 0 ) return false;
+    }
+    return true;
 };

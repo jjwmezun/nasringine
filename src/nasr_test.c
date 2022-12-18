@@ -29,7 +29,9 @@ void NasrTestRun( void )
 {
     NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
     NasrSetPalette( "assets/palette2.png" );
-    NasrSetCharset( "assets/latin.png", "assets/latin.json" );
+    const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );
+    const int charset2 = NasrAddCharset( "assets/latin2.png", "assets/latin2.json" );
+    
     NasrInput inputs[] =
     {
         { INPUT_RIGHT, NASR_KEY_RIGHT },
@@ -324,10 +326,21 @@ void NasrTestRun( void )
     static float tileaccy = TILEACCVAL;
     static float tilevy = 0.0f;
 
-    NasrText text =
+    NasrText text1 =
     {
         "thru frostgrass\ntwigs & crisp leaves jogs\nlone black crow\n\ntatata\nmarch the frosty streets\ndry warm leaves",
-        { 32.0f, 32.0f, 520.0f - 64.0f, 320.0f - 64.0f },
+        ( unsigned int )( charset1 ),
+        { 32.0f, 32.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
+        NASR_ALIGN_CENTER,
+        NASR_VALIGN_DEFAULT,
+        0.0f, 0.0f, 0.0f, 0.0f
+    };
+
+    NasrText text2 =
+    {
+        "thru frostgrass\ntwigs & crisp leaves jogs\nlone black crow\n\ntatata\nmarch the frosty streets\ndry warm leaves",
+        ( unsigned int )( charset2 ),
+        { 32.0f, 128.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
         NASR_ALIGN_CENTER,
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f
@@ -339,11 +352,21 @@ void NasrTestRun( void )
         0,
         2,
         0,
-        text,
+        text1,
         NASR_DIR_DOWN,
         texcolor1,
         texcolor2
     );
+    NasrGraphicAddTextGradient(
+        0,
+        2,
+        0,
+        text2,
+        NASR_DIR_DOWN,
+        texcolor1,
+        texcolor2
+    );
+    NasrRemoveCharset( charset2 );
 
     static unsigned char globalpal;
     NasrSetGlobalPalette( globalpal );
