@@ -333,7 +333,8 @@ void NasrTestRun( void )
         { 32.0f, 32.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
         NASR_ALIGN_JUSTIFIED,
         NASR_VALIGN_DEFAULT,
-        0.0f, 0.0f, 0.0f, 0.0f
+        0.0f, 0.0f, 0.0f, 0.0f,
+        560.f, -320.0f
     };
 
     NasrText text2 =
@@ -343,7 +344,8 @@ void NasrTestRun( void )
         { 32.0f, 128.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
         NASR_ALIGN_JUSTIFIED,
         NASR_VALIGN_DEFAULT,
-        0.0f, 0.0f, 0.0f, 0.0f
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f
     };
 
     NasrText text3 =
@@ -353,7 +355,8 @@ void NasrTestRun( void )
         { 32.0f, 256.0f + 128.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
         NASR_ALIGN_CENTER,
         NASR_VALIGN_DEFAULT,
-        0.0f, 0.0f, 0.0f, 0.0f
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f
     };
 
     NasrText text4 =
@@ -363,13 +366,14 @@ void NasrTestRun( void )
         { 32.0f, 512.0f, 520.0f - 64.0f, 320.0f - 64.0f - 128.0f },
         NASR_ALIGN_CENTER,
         NASR_VALIGN_DEFAULT,
-        0.0f, 0.0f, 0.0f, 0.0f
+        0.0f, 0.0f, 0.0f, 0.0f,
+        0.0f
     };
 
     NasrColor texcolor1 = { 255.0f, 16.0f, 64.0f, 255.0f };
     NasrColor texcolor2 = { 64.0f, 16.0f, 255.0f, 255.0f };
-    NasrGraphicAddTextGradient(
-        0,
+    const int textid = NasrGraphicAddTextGradient(
+        1,
         2,
         0,
         text1,
@@ -415,6 +419,18 @@ void NasrTestRun( void )
         }
         else
         {
+            NasrGraphicTextAddToXOffset( textid, -2.0f );
+            if ( NasrGraphicTextGetXOffset( textid ) < -520.0f )
+            {
+                NasrGraphicTextSetXOffset( textid, 520.0f );
+            }
+
+            NasrGraphicTextAddToYOffset( textid, 2.0f );
+            if ( NasrGraphicTextGetYOffset( textid ) > 320.0f )
+            {
+                NasrGraphicTextSetYOffset( textid, -280.0f );
+            }
+
             tilevy += tileaccy;
             if ( tilevy > 0.1f )
             {

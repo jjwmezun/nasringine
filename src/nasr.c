@@ -951,7 +951,7 @@ void NasrUpdate( void )
                     
                     glBindVertexArray( graphics[ i ].data.text.vaos[ j ] );
                     glBindBuffer( GL_ARRAY_BUFFER, graphics[ i ].data.text.vbos[ j ] );
-                    SetVerticesView( CHAR.dest.x + ( CHAR.dest.w / 2.0f ), CHAR.dest.y + ( CHAR.dest.h / 2.0f ), graphics[ i ].abs );
+                    SetVerticesView( CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.text.xoffset, CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.text.yoffset, graphics[ i ].abs );
 
                     mat4 model = BASE_MATRIX;
                     vec3 scale = { CHAR.dest.w, CHAR.dest.h, 0.0 };
@@ -2362,6 +2362,8 @@ static int GraphicAddText
     graphic.data.text.palette = palette;
     graphic.data.text.palette_type = palette_type;
     graphic.data.text.capacity = graphic.data.text.count = count;
+    graphic.data.text.xoffset = text.xoffset;
+    graphic.data.text.yoffset = text.yoffset;
     graphic.data.text.vaos = calloc( count, sizeof( unsigned int ) );
     graphic.data.text.vbos = calloc( count, sizeof( unsigned int ) );
     graphic.data.text.vertices = calloc( count * VERTEX_RECT_SIZE, sizeof( float ) );
@@ -2728,6 +2730,36 @@ void NasrGraphicsTilemapSetX( unsigned int id, float v )
 void NasrGraphicsTilemapSetY( unsigned int id, float v )
 {
     NasrGraphicGet( id )->data.tilemap.dest.y = v;
+};
+
+float NasrGraphicTextGetXOffset( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.text.xoffset;
+};
+
+void NasrGraphicTextSetXOffset( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.text.xoffset = v;
+};
+
+void NasrGraphicTextAddToXOffset( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.text.xoffset += v;
+};
+
+float NasrGraphicTextGetYOffset( unsigned int id )
+{
+    return NasrGraphicGet( id )->data.text.yoffset;
+};
+
+void NasrGraphicTextSetYOffset( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.text.yoffset = v;
+};
+
+void NasrGraphicTextAddToYOffset( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.text.yoffset += v;
 };
 
 int NasrLoadFileAsTexture( char * filename )

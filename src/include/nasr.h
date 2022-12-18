@@ -114,6 +114,8 @@ typedef struct NasrGraphicText
     uint_fast8_t palette;
     uint_fast8_t palette_type;
     unsigned int charset;
+    float xoffset;
+    float yoffset;
 } NasrGraphicText;
 
 typedef union NasrGraphicData
@@ -162,6 +164,8 @@ typedef struct NasrText
     float padding_right;
     float padding_top;
     float padding_bottom;
+    float xoffset;
+    float yoffset;
 } NasrText;
 
 #define NASR_KEY_UNKNOWN		GLFW_KEY_UNKNOWN
@@ -515,6 +519,13 @@ void NasrGraphicRectSetColorA( unsigned int id, float v );
 
 void NasrGraphicsTilemapSetX( unsigned int id, float v );
 void NasrGraphicsTilemapSetY( unsigned int id, float v );
+
+float NasrGraphicTextGetXOffset( unsigned int id );
+void NasrGraphicTextSetXOffset( unsigned int id, float v );
+void NasrGraphicTextAddToXOffset( unsigned int id, float v );
+float NasrGraphicTextGetYOffset( unsigned int id );
+void NasrGraphicTextSetYOffset( unsigned int id, float v );
+void NasrGraphicTextAddToYOffset( unsigned int id, float v );
 
 int NasrLoadFileAsTexture( char * filename );
 int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed );
