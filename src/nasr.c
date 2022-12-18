@@ -3,6 +3,7 @@
 #include <cglm/call.h>
 #include "json/json.h"
 #include "nasr.h"
+#include "nasr_math.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
@@ -2762,6 +2763,18 @@ void NasrGraphicTextAddToYOffset( unsigned int id, float v )
     NasrGraphicGet( id )->data.text.yoffset += v;
 };
 
+void NasrGraphicTextSetCount( unsigned int id, int count )
+{
+    NasrGraphicText * t = &NasrGraphicGet( id )->data.text;
+    t->count = NASR_MATH_MIN( count, t->capacity );
+};
+
+void NasrGraphicTextIncrementCount( unsigned int id )
+{
+    NasrGraphicText * t = &NasrGraphicGet( id )->data.text;
+    t->count = NASR_MATH_MIN( t->count + 1, t->capacity );
+};
+
 int NasrLoadFileAsTexture( char * filename )
 {
     return NasrLoadFileAsTextureEx( filename, NASR_SAMPLING_DEFAULT, NASR_INDEXED_DEFAULT );
@@ -3495,13 +3508,4 @@ static void ClearBufferBindings( void )
     glBindVertexArray( 0 );
     glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, 0 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
-};
-
-int NasrMathIsPrime( int n )
-{
-    for ( int i = 2; i < n; ++i )
-    {
-        if ( n % i == 0 ) return false;
-    }
-    return true;
 };

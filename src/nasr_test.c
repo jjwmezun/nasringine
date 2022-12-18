@@ -345,7 +345,7 @@ void NasrTestRun( void )
         NASR_ALIGN_JUSTIFIED,
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f,
-        0.0f
+        0.0f, 0.0f
     };
 
     NasrText text3 =
@@ -356,7 +356,7 @@ void NasrTestRun( void )
         NASR_ALIGN_CENTER,
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f,
-        0.0f
+        0.0f, 0.0f
     };
 
     NasrText text4 =
@@ -367,7 +367,7 @@ void NasrTestRun( void )
         NASR_ALIGN_CENTER,
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f,
-        0.0f
+        0.0f, 0.0f
     };
 
     NasrColor texcolor1 = { 255.0f, 16.0f, 64.0f, 255.0f };
@@ -381,7 +381,7 @@ void NasrTestRun( void )
         texcolor1,
         texcolor2
     );
-    NasrGraphicAddTextGradient(
+    const int textid2 = NasrGraphicAddTextGradient(
         0,
         2,
         0,
@@ -390,6 +390,7 @@ void NasrTestRun( void )
         texcolor1,
         texcolor2
     );
+    NasrGraphicTextSetCount( textid2, 0 );
     NasrGraphicAddTextGradient(
         0,
         2,
@@ -430,6 +431,8 @@ void NasrTestRun( void )
             {
                 NasrGraphicTextSetYOffset( textid, -280.0f );
             }
+
+            NasrGraphicTextIncrementCount( textid2 );
 
             tilevy += tileaccy;
             if ( tilevy > 0.1f )

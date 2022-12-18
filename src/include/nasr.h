@@ -1,3 +1,6 @@
+#ifndef NASR_H
+#define NASR_H
+
 #include <glad/glad.h>
 #include "GLFW/glfw3.h"
 
@@ -526,6 +529,8 @@ void NasrGraphicTextAddToXOffset( unsigned int id, float v );
 float NasrGraphicTextGetYOffset( unsigned int id );
 void NasrGraphicTextSetYOffset( unsigned int id, float v );
 void NasrGraphicTextAddToYOffset( unsigned int id, float v );
+void NasrGraphicTextSetCount( unsigned int id, int count );
+void NasrGraphicTextIncrementCount( unsigned int id );
 
 int NasrLoadFileAsTexture( char * filename );
 int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed );
@@ -549,4 +554,4 @@ void NasrSetGlobalPalette( uint_fast8_t palette );
 
 void NasrDebugGraphics( void );
 
-int NasrMathIsPrime( int n );
+#endif // NASR_H
