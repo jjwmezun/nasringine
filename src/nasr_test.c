@@ -52,6 +52,20 @@ void NasrTestRun( void )
     };
     NasrRegisterInputs( inputs, 15 );
 
+    NasrRect backbox = { 0.0f, 0.0f, 520.0f, 320.0f };
+    NasrGraphicsAddRectGradientPalette
+    (
+        1,
+        0,
+        0,
+        backbox,
+        60,
+        NASR_DIR_DOWN,
+        255,
+        1,
+        1
+    );
+
     #define RECTCOUNT 128
     #define SPEED 1.0f
     #define NASRSPEED 4.0f

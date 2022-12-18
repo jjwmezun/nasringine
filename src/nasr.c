@@ -45,7 +45,7 @@ static const float vertices_base[] =
 static float * vertices;
 
 #define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
-#define NUMBER_O_BASE_SHADERS 7
+#define NUMBER_O_BASE_SHADERS 8
 
 #define MAX_CHARACTER_TYPES 1009 // Note: must be prime.
 
@@ -90,7 +90,18 @@ static unsigned int tilemap_shader;
 static unsigned int tilemap_mono_shader;
 static unsigned int text_shader;
 static unsigned int text_pal_shader;
-static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] = { &rect_shader, &sprite_shader, &indexed_sprite_shader, &tilemap_shader, &tilemap_mono_shader, &text_shader, &text_pal_shader };
+static unsigned int rect_pal_shader;
+static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] =
+{
+    &rect_shader,
+	&sprite_shader,
+	&indexed_sprite_shader,
+	&tilemap_shader,
+	&tilemap_mono_shader,
+	&text_shader,
+	&text_pal_shader,
+    &rect_pal_shader
+};
 static NasrGraphic * graphics = NULL;
 static int max_graphics = 0;
 static int num_o_graphics = 0;
@@ -351,7 +362,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\nvec4 index = texture( texture_data, texture_coords );\nfloat palette = palette_id / 256.0;\nfinal_color = texture( palette_data, vec2( index.r / 16.0, palette ) );\nfinal_color.a *= opacity;\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\n    vec4 index = texture( texture_data, texture_coords );\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( index.r, palette ) );\n    final_color.a *= opacity;\n}"
         }
     };
 
@@ -360,7 +371,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = tile.z;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r / 16.0, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = tile.z;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
         }
     };
 
@@ -369,7 +380,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform uint global_palette;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = float( global_palette ) / 255.0;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r / 16.0, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform uint global_palette;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = float( global_palette ) / 255.0;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
         }
     };
 
@@ -390,6 +401,15 @@ int NasrInit
             "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= texture( texture_data, texture_coords ).a;\n}"
         }
     };
+
+    NasrShader rect_pal_shaders[] =
+    {
+        vertex_shader,
+        {
+            NASR_SHADER_FRAGMENT,
+            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\n\nuniform sampler2D palette_data;\nuniform float palette_id;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n}"
+        }
+    };
     
     rect_shader = GenerateShaderProgram( rect_shaders, 2 );
     sprite_shader = GenerateShaderProgram( sprite_shaders, 2 );
@@ -398,6 +418,7 @@ int NasrInit
     tilemap_mono_shader = GenerateShaderProgram( tilemap_mono_shaders, 2 );
     text_shader = GenerateShaderProgram( text_shaders, 2 );
     text_pal_shader = GenerateShaderProgram( text_pal_shaders, 2 );
+    rect_pal_shader = GenerateShaderProgram( rect_pal_shaders, 2 );
 
     // Init camera
     NasrResetCamera();
@@ -839,6 +860,25 @@ void NasrUpdate( void )
                     &graphics[ i ].data.gradient.rect,
                     graphics[ i ].abs
                 );
+            }
+            break;
+            case ( NASR_GRAPHIC_RECT_PAL ):
+            {
+                #define RECT graphics[ i ].data.rectpal.rect
+                glUseProgram( rect_pal_shader );
+                SetVerticesView( RECT.x + ( RECT.w / 2.0f ), RECT.y + ( RECT.h / 2.0f ), abs );
+                mat4 model = BASE_MATRIX;
+                vec3 scale = { RECT.w, RECT.h, 0.0 };
+                glm_scale( model, scale );
+                unsigned int model_location = glGetUniformLocation( rect_pal_shader, "model" );
+                glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+                GLint palette_id_location = glGetUniformLocation( rect_pal_shader, "palette_id" );
+                glUniform1f( palette_id_location, ( float )( graphics[ i ].data.rectpal.useglobalpal ? global_palette : graphics[ i ].data.rectpal.palette ) );
+                GLint palette_data_location = glGetUniformLocation( rect_pal_shader, "palette_data" );
+                glActiveTexture( GL_TEXTURE1 );
+                glBindTexture( GL_TEXTURE_2D, palette_texture_id );
+                glUniform1i( palette_data_location, 1 );
+                #undef RECT
             }
             break;
             case ( NASR_GRAPHIC_SPRITE ):
@@ -1719,6 +1759,156 @@ int NasrGraphicsAddRectGradient
     {
         ResetVertices( GetVertices( id ) );
         SetVerticesColors( id, &graphic.data.gradient.color1, &graphic.data.gradient.color2, &graphic.data.gradient.color3, &graphic.data.gradient.color4 );
+    }
+    return id;
+};
+
+int NasrGraphicsAddRectPalette
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    struct NasrRect rect,
+    uint_fast8_t palette,
+    uint_fast8_t color,
+    uint_fast8_t useglobalpal
+)
+{
+    NasrColor c =
+    {
+        ( float )( color ),
+        0.0f,
+        0.0f,
+        255.0f
+    };
+    struct NasrGraphic graphic;
+    graphic.abs = abs;
+    graphic.type = NASR_GRAPHIC_RECT_PAL;
+    graphic.data.rectpal.rect = rect;
+    graphic.data.rectpal.palette = palette;
+    graphic.data.rectpal.useglobalpal = useglobalpal;
+    const int id = NasrGraphicsAdd( state, layer, graphic );
+    if ( id > -1 )
+    {
+        ResetVertices( GetVertices( id ) );
+        SetVerticesColors( id, &c, &c, &c, &c );
+    }
+    return id;
+};
+
+
+int NasrGraphicsAddRectGradientPalette
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    struct NasrRect rect,
+    uint_fast8_t palette,
+    uint_fast8_t dir,
+    uint_fast8_t color1,
+    uint_fast8_t color2,
+    uint_fast8_t useglobalpal
+)
+{
+    uint_fast8_t c[4];
+
+    switch ( dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            c[ 0 ] = color2;
+            c[ 1 ] = color2;
+            c[ 2 ] = color1;
+            c[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color2;
+            c[ 2 ] = color1;
+            c[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color2;
+            c[ 2 ] = color1;
+            c[ 3 ] = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color1;
+            c[ 2 ] = color1;
+            c[ 3 ] = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color1;
+            c[ 2 ] = color2;
+            c[ 3 ] = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            c[ 0 ] = color1;
+            c[ 1 ] = color1;
+            c[ 2 ] = color2;
+            c[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            c[ 0 ] = color2;
+            c[ 1 ] = color1;
+            c[ 2 ] = color2;
+            c[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            c[ 0 ] = color2;
+            c[ 1 ] = color1;
+            c[ 2 ] = color1;
+            c[ 3 ] = color1;
+        }
+        break;
+        default:
+        {
+            printf( "¡Invalid gradient direction for NasrGraphicsAddRectGradientPalette! %d\n", dir );
+
+            // Default direction.
+            c[ 0 ] = color2;
+            c[ 1 ] = color2;
+            c[ 2 ] = color1;
+            c[ 3 ] = color1;
+        }
+        break;
+    }
+
+    NasrColor cobj[ 4 ];
+    for ( int i = 0; i < 4; ++i )
+    {
+        cobj[ i ].r = ( float )( c[ i ] );
+        cobj[ i ].a = 255.0f;
+    }
+
+    struct NasrGraphic graphic;
+    graphic.abs = abs;
+    graphic.type = NASR_GRAPHIC_RECT_PAL;
+    graphic.data.rectpal.rect = rect;
+    graphic.data.rectpal.palette = palette;
+    graphic.data.rectpal.useglobalpal = useglobalpal;
+    const int id = NasrGraphicsAdd( state, layer, graphic );
+    if ( id > -1 )
+    {
+        ResetVertices( GetVertices( id ) );
+        SetVerticesColors( id, &cobj[ 0 ], &cobj[ 1 ], &cobj[ 2 ], &cobj[ 3 ] );
     }
     return id;
 };

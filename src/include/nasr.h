@@ -59,9 +59,10 @@ typedef struct NasrShader
 #define NASR_GRAPHIC_NONE          0
 #define NASR_GRAPHIC_RECT          1
 #define NASR_GRAPHIC_RECT_GRADIENT 2
-#define NASR_GRAPHIC_SPRITE        3
-#define NASR_GRAPHIC_TILEMAP       4
-#define NASR_GRAPHIC_TEXT          5
+#define NASR_GRAPHIC_RECT_PAL      3
+#define NASR_GRAPHIC_SPRITE        4
+#define NASR_GRAPHIC_TILEMAP       5
+#define NASR_GRAPHIC_TEXT          6
 
 #define NASR_PALETTE_NONE    0
 #define NASR_PALETTE_SET     1
@@ -72,6 +73,13 @@ typedef struct NasrGraphicRect
     NasrRect rect;
     NasrColor color;
 } NasrGraphicRect;
+
+typedef struct NasrGraphicRectPalette
+{
+    NasrRect rect;
+    uint_fast8_t palette;
+    uint_fast8_t useglobalpal;
+} NasrGraphicRectPalette;
 
 typedef struct NasrGraphicRectGradient
 {
@@ -125,6 +133,7 @@ typedef union NasrGraphicData
 {
     NasrGraphicRect         rect;
     NasrGraphicRectGradient gradient;
+    NasrGraphicRectPalette  rectpal;
     NasrGraphicSprite       sprite;
     NasrGraphicTilemap      tilemap;
     NasrGraphicText         text;
@@ -390,6 +399,28 @@ int NasrGraphicsAddRectGradient
     int dir,
     struct NasrColor color1,
     struct NasrColor color2
+);
+int NasrGraphicsAddRectPalette
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    struct NasrRect rect,
+    uint_fast8_t palette,
+    uint_fast8_t color,
+    uint_fast8_t useglobalpal
+);
+int NasrGraphicsAddRectGradientPalette
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    struct NasrRect rect,
+    uint_fast8_t palette,
+    uint_fast8_t dir,
+    uint_fast8_t color1,
+    uint_fast8_t color2,
+    uint_fast8_t useglobalpal
 );
 int NasrGraphicsAddSprite
 (
