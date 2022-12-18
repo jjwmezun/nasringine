@@ -2387,13 +2387,19 @@ static int GraphicAddText
         letter[ charlen ] = 0;
 
         // Find character
-        const hash_t needle_hash = CharMapHashString( text.charset, letter );
+        hash_t needle_hash = CharMapHashString( text.charset, letter );
         CharMapEntry * entry = CharMapHashFindEntry( text.charset, letter, needle_hash );
         if ( entry->key.string == NULL )
         {
-            letters[ lettercount ] = default_char_temp;
+            needle_hash = CharMapHashString( text.charset, "default" );
+            entry = CharMapHashFindEntry( text.charset, "default", needle_hash );
+            if ( entry->key.string )
+            {
+                letters[ lettercount ] = entry->value;
+            }
         }
-        else {
+        else
+        {
             letters[ lettercount ] = entry->value;
         }
 
