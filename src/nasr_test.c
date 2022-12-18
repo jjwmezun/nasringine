@@ -29,7 +29,7 @@ void NasrTestRun( void )
 {
     NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
     NasrSetPalette( "assets/palette2.png" );
-    NasrSetCharset( "assets/latin.png" );
+    NasrSetCharset( "assets/latin.png", "assets/latin.json" );
     NasrInput inputs[] =
     {
         { INPUT_RIGHT, NASR_KEY_RIGHT },
@@ -69,20 +69,6 @@ void NasrTestRun( void )
     int cdg[ RECTCOUNT ];
     int cdb[ RECTCOUNT ];
 
-
-    NasrRect basicr = { 32.0f, 32.0f, 300.0f, 200.0f };
-    NasrColor basicc1 = { 32.0f, 200.0f, 144.0f, 64.0f };
-    NasrColor basicc2 = { 200.0f, 64.0f, 144.0f, 200.0f };
-    NasrGraphicsAddRectGradient
-    (
-        1,
-        3,
-        0,
-        basicr,
-        NASR_DIR_UPLEFT,
-        basicc1,
-        basicc2
-    );
 
     int texture = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     int tilestext = NasrLoadFileAsTexture( "assets/tilemap.png" );
@@ -338,87 +324,25 @@ void NasrTestRun( void )
     static float tileaccy = TILEACCVAL;
     static float tilevy = 0.0f;
 
-    NasrChar text1[2] = {
-        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 0.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
-        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 0.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
+    NasrText text =
+    {
+        "thru frostgrass\ntwigs & crisp leaves jogs\nlone black crow\n\ntatata\nmarch the frosty streets\ndry warm leaves",
+        { 32.0f, 32.0f, 520.0f - 64.0f, 320.0f - 64.0f },
+        NASR_ALIGN_CENTER,
+        NASR_VALIGN_DEFAULT,
+        0.0f, 0.0f, 0.0f, 0.0f
     };
-    NasrColor textcolor = { 128.0f, 64.0f, 255.0f, 255.0f };
 
-    NasrGraphicAddText(
-        1,
-        0,
-        0,
-        2,
-        text1,
-        textcolor
-    );
-
-    NasrChar text2[2] = {
-        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 32.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
-        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 32.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
-    };
-    NasrColor textcolor2 = { 255.0f, 255.0f, 255.0f, 255.0f };
-    NasrColor textcolor3 = { 0.0f, 0.0f, 0.0f, 255.0f };
-
+    NasrColor texcolor1 = { 255.0f, 16.0f, 64.0f, 255.0f };
+    NasrColor texcolor2 = { 64.0f, 16.0f, 255.0f, 255.0f };
     NasrGraphicAddTextGradient(
-        1,
-        0,
         0,
         2,
-        text2,
+        0,
+        text,
         NASR_DIR_DOWN,
-        textcolor2,
-        textcolor3
-    );
-
-    NasrChar text3[2] = {
-        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 64.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
-        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 64.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
-    };
-
-    NasrGraphicAddTextPalette(
-        1,
-        0,
-        0,
-        2,
-        text3,
-        0,
-        0,
-        4
-    );
-
-    NasrChar text4[2] = {
-        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 80.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
-        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 80.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
-    };
-
-    int ntextid = NasrGraphicAddTextPalette(
-        1,
-        0,
-        0,
-        2,
-        text4,
-        0,
-        1,
-        7
-    );
-
-    NasrChar text5[2] = {
-        { { 192.0f, 0.0f, 8.0f, 8.0f }, { 0.0f, 100.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL },
-        { { 88.0f, 0.0f, 8.0f, 8.0f }, { 8.0f, 100.0f, 8.0f, 8.0f }, NASR_CHAR_NORMAL }
-    };
-
-    NasrGraphicAddTextGradientPalette(
-        1,
-        0,
-        0,
-        2,
-        text5,
-        0,
-        1,
-        NASR_DIR_UP,
-        7,
-        3
+        texcolor1,
+        texcolor2
     );
 
     static unsigned char globalpal;
@@ -536,29 +460,11 @@ void NasrTestRun( void )
             if ( NasrHeld( INPUT_Z ) )
             {
                 NasrGraphicsSpriteSetRotationZ( nasrinid, NasrGraphicsSpriteGetRotationZ( nasrinid ) + NASRSPEED );
-                if ( ntextid > -1 )
-                {
-                    NasrGraphicsRemove( ntextid );
-                    ntextid = -1;
-                }
             }
 
             if ( NasrHeld( INPUT_Y ) )
             {
                 NasrGraphicsSpriteSetRotationY( nasrinid, NasrGraphicsSpriteGetRotationY( nasrinid ) + NASRSPEED );
-                if ( ntextid < 0 )
-                {
-                    ntextid = NasrGraphicAddTextPalette(
-                        1,
-                        0,
-                        0,
-                        2,
-                        text4,
-                        0,
-                        1,
-                        7
-                    );
-                }
             }
 
             if ( NasrHeld( INPUT_F ) )

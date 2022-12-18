@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <cglm/cglm.h>
 #include <cglm/call.h>
+#include "json/json.h"
 #include "nasr.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -45,9 +46,23 @@ static float * vertices;
 #define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
 #define NUMBER_O_BASE_SHADERS 7
 
+#define MAX_CHARACTER_TYPES 1009 // Note: must be prime.
+
 typedef uint32_t hash_t;
 typedef struct { char * string; hash_t hash; } TextureMapKey;
 typedef struct { TextureMapKey key; unsigned int value; } TextureMapEntry;
+
+typedef struct CharTemplate
+{
+    NasrRect src;
+    float xoffset;
+    float yoffset;
+    uint_fast8_t chartype;
+} CharTemplate;
+typedef struct { char * string; hash_t hash; } CharMapKey;
+typedef struct { TextureMapKey key; CharTemplate value; } CharMapEntry;
+
+static CharTemplate default_char_temp = { { 0.0f, 0.0f, 8.0f, 8.0f }, 0.0f, 0.0f, NASR_CHAR_NORMAL };
 
 static int magnification = 1;
 static GLFWwindow * window;
@@ -104,6 +119,8 @@ static int * layer_for_gfx = NULL;
 static unsigned int animation_frame = 0;
 static unsigned int animation_timer = 0;
 static uint_fast8_t global_palette = 0;
+static CharMapEntry * char_map;
+static int max_chars;
 
 static void UpdateSpriteX( unsigned int id );
 static void UpdateSpriteY( unsigned int id );
@@ -122,8 +139,11 @@ static int * GetInputKeys( int input );
 static int * GetHeldKeys( int input );
 static int * GetHeld( int id );
 static GLint GetGLSamplingType( int sampling );
-static TextureMapEntry * hash_find_entry( const char * needle_string, hash_t needle_hash );
-static uint32_t hash_string( const char * key );
+static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash );
+static uint32_t TextureMapHashString( const char * key );
+static CharMapEntry * CharMapHashFindEntry( const char * needle_string, hash_t needle_hash );
+static uint32_t CharMapHashString( const char * key );
+static uint32_t HashString( const char * key, int max );
 static GLint GetGLRGBA( int indexed );
 static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
 static void AddTexture( Texture * texture, unsigned int texture_id, const unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
@@ -139,8 +159,7 @@ static int GraphicAddText
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     NasrColor * top_left_color,
     NasrColor * top_right_color,
     NasrColor * bottom_left_color,
@@ -149,6 +168,7 @@ static int GraphicAddText
     uint_fast8_t palette_type
 );
 static void DestroyGraphic( NasrGraphic * graphic );
+static int getCharacterSize( const char * s );
 
 void NasrColorPrint( const NasrColor * c )
 {
@@ -400,6 +420,36 @@ int NasrInit
     // Init texture map.
     texture_map = calloc( max_textures, sizeof( TextureMapEntry ) );
 
+    // Init charset
+    max_chars = MAX_CHARACTER_TYPES;
+    char_map = calloc( max_chars, sizeof( CharMapEntry ) );
+
+    hash_t needle_hash = CharMapHashString( "\n" );
+    CharMapEntry * entry = CharMapHashFindEntry( "\n", needle_hash );
+    if ( entry->key.string != NULL )
+    {
+        printf( "ERROR: This char should be null.\n" );
+    }
+    entry->key.string = ( char * )( malloc( strlen( "\n" ) + 1 ) );
+    strcpy( entry->key.string, "\n" );
+    entry->key.hash = needle_hash;
+    entry->value.src.w = entry->value.src.h = 0.0f;
+    entry->value.chartype = NASR_CHAR_NEWLINE;
+
+    needle_hash = CharMapHashString( " " );
+    entry = CharMapHashFindEntry( " ", needle_hash );
+    if ( entry->key.string != NULL )
+    {
+        printf( "ERROR: This char should be null.\n" );
+    }
+    entry->key.string = ( char * )( malloc( strlen( " " ) + 1 ) );
+    strcpy( entry->key.string, " " );
+    entry->key.hash = needle_hash;
+    entry->value.src.w = 5.0f;
+    entry->value.src.h = 8.0f;
+    entry->value.chartype = NASR_CHAR_WHITESPACE;
+
+    // Set framerate
     glfwSwapInterval(0);
 
     return 0;
@@ -414,17 +464,215 @@ void NasrSetPalette( const char * filename )
     free( data );
 };
 
-void NasrSetCharset( const char * filename )
+int NasrSetCharset( const char * texture, const char * chardata )
 {
     unsigned int width;
     unsigned int height;
-    const unsigned char * data = LoadTextureFileData( filename, &width, &height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+    const unsigned char * data = LoadTextureFileData( texture, &width, &height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
     AddTexture( &charset_texture, charset_texture_id, data, width, height, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
     free( data );
+
+    char * text = NasrReadFile( chardata );
+    json_char * json = ( json_char * )( text );
+    json_value * root = json_parse( json, strlen( text ) + 1 );
+    free( text );
+    if ( !root || root->type != json_object )
+    {
+        NasrLog( "¡Charset failed to load!\n" );
+        return false;
+    }
+
+    for ( unsigned int i = 0; i < root->u.object.length; ++i )
+    {
+        const json_object_entry root_entry = root->u.object.values[ i ];
+        if ( strcmp( "characters", root_entry.name ) == 0 )
+        {
+            if ( root_entry.value->type != json_array )
+            {
+                NasrLog( "Localization file malformed: characters is not an array." );
+                return false;
+            }
+
+            for ( unsigned int j = 0; j < root_entry.value->u.array.length; ++j )
+            {
+                const json_value * char_item = root_entry.value->u.array.values[ j ];
+                if ( char_item->type != json_object )
+                {
+                    NasrLog( "Localization file malformed: character entry not an object." );
+                    return false;
+                }
+
+                CharTemplate c = { { 0.0f, 0.0f, 8.0f, 8.0f }, 0.0f, 0.0f, NASR_CHAR_NORMAL };
+                const char * key;
+
+                for ( unsigned int k = 0; k < char_item->u.object.length; ++k )
+                {
+                    const json_object_entry char_entry = char_item->u.object.values[ k ];
+                    if ( strcmp( "key", char_entry.name ) == 0 )
+                    {
+                        if ( char_entry.value->type != json_string )
+                        {
+                            NasrLog( "Localization file malformed: character key is not a string." );
+                            return false;
+                        }
+                        key = char_entry.value->u.string.ptr;
+                    }
+                    else if ( strcmp( "type", char_entry.name ) == 0 )
+                    {
+                        if ( char_entry.value->type != json_string )
+                        {
+                            NasrLog( "Localization file malformed: character type is not a string." );
+                            return false;
+                        }
+                        if ( strcmp( "whitespace", char_entry.value->u.string.ptr ) == 0 )
+                        {
+                            c.chartype = NASR_CHAR_WHITESPACE;
+                        }
+                    }
+                    else if ( strcmp( "x", char_entry.name ) == 0 )
+                    {
+                        if ( char_entry.value->type == json_integer )
+                        {
+                            c.src.x = ( float )( char_entry.value->u.integer );
+                        }
+                        else if ( char_entry.value->type == json_double )
+                        {
+                            c.src.x = ( float )( char_entry.value->u.dbl );
+                        }
+                        else
+                        {
+                            NasrLog( "Localization malformed: x is not an int." );
+                            return false;
+                        }
+                    }
+                    else if ( strcmp( "y", char_entry.name ) == 0 )
+                    {
+                        if ( char_entry.value->type == json_integer )
+                        {
+                            c.src.y = ( float )( char_entry.value->u.integer );
+                        }
+                        else if ( char_entry.value->type == json_double )
+                        {
+                            c.src.y = ( float )( char_entry.value->u.dbl );
+                        }
+                        else
+                        {
+                            NasrLog( "Localization malformed: y is not an int." );
+                            return false;
+                        }
+                    }
+                    else if ( strcmp( "w", char_entry.name ) == 0 )
+                    {
+                        if ( char_entry.value->type == json_integer )
+                        {
+                            c.src.w = ( float )( char_entry.value->u.integer );
+                        }
+                        else if ( char_entry.value->type == json_double )
+                        {
+                            c.src.w = ( float )( char_entry.value->u.dbl );
+                        }
+                        else
+                        {
+                            NasrLog( "Localization malformed: w is not an int." );
+                            return false;
+                        }
+                    }
+                    else if ( strcmp( "h", char_entry.name ) == 0 )
+                    {
+                        if ( char_entry.value->type == json_integer )
+                        {
+                            c.src.h = ( float )( char_entry.value->u.integer );
+                        }
+                        else if ( char_entry.value->type == json_double )
+                        {
+                            c.src.h = ( float )( char_entry.value->u.dbl );
+                        }
+                        else
+                        {
+                            NasrLog( "Localization malformed: h is not an int." );
+                            return false;
+                        }
+                    }
+                }
+                
+                if ( key )
+                {
+                    hash_t needle_hash = CharMapHashString( key );
+                    CharMapEntry * entry = CharMapHashFindEntry( key, needle_hash );
+                    entry->key.string = ( char * )( malloc( strlen( key ) + 1 ) );
+                    strcpy( entry->key.string, key );
+                    entry->key.hash = needle_hash;
+                    entry->value = c;
+                }
+            }
+
+        }
+    }
+
+    json_value_free( root );
+    return true;
+};
+
+char * NasrReadFile( const char * filename )
+{
+    // Open file.
+    FILE * file = fopen( filename, "rb" );
+
+    if ( file == NULL )
+    {
+        return 0;
+    }
+
+    // Go thru file to find size.
+    fseek( file, 0L, SEEK_END );
+    const size_t size = ftell( file );
+
+    // Go back to start o’ file.
+    rewind( file );
+
+    // Allocate buffer based on found size.
+    char * buffer = ( char * )( malloc( size + 1 ) );
+
+    if ( buffer == NULL )
+    {
+        return 0;
+    }
+
+    // Read file into buffer & get buffer length.
+    const size_t bytes = fread( buffer, sizeof( char ), size, file );
+
+    if ( bytes < size )
+    {
+        return 0;
+    }
+
+    // Make sure buffer ends with string terminator.
+    buffer[ bytes ] = '\0';
+
+    fclose( file );
+    return buffer;
 };
 
 void NasrClose( void )
 {
+    // Close charmap
+    for ( int i = 0; i < max_chars; ++i )
+    {
+        if
+        (
+            char_map[ i ].key.string != NULL
+        )
+        {
+            free( char_map[ i ].key.string );
+            char_map[ i ].key.string = 0;
+            char_map[ i ].key.hash = 0;
+        }
+    }
+    if ( char_map )
+    {
+        free( char_map );
+    }
+
     for ( int i = 0; i < num_o_graphics; ++i )
     {
         DestroyGraphic( &graphics[ i ] );
@@ -1544,8 +1792,7 @@ int NasrGraphicAddText
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     NasrColor color
 )
 {
@@ -1554,8 +1801,7 @@ int NasrGraphicAddText
         abs,
         state,
         layer,
-        count,
-        chars,
+        text,
         &color,
         &color,
         &color,
@@ -1570,8 +1816,7 @@ int NasrGraphicAddTextGradient
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     int_fast8_t dir,
     NasrColor color1,
     NasrColor color2
@@ -1664,8 +1909,7 @@ int NasrGraphicAddTextGradient
         abs,
         state,
         layer,
-        count,
-        chars,
+        text,
         &top_left_color,
         &top_right_color,
         &bottom_left_color,
@@ -1680,8 +1924,7 @@ int NasrGraphicAddTextPalette
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     uint_fast8_t palette,
     uint_fast8_t useglobalpal,
     uint_fast8_t color
@@ -1699,8 +1942,7 @@ int NasrGraphicAddTextPalette
         abs,
         state,
         layer,
-        count,
-        chars,
+        text,
         &c,
         &c,
         &c,
@@ -1715,8 +1957,7 @@ int NasrGraphicAddTextGradientPalette
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     uint_fast8_t palette,
     uint_fast8_t useglobalpal,
     int_fast8_t dir,
@@ -1817,8 +2058,7 @@ int NasrGraphicAddTextGradientPalette
         abs,
         state,
         layer,
-        count,
-        chars,
+        text,
         &cobj[ 0 ],
         &cobj[ 1 ],
         &cobj[ 2 ],
@@ -1826,6 +2066,18 @@ int NasrGraphicAddTextGradientPalette
         palette,
         useglobalpal ? NASR_PALETTE_DEFAULT : NASR_PALETTE_SET
     );
+};
+
+static int getCharacterSize( const char * s )
+{
+    const int code = ( int )( *s );
+    return ( code & ( 1 << 7 ) )
+        ? ( code & ( 1 << 5 ) )
+            ? ( code & ( 1 << 4 ) )
+                ? 4
+                : 3
+            : 2
+        : 1;
 };
 
 static void DestroyGraphic( NasrGraphic * graphic )
@@ -1863,8 +2115,7 @@ static int GraphicAddText
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     NasrColor * top_left_color,
     NasrColor * top_right_color,
     NasrColor * bottom_left_color,
@@ -1873,6 +2124,175 @@ static int GraphicAddText
     uint_fast8_t palette_type
 )
 {
+    // Generate char list from string.
+    float charw = text.coords.w - text.padding_left - text.padding_right;
+    float charh = text.coords.h - text.padding_top - text.padding_bottom;
+    float charx = text.coords.x + text.padding_left;
+    float chary = text.coords.y + text.padding_bottom;
+    const float lnend = charx + charw;
+
+    char * string = text.string;
+    CharTemplate letters[ strlen( string ) ];
+    int lettercount = 0;
+    while ( *string )
+    {
+        const int charlen = getCharacterSize( string );
+
+        // Generate letter string
+        char letter[ charlen + 1 ];
+        strncpy( letter, string, charlen );
+        letter[ charlen ] = 0;
+
+        // Find character
+        const hash_t needle_hash = CharMapHashString( letter );
+        CharMapEntry * entry = CharMapHashFindEntry( letter, needle_hash );
+        if ( entry->key.string == NULL )
+        {
+            letters[ lettercount ] = default_char_temp;
+        }
+        else {
+            letters[ lettercount ] = entry->value;
+        }
+
+        ++lettercount;
+        string += charlen;
+    }
+    int maxlines = ( int )( charh );
+    int maxperline = ( int )( charw );
+    CharTemplate lines[ maxlines ][ maxperline ];
+    float line_widths[ maxlines ];
+    line_widths[ 0 ] = 0;
+    int line_character_counts[ maxlines ];
+    int line_count = 0;
+    int line_character = 0;
+    long unsigned int i = 0;
+    int lx = ( int )( charx );
+    while ( i < lettercount )
+    {
+        long unsigned int ib = i;
+        float xb = lx;
+        int look_ahead = 1;
+
+        // Look ahead so we can know ahead o’ time whether we need to add a new line.
+        // This autobreaks text without cutting midword.
+        while ( look_ahead )
+        {
+            if ( ib >= lettercount )
+            {
+                look_ahead = 0;
+                break;
+            }
+
+            if ( letters[ ib ].chartype == NASR_CHAR_NEWLINE )
+            {
+                look_ahead = 0;
+            }
+            else if ( letters[ ib ].chartype == NASR_CHAR_WHITESPACE )
+            {
+                look_ahead = 0;
+            }
+            else if ( xb >= lnend )
+            {
+                lx = ( int )( charx );
+                line_character_counts[ line_count ] = line_character;
+                ++line_count;
+                line_widths[ line_count ] = 0;
+                line_character = 0;
+                look_ahead = 0;
+            }
+            else if ( ib >= lettercount )
+            {
+                look_ahead = 0;
+                break;
+            }
+            xb += letters[ ib ].src.w;
+            ++ib;
+        }
+
+        while ( i < ib )
+        {
+            if ( letters[ i ].chartype == NASR_CHAR_NEWLINE || lx >= lnend )
+            {
+                lx = ( int )( charx );
+                line_character_counts[ line_count ] = line_character;
+                ++line_count;
+                line_widths[ line_count ] = 0;
+                line_character = 0;
+
+                if ( letters[ i ].chartype == NASR_CHAR_NEWLINE )
+                {
+                    lines[ line_count ][ line_character ] = letters[ i ];
+                }
+            }
+            else
+            {
+                lines[ line_count ][ line_character ] = letters[ i ];
+                line_widths[ line_count ] += letters[ i ].src.w;
+            }
+            ++i;
+            ++line_character;
+            lx += letters[ i ].src.w;
+        }
+    }
+    line_character_counts[ line_count ] = line_character;
+    ++line_count;
+
+    int finalcharcount = 0;
+    float maxh[ line_count ];
+
+    for ( int l = 0; l < line_count; ++l )
+    {
+        finalcharcount += line_character_counts[ l ];
+
+        maxh[ l ] = 8.0f;
+        for ( int c = 0; c < line_character_counts[ l ]; ++c )
+        {
+            if ( lines[ l ][ c ].src.h > maxh[ l ] )
+            {
+                maxh[ l ] = lines[ l ][ c ].src.h;
+            }
+        }
+
+        // Sometimes the previous loop keeps whitespace @ the end o’ lines.
+        // Since this messes with x alignment, remove these.
+        if ( lines[ l ][ line_character_counts[ l ] - 1 ].chartype == NASR_CHAR_WHITESPACE )
+        {
+            --line_character_counts[ l ];
+            line_widths[ l ] -= lines[ l ][ line_character_counts[ l ] - 1 ].src.w;
+        }
+    }
+
+    NasrChar chars[ finalcharcount ];
+    int count = 0;
+    // Final loop: we have all the info we need now to set x & y positions.
+    float dy = ( text.valign == NASR_VALIGN_MIDDLE )
+        ? chary + ( ( charh - ( line_count * 8.0 ) ) / 2.0 )
+        : ( text.valign == NASR_VALIGN_BOTTOM )
+            ? chary + charh - ( line_count * 8.0 )
+            : chary;
+    for ( int l = 0; l < line_count; ++l )
+    {
+        float dx = ( text.align == NASR_ALIGN_CENTER )
+            ? charx + ( ( charw - line_widths[ l ] ) / 2.0 )
+            : ( text.align == NASR_ALIGN_RIGHT )
+                ? lnend - line_widths[ l ]
+                : charx;
+        for ( int c = 0; c < line_character_counts[ l ]; ++c )
+        {
+            // Just in case o’ character index misalignment, just copy o’er whole characters.
+            if ( lines[ l ][ c ].chartype != NASR_CHAR_WHITESPACE ) {
+                chars[ count ].src = lines[ l ][ c ].src;
+                chars[ count ].dest = lines[ l ][ c ].src;
+                chars[ count ].dest.x = dx;
+                chars[ count ].dest.y = dy + ( ( maxh[ l ] - lines[ l ][ c ].src.h ) / 2.0 );
+                ++count;
+            }
+            dx += lines[ l ][ c ].src.w;
+        }
+        dy += maxh[ l ];
+    }
+
+    // End charlist
 
     if ( num_o_graphics >= max_graphics )
     {
@@ -1896,10 +2316,13 @@ static int GraphicAddText
     glGenVertexArrays( count, g->data.text.vaos );
     glGenBuffers( count, g->data.text.vbos );
 
-    float * vptr = g->data.text.vertices;
     for ( int i = 0; i < count; ++i )
     {
+        float * vptr = &g->data.text.vertices[ i * VERTEX_RECT_SIZE ];
         #define CHARACTER g->data.text.chars[ i ]
+
+        glBindVertexArray( g->data.text.vaos[ i ] );
+        glBindBuffer( GL_ARRAY_BUFFER, g->data.text.vbos[ i ] );
 
         ResetVertices( vptr );
         vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / ( float )( charset_texture.width ) * CHARACTER.src.x; // Left X
@@ -1934,9 +2357,6 @@ static int GraphicAddText
        
         #undef CHARACTER
 
-        glBindVertexArray( g->data.text.vaos[ i ] );
-        glBindBuffer( GL_ARRAY_BUFFER, g->data.text.vbos[ i ] );
-
         // EBO
         glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
 
@@ -1948,9 +2368,6 @@ static int GraphicAddText
         glEnableVertexAttribArray( 1 );
         glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 4 * sizeof( float ) ) );
         glEnableVertexAttribArray( 2 );
-        BufferVertices( vptr );
-
-        vptr += VERTEX_RECT_SIZE;
     }
     ClearBufferBindings();
 
@@ -2261,8 +2678,8 @@ int NasrLoadFileAsTexture( char * filename )
 
 int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed )
 {
-    const hash_t needle_hash = hash_string( filename );
-    TextureMapEntry * entry = hash_find_entry( filename, needle_hash );
+    const hash_t needle_hash = TextureMapHashString( filename );
+    TextureMapEntry * entry = TextureMapHashFindEntry( filename, needle_hash );
     if ( entry->key.string != NULL )
     {
         return entry->value;
@@ -2790,7 +3207,7 @@ static GLint GetGLSamplingType( int sampling )
     }
 };
 
-static TextureMapEntry * hash_find_entry( const char * needle_string, hash_t needle_hash )
+static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash )
 {
     while ( 1 )
     {
@@ -2803,7 +3220,30 @@ static TextureMapEntry * hash_find_entry( const char * needle_string, hash_t nee
     }
 };
 
-static uint32_t hash_string( const char * key )
+static uint32_t TextureMapHashString( const char * key )
+{
+    return HashString( key, max_textures );
+};
+
+static CharMapEntry * CharMapHashFindEntry( const char * needle_string, hash_t needle_hash )
+{
+    while ( 1 )
+    {
+        CharMapEntry * entry = &char_map[ needle_hash ];
+        if ( entry->key.string == NULL || strcmp( entry->key.string, needle_string ) == 0 )
+        {
+            return entry;
+        }
+        needle_hash = ( needle_hash + 1 ) % max_chars;
+    }
+};
+
+static uint32_t CharMapHashString( const char * key )
+{
+    return HashString( key, max_chars );
+};
+
+static uint32_t HashString( const char * key, int max )
 {
     uint32_t hash = 2166136261u;
     const int length = strlen( key );
@@ -2812,7 +3252,7 @@ static uint32_t hash_string( const char * key )
         hash ^= ( uint8_t )( key[ i ] );
         hash *= 16777619;
     }
-    return hash % max_textures;
+    return hash % max;
 };
 
 static GLint GetGLRGBA( int indexed )

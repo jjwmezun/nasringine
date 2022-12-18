@@ -139,6 +139,28 @@ typedef struct NasrTile
     unsigned char animation;
 } NasrTile;
 
+#define NASR_ALIGN_DEFAULT 0
+#define NASR_ALIGN_LEFT    1
+#define NASR_ALIGN_RIGHT   2
+#define NASR_ALIGN_CENTER  3
+
+#define NASR_VALIGN_DEFAULT 0
+#define NASR_VALIGN_TOP     1
+#define NASR_VALIGN_MIDDLE  2
+#define NASR_VALIGN_BOTTOM  3
+
+typedef struct NasrText
+{
+    char * string;
+    NasrRect coords;
+    uint_fast8_t align;
+    uint_fast8_t valign;
+    float padding_left;
+    float padding_right;
+    float padding_top;
+    float padding_bottom;
+} NasrText;
+
 #define NASR_KEY_UNKNOWN		GLFW_KEY_UNKNOWN
 #define NASR_KEY_SPACE			GLFW_KEY_SPACE
 #define NASR_KEY_APOSTROPHE		GLFW_KEY_APOSTROPHE
@@ -301,10 +323,12 @@ int NasrInit
     int default_indexed_type
 );
 void NasrSetPalette( const char * filename );
-void NasrSetCharset( const char * filename );
+int NasrSetCharset( const char * texture, const char * chardata );
 void NasrClose( void );
 void NasrClearTextures( void );
 void NasrUpdate( void );
+
+char * NasrReadFile( const char * filename );
 
 int NasrHasClosed( void );
 void NasrLog( const char * message );
@@ -391,8 +415,7 @@ int NasrGraphicAddText
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     NasrColor color
 );
 
@@ -401,8 +424,7 @@ int NasrGraphicAddTextGradient
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     int_fast8_t dir,
     NasrColor color1,
     NasrColor color2
@@ -413,8 +435,7 @@ int NasrGraphicAddTextPalette
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     uint_fast8_t palette,
     uint_fast8_t useglobalpal,
     uint_fast8_t color
@@ -425,8 +446,7 @@ int NasrGraphicAddTextGradientPalette
     int abs,
     unsigned int state,
     unsigned int layer,
-    unsigned int count,
-    const NasrChar * chars,
+    NasrText text,
     uint_fast8_t palette,
     uint_fast8_t useglobalpal,
     int_fast8_t dir,
