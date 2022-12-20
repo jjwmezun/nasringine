@@ -8,7 +8,6 @@ General 2D game engine based on OpenGL.
 
 ## TODO
 
-* Localization
 * Customizable shaders
 * Sound
 * ¿Variable framerate?
