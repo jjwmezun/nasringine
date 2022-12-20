@@ -38,6 +38,8 @@ static char * GenString( const char * in );
 
 int NasrSetLanguage( const char * filename, const char * domain )
 {
+    NasrCloseLanguage();
+
     char * text = NasrReadFile( filename );
     if ( !text )
     {
@@ -149,7 +151,6 @@ int NasrSetLanguage( const char * filename, const char * domain )
             }
 
             capacity = NasrGetNextPrime( keycount );
-
             translations = calloc( capacity, sizeof( NasrTranslationEntry ) );
             for ( int t = 0; t < root_entry.value->u.array.length; ++t )
             {
@@ -196,6 +197,48 @@ int NasrSetLanguage( const char * filename, const char * domain )
 
     json_value_free( root );
     return 0;
+};
+
+void NasrCloseLanguage( void )
+{
+    if ( translations )
+    {
+        for ( int i = 0; i < capacity; ++i )
+        {
+            if ( translations[ i ].contexts )
+            {
+                for ( int j = 0; j < translations[ i ].capacity; ++j )
+                {
+                    if ( translations[ i ].contexts[ j ].key.string )
+                    {
+                        free( translations[ i ].contexts[ j ].key.string );
+                    }
+                    if ( translations[ i ].contexts[ j ].value.original )
+                    {
+                        free( translations[ i ].contexts[ j ].value.original );
+                    }
+                    if ( translations[ i ].contexts[ j ].value.translation )
+                    {
+                        free( translations[ i ].contexts[ j ].value.translation );
+                    }
+                    if ( translations[ i ].contexts[ j ].value.context )
+                    {
+                        free( translations[ i ].contexts[ j ].value.context );
+                    }
+                    if ( translations[ i ].contexts[ j ].value.translation_plural )
+                    {
+                        free( translations[ i ].contexts[ j ].value.translation_plural );
+                    }
+                }
+                free( translations[ i ].contexts );
+            }
+            if ( translations[ i ].key.string )
+            {
+                free( translations[ i ].key.string );
+            }
+        }
+        free( translations );
+    }
 };
 
 const char * Nasr__( const char * string, const char * domain )

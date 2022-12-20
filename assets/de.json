@@ -2,23 +2,23 @@
     "localization": [
         {
             "original": "Hello",
-            "translation": "Hola"
+            "translation": "Hallo"
         },
         {
-            "original": "cook",
+            "original": "koch",
             "context": "imperative verb",
             "translation": "cocine"
         },
         {
-            "original": "cook",
+            "original": "Cook",
             "context": "person",
             "translation": "cocinere"
         },
         {
             "original": "Give me %d cat.",
-            "translation": "Dime %d gato.",
+            "translation": "Gib mir %d Katzen.",
             "originalPlural": "Give me %d cats.",
-            "translationPlural": "Dime %d gatos."
+            "translationPlural": "Gib mir %d Katze."
         }
     ]
 }

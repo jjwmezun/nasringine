@@ -40,6 +40,15 @@ void NasrTestRun( void )
     printf( "%s\n", Nasr__( "cook", "nasringine" ) );
     printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 1, "nasringine" ) );
     printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 3, "nasringine" ) );
+
+    NasrSetLanguage( "assets/de.json", "nasringine" );
+
+    printf( "%s\n", Nasr__( "Hello", "nasringine" ) );
+    printf( "%s\n", Nasr_x( "cook", "imperative verb", "nasringine" ) );
+    printf( "%s\n", Nasr_x( "cook", "person", "nasringine" ) );
+    printf( "%s\n", Nasr__( "cook", "nasringine" ) );
+    printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 1, "nasringine" ) );
+    printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 3, "nasringine" ) );
     
     NasrInput inputs[] =
     {
@@ -647,5 +656,6 @@ void NasrTestRun( void )
             NasrUpdate();
         }
     }
+    NasrCloseLanguage();
     NasrClose();
 };
