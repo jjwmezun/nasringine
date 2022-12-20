@@ -353,7 +353,6 @@ void NasrUpdate( void );
 char * NasrReadFile( const char * filename );
 
 int NasrHasClosed( void );
-void NasrLog( const char * message );
 
 void NasrResetCamera( void );
 void NasrAdjustCamera( struct NasrRect * target, float max_w, float max_h );

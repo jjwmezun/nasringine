@@ -3,7 +3,9 @@
 #include <cglm/call.h>
 #include "json/json.h"
 #include "nasr.h"
+#include "nasr_log.h"
 #include "nasr_math.h"
+#include "nasr_io.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
@@ -47,11 +49,7 @@ static float * vertices;
 #define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
 #define NUMBER_O_BASE_SHADERS 8
 
-#define MAX_CHARACTER_TYPES 1009 // Note: must be prime.
-
-typedef uint32_t hash_t;
-typedef struct { char * string; hash_t hash; } TextureMapKey;
-typedef struct { TextureMapKey key; unsigned int value; } TextureMapEntry;
+typedef struct { NasrHashKey key; unsigned int value; } TextureMapEntry;
 
 typedef struct CharTemplate
 {
@@ -60,8 +58,7 @@ typedef struct CharTemplate
     float yoffset;
     uint_fast8_t chartype;
 } CharTemplate;
-typedef struct { char * string; hash_t hash; } CharMapKey;
-typedef struct { TextureMapKey key; CharTemplate value; } CharMapEntry;
+typedef struct { NasrHashKey key; CharTemplate value; } CharMapEntry;
 typedef struct CharMap
 {
     unsigned int capacity;
@@ -166,7 +163,6 @@ static uint32_t TextureMapHashString( const char * key );
 static CharMapEntry * CharMapHashFindEntry( unsigned int id, const char * needle_string, hash_t needle_hash );
 static CharMapEntry * CharMapGenEntry( unsigned int id, const char * key );
 static uint32_t CharMapHashString( unsigned int id, const char * key );
-static uint32_t HashString( const char * key, int max );
 static GLint GetGLRGBA( int indexed );
 static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
 static void AddTexture( Texture * texture, unsigned int texture_id, const unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
@@ -265,6 +261,7 @@ int NasrInit
         NasrLog( "Failed to create GLFW window." );
         return -1;
     }
+
     glfwMakeContextCurrent( window );
 
     // Set up GLAD
@@ -491,7 +488,7 @@ int NasrAddCharset( const char * texture, const char * chardata )
         {
             if ( root_entry.value->type != json_array )
             {
-                NasrLog( "Localization file malformed: characters is not an array." );
+                NasrLog( "Charset file malformed: characters is not an array." );
                 return -1;
             }
 
@@ -503,8 +500,8 @@ int NasrAddCharset( const char * texture, const char * chardata )
                 const json_value * char_item = root_entry.value->u.array.values[ j ];
                 if ( char_item->type != json_object )
                 {
-                    NasrLog( "Localization file malformed: character entry not an object." );
-                    return false;
+                    NasrLog( "Charset file malformed: character entry not an object." );
+                    return -1;
                 }
 
                 // Setup defaults.
@@ -519,8 +516,8 @@ int NasrAddCharset( const char * texture, const char * chardata )
                     {
                         if ( char_entry.value->type != json_string )
                         {
-                            NasrLog( "Localization file malformed: character key is not a string." );
-                            return false;
+                            NasrLog( "Charset file malformed: character key is not a string." );
+                            return -1;
                         }
                         keys[ j ] = char_entry.value->u.string.ptr;
                     }
@@ -528,8 +525,8 @@ int NasrAddCharset( const char * texture, const char * chardata )
                     {
                         if ( char_entry.value->type != json_string )
                         {
-                            NasrLog( "Localization file malformed: character type is not a string." );
-                            return false;
+                            NasrLog( "Charset file malformed: character type is not a string." );
+                            return -1;
                         }
                         if ( strcmp( "whitespace", char_entry.value->u.string.ptr ) == 0 )
                         {
@@ -548,8 +545,8 @@ int NasrAddCharset( const char * texture, const char * chardata )
                         }
                         else
                         {
-                            NasrLog( "Localization malformed: x is not an int." );
-                            return false;
+                            NasrLog( "Charset file malformed: x is not an int." );
+                            return -1;
                         }
                     }
                     else if ( strcmp( "y", char_entry.name ) == 0 )
@@ -564,8 +561,8 @@ int NasrAddCharset( const char * texture, const char * chardata )
                         }
                         else
                         {
-                            NasrLog( "Localization malformed: y is not an int." );
-                            return false;
+                            NasrLog( "Charset file malformed: y is not an int." );
+                            return -1;
                         }
                     }
                     else if ( strcmp( "w", char_entry.name ) == 0 )
@@ -580,8 +577,8 @@ int NasrAddCharset( const char * texture, const char * chardata )
                         }
                         else
                         {
-                            NasrLog( "Localization malformed: w is not an int." );
-                            return false;
+                            NasrLog( "Charset file malformed: w is not an int." );
+                            return -1;
                         }
                     }
                     else if ( strcmp( "h", char_entry.name ) == 0 )
@@ -596,8 +593,8 @@ int NasrAddCharset( const char * texture, const char * chardata )
                         }
                         else
                         {
-                            NasrLog( "Localization malformed: h is not an int." );
-                            return false;
+                            NasrLog( "Charset file malformed: h is not an int." );
+                            return -1;
                         }
                     }
                 }
@@ -687,46 +684,6 @@ void NasrRemoveCharset( unsigned int charset )
         free( charmaps.list[ charset ].list );
         charmaps.list[ charset ].list = 0;
     }
-};
-
-char * NasrReadFile( const char * filename )
-{
-    // Open file.
-    FILE * file = fopen( filename, "rb" );
-
-    if ( file == NULL )
-    {
-        return 0;
-    }
-
-    // Go thru file to find size.
-    fseek( file, 0L, SEEK_END );
-    const size_t size = ftell( file );
-
-    // Go back to start o’ file.
-    rewind( file );
-
-    // Allocate buffer based on found size.
-    char * buffer = ( char * )( malloc( size + 1 ) );
-
-    if ( buffer == NULL )
-    {
-        return 0;
-    }
-
-    // Read file into buffer & get buffer length.
-    const size_t bytes = fread( buffer, sizeof( char ), size, file );
-
-    if ( bytes < size )
-    {
-        return 0;
-    }
-
-    // Make sure buffer ends with string terminator.
-    buffer[ bytes ] = '\0';
-
-    fclose( file );
-    return buffer;
 };
 
 void NasrClose( void )
@@ -1059,11 +1016,6 @@ void NasrUpdate( void )
 int NasrHasClosed( void )
 {
     return glfwWindowShouldClose( window );
-};
-
-void NasrLog( const char * message )
-{
-    printf( "%s\n", message );
 };
 
 void NasrResetCamera( void )
@@ -3525,7 +3477,7 @@ static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, ha
 
 static uint32_t TextureMapHashString( const char * key )
 {
-    return HashString( key, max_textures );
+    return NasrHashString( key, max_textures );
 };
 
 static CharMapEntry * CharMapHashFindEntry( unsigned int id, const char * needle_string, hash_t needle_hash )
@@ -3556,19 +3508,7 @@ static CharMapEntry * CharMapGenEntry( unsigned int id, const char * key )
 
 static uint32_t CharMapHashString( unsigned int id, const char * key )
 {
-    return HashString( key, charmaps.list[ id ].hashmax );
-};
-
-static uint32_t HashString( const char * key, int max )
-{
-    uint32_t hash = 2166136261u;
-    const int length = strlen( key );
-    for ( int i = 0; i < length; i++ )
-    {
-        hash ^= ( uint8_t )( key[ i ] );
-        hash *= 16777619;
-    }
-    return hash % max;
+    return NasrHashString( key, charmaps.list[ id ].hashmax );
 };
 
 static GLint GetGLRGBA( int indexed )

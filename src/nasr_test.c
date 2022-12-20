@@ -1,4 +1,5 @@
 #include "nasr.h"
+#include "nasr_localization.h"
 #include "nasr_test.h"
 
 #include <stdio.h>
@@ -31,6 +32,14 @@ void NasrTestRun( void )
     NasrSetPalette( "assets/palette2.png" );
     const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );
     const int charset2 = NasrAddCharset( "assets/latin2.png", "assets/latin2.json" );
+    NasrSetLanguage( "assets/es.json", "nasringine" );
+
+    printf( "%s\n", Nasr__( "Hello", "nasringine" ) );
+    printf( "%s\n", Nasr_x( "cook", "imperative verb", "nasringine" ) );
+    printf( "%s\n", Nasr_x( "cook", "person", "nasringine" ) );
+    printf( "%s\n", Nasr__( "cook", "nasringine" ) );
+    printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 1, "nasringine" ) );
+    printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 3, "nasringine" ) );
     
     NasrInput inputs[] =
     {

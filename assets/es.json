@@ -1,0 +1,39 @@
+{
+    "localization": [
+        {
+            "original": "Hello",
+            "translation": "Hola"
+        },
+        {
+            "original": "cook",
+            "context": "imperative verb",
+            "translation": "cocine"
+        },
+        {
+            "original": "cook",
+            "context": "person",
+            "translation": "cocinere"
+        },
+        {
+            "original": "cook",
+            "context": "sdfgdfg",
+            "translation": "cocinere"
+        },
+        {
+            "original": "cook",
+            "context": "aaaa",
+            "translation": "cocinere"
+        },
+        {
+            "original": "cook",
+            "context": "gfgdgd",
+            "translation": "cocinere"
+        },
+        {
+            "original": "Give me %d cat.",
+            "translation": "Dime %d gato.",
+            "originalPlural": "Give me %d cats.",
+            "translationPlural": "Dime %d gatos."
+        }
+    ]
+}
