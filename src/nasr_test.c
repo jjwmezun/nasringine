@@ -1,4 +1,5 @@
 #include "nasr.h"
+#include "nasr_audio.h"
 #include "nasr_localization.h"
 #include "nasr_test.h"
 
@@ -23,32 +24,21 @@ typedef enum Input {
     INPUT_PLUS,
     INPUT_MINUS,
     INPUT_F,
-    INPUT_G
+    INPUT_G,
+    INPUT_1,
+    INPUT_2,
+    INPUT_3,
+    INPUT_M
 } Input;
 
 void NasrTestRun( void )
 {
     NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
+    NasrAudioInit();
     NasrSetPalette( "assets/palette2.png" );
     const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );
     const int charset2 = NasrAddCharset( "assets/latin2.png", "assets/latin2.json" );
     NasrSetLanguage( "assets/es.json", "nasringine" );
-
-    printf( "%s\n", Nasr__( "Hello", "nasringine" ) );
-    printf( "%s\n", Nasr_x( "cook", "imperative verb", "nasringine" ) );
-    printf( "%s\n", Nasr_x( "cook", "person", "nasringine" ) );
-    printf( "%s\n", Nasr__( "cook", "nasringine" ) );
-    printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 1, "nasringine" ) );
-    printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 3, "nasringine" ) );
-
-    NasrSetLanguage( "assets/de.json", "nasringine" );
-
-    printf( "%s\n", Nasr__( "Hello", "nasringine" ) );
-    printf( "%s\n", Nasr_x( "cook", "imperative verb", "nasringine" ) );
-    printf( "%s\n", Nasr_x( "cook", "person", "nasringine" ) );
-    printf( "%s\n", Nasr__( "cook", "nasringine" ) );
-    printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 1, "nasringine" ) );
-    printf( "%s\n", Nasr_n( "Give me %d cat.", "Give me %d cats.", 3, "nasringine" ) );
     
     NasrInput inputs[] =
     {
@@ -66,9 +56,13 @@ void NasrTestRun( void )
         { INPUT_PLUS, NASR_KEY_RIGHT_BRACKET },
         { INPUT_MINUS, NASR_KEY_LEFT_BRACKET },
         { INPUT_F, NASR_KEY_F },
-        { INPUT_G, NASR_KEY_G }
+        { INPUT_G, NASR_KEY_G },
+        { INPUT_1, NASR_KEY_1 },
+        { INPUT_2, NASR_KEY_2 },
+        { INPUT_3, NASR_KEY_3 },
+        { INPUT_M, NASR_KEY_M }
     };
-    NasrRegisterInputs( inputs, 15 );
+    NasrRegisterInputs( inputs, 19 );
 
     NasrRect backbox = { 0.0f, 0.0f, 520.0f, 320.0f };
     NasrGraphicsAddRectGradientPalette
@@ -561,11 +555,13 @@ void NasrTestRun( void )
             if ( NasrHeld( INPUT_X ) )
             {
                 NasrGraphicsSpriteSetRotationX( nasrinid, NasrGraphicsSpriteGetRotationX( nasrinid ) + NASRSPEED );
+                NasrPauseSong();
             }
 
             if ( NasrHeld( INPUT_Z ) )
             {
                 NasrGraphicsSpriteSetRotationZ( nasrinid, NasrGraphicsSpriteGetRotationZ( nasrinid ) + NASRSPEED );
+                NasrStopSong();
             }
 
             if ( NasrHeld( INPUT_Y ) )
@@ -584,10 +580,13 @@ void NasrTestRun( void )
 
             if ( NasrHeld( INPUT_G ) )
             {
-                if ( counter == 0 )
+                if ( NasrHeld( INPUT_PLUS ) )
                 {
-                    NasrGraphicsSpriteFlipY( nasrinid );
-                    counter = 32;
+                    NasrPitchIncrease( 0.1f );
+                }
+                else if ( NasrHeld( INPUT_MINUS ) )
+                {
+                    NasrPitchDecrease( 0.1f );
                 }
             }
 
@@ -595,12 +594,28 @@ void NasrTestRun( void )
             {
                 if ( NasrHeld( INPUT_PLUS ) )
                 {
-                    NasrGraphicsSpriteSetOpacity( nasrinid, NasrGraphicsSpriteGetOpacity( nasrinid ) + 0.005f );
+                    NasrVolumeIncrease( 0.1f );
                 }
                 else if ( NasrHeld( INPUT_MINUS ) )
                 {
-                    NasrGraphicsSpriteSetOpacity( nasrinid, NasrGraphicsSpriteGetOpacity( nasrinid ) - 0.005f );
+                    NasrVolumeDecrease( 0.1f );
                 }
+            }
+
+            if ( NasrHeld( INPUT_M ) )
+            {
+                NasrVolumeToggleMute();
+            }
+
+            if ( NasrHeld( INPUT_1 ) )
+            {
+                NasrLoadSong( "assets/retrofuture.wav" );
+                NasrToggleSong();
+            }
+            else if ( NasrHeld( INPUT_2 ) )
+            {
+                NasrLoadSong( "assets/district4.wav" );
+                NasrToggleSong();
             }
 
             if ( counter > 0 )
@@ -657,5 +672,6 @@ void NasrTestRun( void )
         }
     }
     NasrCloseLanguage();
+    NasrAudioClose();
     NasrClose();
 };
