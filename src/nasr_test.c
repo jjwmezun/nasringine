@@ -8,6 +8,7 @@
 #include <time.h>
 
 static int running = 1;
+static int current_song = -1;
 
 typedef enum Input {
     INPUT_LEFT,
@@ -34,7 +35,7 @@ typedef enum Input {
 void NasrTestRun( void )
 {
     NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
-    NasrAudioInit();
+    NasrAudioInit( 500 );
     NasrSetPalette( "assets/palette2.png" );
     const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );
     const int charset2 = NasrAddCharset( "assets/latin2.png", "assets/latin2.json" );
@@ -537,10 +538,20 @@ void NasrTestRun( void )
             if ( NasrHeld( INPUT_UP ) )
             {
                 NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) - NASRSPEED );
+                current_song = NasrLoadSong( "assets/gem.wav" );
+                if ( current_song >= 0 )
+                {
+                    NasrPlaySong( current_song );
+                }
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {
                 NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) + NASRSPEED );
+                current_song = NasrLoadSong( "assets/diamond.wav" );
+                if ( current_song >= 0 )
+                {
+                    NasrPlaySong( current_song );
+                }
             }
 
             if ( NasrHeld( INPUT_LEFT ) )
@@ -555,13 +566,19 @@ void NasrTestRun( void )
             if ( NasrHeld( INPUT_X ) )
             {
                 NasrGraphicsSpriteSetRotationX( nasrinid, NasrGraphicsSpriteGetRotationX( nasrinid ) + NASRSPEED );
-                NasrPauseSong();
+                if ( current_song >= 0 )
+                {
+                    NasrPauseSong( current_song );
+                }
             }
 
             if ( NasrHeld( INPUT_Z ) )
             {
                 NasrGraphicsSpriteSetRotationZ( nasrinid, NasrGraphicsSpriteGetRotationZ( nasrinid ) + NASRSPEED );
-                NasrStopSong();
+                if ( current_song >= 0 )
+                {
+                    NasrStopSong( current_song );
+                }
             }
 
             if ( NasrHeld( INPUT_Y ) )
@@ -578,44 +595,50 @@ void NasrTestRun( void )
                 }
             }
 
-            if ( NasrHeld( INPUT_G ) )
+            if ( current_song >= 0 && NasrHeld( INPUT_G ) )
             {
                 if ( NasrHeld( INPUT_PLUS ) )
                 {
-                    NasrPitchIncrease( 0.1f );
+                    NasrPitchIncrease( current_song, 0.1f );
                 }
                 else if ( NasrHeld( INPUT_MINUS ) )
                 {
-                    NasrPitchDecrease( 0.1f );
+                    NasrPitchDecrease( current_song, 0.1f );
                 }
             }
 
-            if ( NasrHeld( INPUT_O ) )
+            if ( current_song >= 0 && NasrHeld( INPUT_O ) )
             {
                 if ( NasrHeld( INPUT_PLUS ) )
                 {
-                    NasrVolumeIncrease( 0.1f );
+                    NasrVolumeIncrease( current_song, 0.1f );
                 }
                 else if ( NasrHeld( INPUT_MINUS ) )
                 {
-                    NasrVolumeDecrease( 0.1f );
+                    NasrVolumeDecrease( current_song, 0.1f );
                 }
             }
 
-            if ( NasrHeld( INPUT_M ) )
+            if ( current_song >= 0 && NasrHeld( INPUT_M ) )
             {
-                NasrVolumeToggleMute();
+                NasrVolumeToggleMute( current_song );
             }
 
             if ( NasrHeld( INPUT_1 ) )
             {
-                NasrLoadSong( "assets/retrofuture.wav" );
-                NasrToggleSong();
+                current_song = NasrLoadSong( "assets/retrofuture.wav" );
+                if ( current_song >= 0 )
+                {
+                    NasrToggleSong( current_song );
+                }
             }
             else if ( NasrHeld( INPUT_2 ) )
             {
-                NasrLoadSong( "assets/district4.wav" );
-                NasrToggleSong();
+                current_song = NasrLoadSong( "assets/district4.wav" );
+                if ( current_song >= 0 )
+                {
+                    NasrPlaySong( current_song );
+                }
             }
 
             if ( counter > 0 )
