@@ -37,7 +37,7 @@ static int song_pos = 0;
 static int perma_queue_pos = 0;
 static int temp_queue_pos = 0;
 
-static int NasrAddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent );
+static int NasrAddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent, uint_fast8_t loop );
 static void TestForErrors( void );
 static SongEntry * NasrFindSongEntry( const char * needle_string, hash_t needle_hash );
 
@@ -135,7 +135,7 @@ int NasrLoadSong( const char * filename )
     return entry->id;
 };
 
-int NasrAddTemporarySoundtoQueue( unsigned int songid )
+int NasrAddTemporarySoundtoQueue( unsigned int songid, uint_fast8_t loop )
 {
     int id = -1;
     for ( int i = temp_queue_pos; i < queuesize_; ++i )
@@ -151,15 +151,15 @@ int NasrAddTemporarySoundtoQueue( unsigned int songid )
             }
         }
     }
-    return NasrAddSongToQueue( songid, id, 0 );
+    return NasrAddSongToQueue( songid, id, 0, loop );
 };
 
-int NasrAddPermanentSoundtoQueue( unsigned int songid )
+int NasrAddPermanentSoundtoQueue( unsigned int songid, uint_fast8_t loop )
 {
-    return NasrAddSongToQueue( songid, ( perma_queue_pos < perma_queuesize_ ) ? perma_queue_pos++ : -1, 1 );
+    return NasrAddSongToQueue( songid, perma_queue_pos < perma_queuesize_ ? perma_queue_pos++ : -1, 1, loop );
 };
 
-static int NasrAddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent )
+static int NasrAddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent, uint_fast8_t loop )
 {
     if ( queueid == -1 )
     {
@@ -184,7 +184,7 @@ static int NasrAddSongToQueue( unsigned int songid, int queueid, uint_fast8_t pe
     alSourcefv( sources[ queueid ], AL_POSITION, pos );
     alSourcefv( sources[ queueid ], AL_VELOCITY, velocity );
     alSourcei( sources[ queueid ], AL_BUFFER, buffers[ songid ] );
-    alSourcei( sources[ queueid ], AL_LOOPING, AL_FALSE );
+    alSourcei( sources[ queueid ], AL_LOOPING, loop ? AL_TRUE : AL_FALSE );
 
     return queueid;
 };
@@ -294,6 +294,11 @@ void NasrPitchIncrease( unsigned int id, float amount )
 void NasrPitchDecrease( unsigned int id, float amount )
 {
     NasrPitchSet( id, queue[ id ].pitch - amount );
+};
+
+void NasrSetSongLoop( unsigned int id, uint_fast8_t value )
+{
+    alSourcei( sources[ id ], AL_LOOPING, value ? AL_TRUE : AL_FALSE );
 };
 
 static void TestForErrors( void )

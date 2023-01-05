@@ -543,7 +543,7 @@ void NasrTestRun( void )
             if ( NasrHeld( INPUT_UP ) )
             {
                 NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) - NASRSPEED );
-                int s = NasrAddTemporarySoundtoQueue( jumpsound );
+                int s = NasrAddTemporarySoundtoQueue( jumpsound, 0 );
                 if ( s > -1 )
                 {
                     NasrPlaySong( s );
@@ -585,13 +585,14 @@ void NasrTestRun( void )
                     NasrGraphicsSpriteFlipX( nasrinid );
                     counter = 32;
                 }
+                NasrSetSongLoop( citysong, 0 );
             }
 
             if ( NasrHeld( INPUT_1 ) )
             {
                 if ( citysongplaying < 0 )
                 {
-                    citysongplaying = NasrAddPermanentSoundtoQueue( citysong );
+                    citysongplaying = NasrAddPermanentSoundtoQueue( citysong, 1 );
                     NasrPlaySong( citysongplaying );
                 }
                 else
@@ -603,7 +604,7 @@ void NasrTestRun( void )
             {
                 if ( sewersongplaying < 0 )
                 {
-                    sewersongplaying = NasrAddPermanentSoundtoQueue( sewersong );
+                    sewersongplaying = NasrAddPermanentSoundtoQueue( sewersong, 1 );
                     NasrPlaySong( sewersongplaying );
                 }
                 else

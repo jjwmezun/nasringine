@@ -6,8 +6,8 @@
 int NasrAudioInit( unsigned int maxsongs, unsigned int perma_queuesize, unsigned int temp_queuesize );
 void NasrAudioClose( void );
 int NasrLoadSong( const char * filename );
-int NasrAddTemporarySoundtoQueue( unsigned int songid );
-int NasrAddPermanentSoundtoQueue( unsigned int songid );
+int NasrAddTemporarySoundtoQueue( unsigned int songid, uint_fast8_t loop );
+int NasrAddPermanentSoundtoQueue( unsigned int songid, uint_fast8_t loop );
 void NasrPlaySong( unsigned int id );
 void NasrStopSong( unsigned int id );
 void NasrPauseSong( unsigned int id );
@@ -21,5 +21,6 @@ void NasrVolumeToggleMute( unsigned int id );
 void NasrPitchSet( unsigned int id, float amount );
 void NasrPitchIncrease( unsigned int id, float amount );
 void NasrPitchDecrease( unsigned int id, float amount );
+void NasrSetSongLoop( unsigned int id, uint_fast8_t value );
 
 #endif // NASR_AUDIO_H
