@@ -3,10 +3,11 @@
 
 #include <stdint.h>
 
-int NasrAudioInit( unsigned int maxsongs, unsigned int queuesize );
+int NasrAudioInit( unsigned int maxsongs, unsigned int perma_queuesize, unsigned int temp_queuesize );
 void NasrAudioClose( void );
 int NasrLoadSong( const char * filename );
-int NasrAddSongToQueue( unsigned int songid, int_fast8_t persistent );
+int NasrAddTemporarySoundtoQueue( unsigned int songid );
+int NasrAddPermanentSoundtoQueue( unsigned int songid );
 void NasrPlaySong( unsigned int id );
 void NasrStopSong( unsigned int id );
 void NasrPauseSong( unsigned int id );

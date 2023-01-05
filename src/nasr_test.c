@@ -34,7 +34,7 @@ typedef enum Input {
 void NasrTestRun( void )
 {
     NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
-    NasrAudioInit( 256, 256 );
+    NasrAudioInit( 256, 16, 16 );
     NasrSetPalette( "assets/palette2.png" );
     const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );
     const int charset2 = NasrAddCharset( "assets/latin2.png", "assets/latin2.json" );
@@ -543,7 +543,7 @@ void NasrTestRun( void )
             if ( NasrHeld( INPUT_UP ) )
             {
                 NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) - NASRSPEED );
-                int s = NasrAddSongToQueue( jumpsound, 0 );
+                int s = NasrAddTemporarySoundtoQueue( jumpsound );
                 if ( s > -1 )
                 {
                     NasrPlaySong( s );
@@ -591,7 +591,7 @@ void NasrTestRun( void )
             {
                 if ( citysongplaying < 0 )
                 {
-                    citysongplaying = NasrAddSongToQueue( citysong, 1 );
+                    citysongplaying = NasrAddPermanentSoundtoQueue( citysong );
                     NasrPlaySong( citysongplaying );
                 }
                 else
@@ -603,7 +603,7 @@ void NasrTestRun( void )
             {
                 if ( sewersongplaying < 0 )
                 {
-                    sewersongplaying = NasrAddSongToQueue( sewersong, 1 );
+                    sewersongplaying = NasrAddPermanentSoundtoQueue( sewersong );
                     NasrPlaySong( sewersongplaying );
                 }
                 else

@@ -31,19 +31,24 @@ static ALuint * sources = 0;
 static Sound * queue = 0;
 static SongMap songmap = { 0, 0 };
 static int maxsongs_ = 0;
+static int perma_queuesize_ = 0;
 static int queuesize_ = 0;
 static int song_pos = 0;
-static int queue_pos = 0;
+static int perma_queue_pos = 0;
+static int temp_queue_pos = 0;
 
+static int NasrAddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent );
 static void TestForErrors( void );
 static SongEntry * NasrFindSongEntry( const char * needle_string, hash_t needle_hash );
 
-int NasrAudioInit( unsigned int maxsongs, unsigned int queuesize )
+int NasrAudioInit( unsigned int maxsongs, unsigned int perma_queuesize, unsigned int temp_queuesize )
 {
     maxsongs_ = NASR_MATH_MIN( 256, maxsongs );
-    queuesize_ = NASR_MATH_MIN( 256, queuesize );
+    queuesize_ = NASR_MATH_MIN( 256, perma_queuesize + temp_queuesize );
+    perma_queuesize_ = perma_queuesize;
+    temp_queue_pos = perma_queuesize;
 
-    if ( maxsongs > 256 || queuesize > 256 )
+    if ( maxsongs > 256 || queuesize_ > 256 )
     {
         NasrLog( "Max too long: Can only load 256 songs at once.\n" );
     }
@@ -130,56 +135,58 @@ int NasrLoadSong( const char * filename )
     return entry->id;
 };
 
-int NasrAddSongToQueue( unsigned int songid, int_fast8_t persistent )
+int NasrAddTemporarySoundtoQueue( unsigned int songid )
 {
     int id = -1;
-    if ( queue_pos >= queuesize_ )
+    for ( int i = temp_queue_pos; i < queuesize_; ++i )
     {
-        for ( int i = 0; i < queuesize_; ++i )
-        {
-            if ( !queue[ i ].persistent )
-            {               
-                ALuint playing;
-                alGetSourcei( sources[ i ], AL_SOURCE_STATE, &playing );
-                if ( playing )
-                {
-                    id = i;
-                    break;
-                }
+        if ( !queue[ i ].persistent )
+        {               
+            ALuint playing;
+            alGetSourcei( sources[ i ], AL_SOURCE_STATE, &playing );
+            if ( playing )
+            {
+                id = i;
+                break;
             }
         }
-
-        if ( id == -1 )
-        {
-            NasrLog( "Cannot add song to queue: queue is full.\n" );
-            return -1;
-        }
     }
-    else
+    return NasrAddSongToQueue( songid, id, 0 );
+};
+
+int NasrAddPermanentSoundtoQueue( unsigned int songid )
+{
+    return NasrAddSongToQueue( songid, ( perma_queue_pos < perma_queuesize_ ) ? perma_queue_pos++ : -1, 1 );
+};
+
+static int NasrAddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent )
+{
+    if ( queueid == -1 )
     {
-        id = queue_pos++;
+        NasrLog( "Cannot add song to queue: queue is full.\n" );
+        return -1;
     }
 
     // Initialize song.
-    queue[ id ].id = id;
-    queue[ id ].persistent = persistent;
-    queue[ id ].mute = 0;
-    queue[ id ].volume = master_volume;
-    queue[ id ].pitch = 1.0f;
+    queue[ queueid ].id = queueid;
+    queue[ queueid ].persistent = persistent;
+    queue[ queueid ].mute = 0;
+    queue[ queueid ].volume = master_volume;
+    queue[ queueid ].pitch = 1.0f;
 
-    alSourceStop( sources[ id ] );
+    alSourceStop( sources[ queueid ] );
 
     ALfloat pos[] = { -2.0, 0.0, 0.0 };
     ALfloat velocity[] = { 0.0, 0.0, 0.0 };
 
-    alSourcef( sources[ id ], AL_PITCH, queue[ id ].pitch );
-    alSourcef( sources[ id ], AL_GAIN, queue[ id ].volume );
-    alSourcefv( sources[ id ], AL_POSITION, pos );
-    alSourcefv( sources[ id ], AL_VELOCITY, velocity );
-    alSourcei( sources[ id ], AL_BUFFER, buffers[ songid ] );
-    alSourcei( sources[ id ], AL_LOOPING, AL_FALSE );
+    alSourcef( sources[ queueid ], AL_PITCH, queue[ queueid ].pitch );
+    alSourcef( sources[ queueid ], AL_GAIN, queue[ queueid ].volume );
+    alSourcefv( sources[ queueid ], AL_POSITION, pos );
+    alSourcefv( sources[ queueid ], AL_VELOCITY, velocity );
+    alSourcei( sources[ queueid ], AL_BUFFER, buffers[ songid ] );
+    alSourcei( sources[ queueid ], AL_LOOPING, AL_FALSE );
 
-    return id;
+    return queueid;
 };
 
 void NasrPlaySong( unsigned int id )
