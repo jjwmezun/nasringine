@@ -1,9 +1,12 @@
 #ifndef NASR_AUDIO_H
 #define NASR_AUDIO_H
 
-int NasrAudioInit( unsigned int max );
+#include <stdint.h>
+
+int NasrAudioInit( unsigned int maxsongs, unsigned int queuesize );
 void NasrAudioClose( void );
-unsigned int NasrLoadSong( const char * filename );
+int NasrLoadSong( const char * filename );
+int NasrAddSongToQueue( unsigned int songid, int_fast8_t persistent );
 void NasrPlaySong( unsigned int id );
 void NasrStopSong( unsigned int id );
 void NasrPauseSong( unsigned int id );
