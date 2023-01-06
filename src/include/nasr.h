@@ -341,7 +341,8 @@ int NasrInit
     int init_max_textures,
     int init_max_gfx_layers,
     int sample_type,
-    int default_indexed_type
+    int default_indexed_type,
+    uint_fast8_t vsync
 );
 void NasrSetPalette( const char * filename );
 int NasrAddCharset( const char * texture, const char * chardata );
@@ -351,6 +352,8 @@ void NasrClearTextures( void );
 void NasrUpdate( void );
 
 char * NasrReadFile( const char * filename );
+
+double NasrGetTime( void );
 
 int NasrHasClosed( void );
 
@@ -498,6 +501,7 @@ int NasrGraphicAddTextGradientPalette
 );
 
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );
+void NasrGraphicsSpriteSetDest( unsigned int id, NasrRect v );
 float NasrGraphicsSpriteGetDestY( unsigned int id );
 void NasrGraphicsSpriteSetDestY( unsigned int id, float v );
 void NasrGraphicsSpriteAddToDestY( unsigned int id, float v );

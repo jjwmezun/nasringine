@@ -237,7 +237,8 @@ int NasrInit
     int init_max_textures,
     int init_max_gfx_layers,
     int sample_type,
-    int default_indexed_type
+    int default_indexed_type,
+    uint_fast8_t vsync
 )
 {
     default_sample_type = GetGLSamplingType( sample_type );
@@ -450,9 +451,14 @@ int NasrInit
     texture_map = calloc( max_textures, sizeof( TextureMapEntry ) );
 
     // Set framerate
-    glfwSwapInterval(0);
+    glfwSwapInterval( vsync );
 
     return 0;
+};
+
+double NasrGetTime( void )
+{
+    return glfwGetTime();
 };
 
 void NasrSetPalette( const char * filename )
@@ -2592,6 +2598,11 @@ NasrRect NasrGraphicsSpriteGetDest( unsigned int id )
     return NasrGraphicGet( id )->data.sprite.dest;
 };
 
+void NasrGraphicsSpriteSetDest( unsigned int id, NasrRect v )
+{
+    NasrGraphicGet( id )->data.sprite.dest = v;
+};
+
 float NasrGraphicsSpriteGetDestY( unsigned int id )
 {
     return NasrGraphicGet( id )->data.sprite.dest.y;
@@ -2650,6 +2661,7 @@ float NasrGraphicsSpriteGetSrcY( unsigned int id )
 void NasrGraphicsSpriteSetSrcY( unsigned int id, float v )
 {
     NasrGraphicGet( id )->data.sprite.src.y = v;
+    UpdateSpriteVertices( id );
 };
 
 float NasrGraphicsSpriteGetSrcX( unsigned int id )
@@ -2660,6 +2672,7 @@ float NasrGraphicsSpriteGetSrcX( unsigned int id )
 void NasrGraphicsSpriteSetSrcX( unsigned int id, float v )
 {
     NasrGraphicGet( id )->data.sprite.src.x = v;
+    UpdateSpriteVertices( id );
 };
 
 float NasrGraphicsSpriteGetSrcH( unsigned int id )
@@ -2670,6 +2683,7 @@ float NasrGraphicsSpriteGetSrcH( unsigned int id )
 void NasrGraphicsSpriteSetSrcH( unsigned int id, float v )
 {
     NasrGraphicGet( id )->data.sprite.src.h = v;
+    UpdateSpriteVertices( id );
 };
 
 float NasrGraphicsSpriteGetSrcW( unsigned int id )
@@ -2680,6 +2694,7 @@ float NasrGraphicsSpriteGetSrcW( unsigned int id )
 void NasrGraphicsSpriteSetSrcW( unsigned int id, float v )
 {
     NasrGraphicGet( id )->data.sprite.src.w = v;
+    UpdateSpriteVertices( id );
 };
 
 float NasrGraphicsSpriteGetRotationX( unsigned int id )

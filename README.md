@@ -9,6 +9,6 @@ General 2D game engine based on OpenGL.
 ## TODO
 
 * Customizable shaders
-* Sound
-* ¿Variable framerate?
-* ¿Tiled file reader?
+* Make text graphics’ text mutable
+* Time counter graphics
+* Clean up inconsistencies in function names

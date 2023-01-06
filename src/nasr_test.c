@@ -33,7 +33,7 @@ typedef enum Input {
 
 void NasrTestRun( void )
 {
-    NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
+    NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES, 1 );
     NasrAudioInit( 256, 16, 16 );
     NasrSetPalette( "assets/palette2.png" );
     const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );
@@ -445,6 +445,35 @@ void NasrTestRun( void )
     static unsigned char globalpal;
     NasrSetGlobalPalette( globalpal );
 
+    const NasrRect digit_src = { 9.0f, 0.0f, 7.0f, 8.0f };
+    const NasrRect digit_dest[ 3 ] =
+    {
+        { 8.0f, 8.0f, 7.0f, 8.0f },
+        { 16.0f, 8.0f, 7.0f, 8.0f },
+        { 24.0f, 8.0f, 7.0f, 8.0f }
+    };
+    int digits[ 3 ];
+    for ( int i = 0; i < 3; ++i )
+    {
+        digits[ i ] = NasrGraphicsAddSprite
+        (
+            1,
+            4,
+            0,
+            NasrLoadFileAsTexture( "assets/latin1.png" ),
+            digit_src,
+            digit_dest[ i ],
+            0,
+            0,
+            0.0f,
+            0.0f,
+            0.0f,
+            255.0f,
+            128,
+            0
+        );
+    }
+
     int citysong = NasrLoadSong( "assets/district4.wav" );
     int sewersong = NasrLoadSong( "assets/retrofuture.wav" );
     int jumpsound = NasrLoadSong( "assets/jump.wav" );
@@ -452,6 +481,12 @@ void NasrTestRun( void )
 
     int citysongplaying = -1;
     int sewersongplaying = -1;
+
+    float naccx = 0.0f;
+    float nvx = 0.0f;
+
+    double prev_time = NasrGetTime();
+    double current_time = 0;
 
     while ( running )
     {
@@ -461,206 +496,72 @@ void NasrTestRun( void )
         }
         else
         {
-            tilevy += tileaccy;
-            if ( tilevy > 0.1f )
-            {
-                tilevy = 0.1f;
-            }
-            else if ( tilevy < -0.1f )
-            {
-                tilevy = -0.1f;
-            }
-            tiley += tilevy;
+            current_time = NasrGetTime();
+            const double timechange = current_time - prev_time;
+            const double fps = 1.0 / timechange;
+            const float dt = 60.0f / ( float )( fps );
+            prev_time = current_time;
 
-            if ( tiley >= 34.0f )
+            static float digitxes[ 10 ] =
             {
-                tileaccy = -TILEACCVAL;
-            }
-            else if ( tiley <= 30.0f )
-            {
-                tileaccy = TILEACCVAL;
-            }
+                9.0f,
+                17.0f,
+                25.0f,
+                32.0f,
+                41.0f,
+                49.0f,
+                56.0f,
+                65.0f,
+                73.0f,
+                81.0f
+            };
 
-            NasrGraphicsTilemapSetY( tilemap1, tiley );
-            NasrGraphicsTilemapSetY( tilemap2, tiley );
-            NasrGraphicsTilemapSetX( tilemap1, tiley );
-
-            NasrSetGlobalPalette( globalpal );
-
-            for ( int i = 0; i < RECTCOUNT; ++i )
-            {
-                NasrGraphicsSpriteAddToDestX( ids[ i ], accx[ i ] );
-                NasrGraphicsSpriteAddToDestY( ids[ i ], accy[ i ] );
-                /*
-                const float rchange = cdr[ i ] ? 1.0f : -1.0f;
-                c1[ i ].r += rchange;
-                if ( c1[ i ].r > 255.0f ) {
-                    cdr[ i ] = 0;
-                }
-                else if ( c1[ i ].r < 0.0f ) {
-                    cdr[ i ] = 1;
-                }
-                const float gchange = cdg[ i ] ? 2.0f : -2.0f;
-                c1[ i ].g += gchange;
-                if ( c1[ i ].g > 255.0f ) {
-                    cdg[ i ] = 0;
-                }
-                else if ( c1[ i ].g < 0.0f ) {
-                    cdg[ i ] = 1;
-                }
-                const float bchange = cdb[ i ] ? 0.5f : -0.5f;
-                c1[ i ].b += bchange;
-                if ( c1[ i ].b > 255.0f ) {
-                    cdb[ i ] = 0;
-                }
-                else if ( c1[ i ].b < 0.0f ) {
-                    cdb[ i ] = 1;
-                }
-                NasrGraphicRectSetColor( ids[ i ], c1[ i ] );
-                if ( paltimer == 31 || paltimer == 7 )
-                {
-                    NasrGraphicsSpriteSetPalette( ids[ i ], pal[ i ] + paloffset );
-                }*/
-
-                if ( NasrGraphicsSpriteGetDestX( ids[ i ] ) > 520.0f )
-                {
-                    accx[ i ] = -SPEED;
-                }
-                else if ( NasrGraphicsSpriteGetDestX( ids[ i ] ) < 0.0f )
-                {
-                    accx[ i ] = SPEED;
-                }
-                if ( NasrGraphicsSpriteGetDestY( ids[ i ] ) > 320.0f )
-                {
-                    accy[ i ] = -SPEED;
-                }
-                else if ( NasrGraphicsSpriteGetDestY( ids[ i ] ) < 0.0f )
-                {
-                    accy[ i ] = SPEED;
-                }
-            }
+            const int onesd = ( int )( floor( fps ) ) % 10;
+            NasrGraphicsSpriteSetSrcX( digits[ 2 ], digitxes[ onesd ] );
+            const int tensd = ( int )( floor( ( double )( ( int )( floor( fps ) ) % 100 ) / 10.0 ) );
+            NasrGraphicsSpriteSetSrcX( digits[ 1 ], digitxes[ tensd ] );
+            const int hunsd = ( int )( floor( ( double )( ( int )( floor( fps ) ) % 1000 ) / 100.0 ) );
+            NasrGraphicsSpriteSetSrcX( digits[ 0 ], digitxes[ hunsd ] );
 
             if ( NasrHeld( INPUT_UP ) )
             {
-                NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) - NASRSPEED );
-                int s = NasrAddTemporarySoundtoQueue( jumpsound, 0 );
-                if ( s > -1 )
-                {
-                    NasrPlaySong( s );
-                }
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {
-                NasrGraphicsSpriteSetDestY( nasrinid, NasrGraphicsSpriteGetDestY( nasrinid ) + NASRSPEED );
             }
 
             if ( NasrHeld( INPUT_LEFT ) )
             {
-                NasrGraphicsSpriteSetDestX( nasrinid, NasrGraphicsSpriteGetDestX( nasrinid ) - NASRSPEED );
+                naccx = -0.5f;
             }
             else if ( NasrHeld( INPUT_RIGHT ) )
             {
-                NasrGraphicsSpriteSetDestX( nasrinid, NasrGraphicsSpriteGetDestX( nasrinid ) + NASRSPEED );
-            }
-
-            if ( NasrHeld( INPUT_X ) )
-            {
-                NasrGraphicsSpriteSetRotationX( nasrinid, NasrGraphicsSpriteGetRotationX( nasrinid ) + NASRSPEED );
-            }
-
-            if ( NasrHeld( INPUT_Z ) )
-            {
-                NasrGraphicsSpriteSetRotationZ( nasrinid, NasrGraphicsSpriteGetRotationZ( nasrinid ) + NASRSPEED );
-            }
-
-            if ( NasrHeld( INPUT_Y ) )
-            {
-                NasrGraphicsSpriteSetRotationY( nasrinid, NasrGraphicsSpriteGetRotationY( nasrinid ) + NASRSPEED );
-            }
-
-            if ( NasrHeld( INPUT_F ) )
-            {
-                if ( counter == 0 )
-                {
-                    NasrGraphicsSpriteFlipX( nasrinid );
-                    counter = 32;
-                }
-                NasrSetSongLoop( citysong, 0 );
-            }
-
-            if ( NasrHeld( INPUT_1 ) )
-            {
-                if ( citysongplaying < 0 )
-                {
-                    citysongplaying = NasrAddPermanentSoundtoQueue( citysong, 1 );
-                    NasrPlaySong( citysongplaying );
-                }
-                else
-                {
-                    NasrToggleSong( citysongplaying );
-                }
-            }
-            else if ( NasrHeld( INPUT_2 ) )
-            {
-                if ( sewersongplaying < 0 )
-                {
-                    sewersongplaying = NasrAddPermanentSoundtoQueue( sewersong, 1 );
-                    NasrPlaySong( sewersongplaying );
-                }
-                else
-                {
-                    NasrToggleSong( sewersongplaying );
-                }
-            }
-
-            if ( counter > 0 )
-            {
-                --counter;
-            }
-
-
-            if ( globalpal == 255 )
-            {
-                globalpal = 0;
+                naccx = 0.5f;
             }
             else
             {
-                ++globalpal;
+                naccx = 0.0f;
             }
 
-            if ( paltimer == 0 )
+            nvx += naccx * dt;
+            if ( nvx > 4.0f )
             {
-                if ( pald )
-                {
-                    --paloffset;
-                    if ( paloffset == 0 )
-                    {
-                        pald = 0;
-                        paltimer = 31;
-                    }
-                    else
-                    {
-                        paltimer = 7;
-                    }
-                }
-                else
-                {
-                    ++paloffset;
-                    if ( paloffset == 4 )
-                    {
-                        pald = 1;
-                        paltimer = 31;
-                    }
-                    else
-                    {
-                        paltimer = 7;
-                    }
-                }
+                nvx = 4.0f;
             }
-            else
+            else if ( nvx < -4.0f )
             {
-                --paltimer;
+                nvx = -4.0f;
             }
+
+            if ( naccx == 0.0f )
+            {
+                nvx /= ( 1.0f + 0.2f * dt );
+            }
+
+            dest.x += nvx * dt;
+
+            NasrGraphicsSpriteSetDest( nasrinid, dest );
+
             const NasrRect d = NasrGraphicsSpriteGetDest( nasrinid );
             NasrAdjustCamera( &d, 800.0f, 800.0f );
             NasrUpdate();
