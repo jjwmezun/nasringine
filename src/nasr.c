@@ -137,9 +137,10 @@ static int * gfx_ptrs_pos_to_id = NULL;
 static int * state_for_gfx = NULL;
 static int * layer_for_gfx = NULL;
 static unsigned int animation_frame = 0;
-static unsigned int animation_timer = 0;
+static float animation_timer = 0;
 static uint_fast8_t global_palette = 0;
 static CharMapList charmaps = { 0, 0, 0 };
+static float animation_ticks_per_frame = 0.0f;
 
 static void UpdateSpriteX( unsigned int id );
 static void UpdateSpriteY( unsigned int id );
@@ -238,9 +239,12 @@ int NasrInit
     int init_max_gfx_layers,
     int sample_type,
     int default_indexed_type,
-    uint_fast8_t vsync
+    uint_fast8_t vsync,
+    int ticks_per_frame
 )
 {
+    animation_ticks_per_frame = ( float )( ticks_per_frame );
+
     default_sample_type = GetGLSamplingType( sample_type );
     default_indexed_mode = GetGLRGBA( default_indexed_type );
     glfwInit();
@@ -787,7 +791,7 @@ void NasrClearTextures( void )
     texture_count = 0;
 };
 
-void NasrUpdate( void )
+void NasrUpdate( float dt )
 {
     glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
     glClear( GL_COLOR_BUFFER_BIT );
@@ -1004,18 +1008,15 @@ void NasrUpdate( void )
     glfwPollEvents();
     prev_camera = camera;
 
-    if ( animation_timer == 7 )
+    animation_timer += dt;
+    if ( animation_timer >= animation_ticks_per_frame )
     {
-        animation_timer = 0;
+        animation_timer -= animation_ticks_per_frame;
         ++animation_frame;
         if ( animation_frame == MAX_ANIMATION_FRAME )
         {
             animation_frame = 0;
         }
-    }
-    else
-    {
-        ++animation_timer;
     }
 };
 

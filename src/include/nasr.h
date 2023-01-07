@@ -342,14 +342,15 @@ int NasrInit
     int init_max_gfx_layers,
     int sample_type,
     int default_indexed_type,
-    uint_fast8_t vsync
+    uint_fast8_t vsync,
+    int ticks_per_frame
 );
 void NasrSetPalette( const char * filename );
 int NasrAddCharset( const char * texture, const char * chardata );
 void NasrRemoveCharset( unsigned int charset );
 void NasrClose( void );
 void NasrClearTextures( void );
-void NasrUpdate( void );
+void NasrUpdate( float dt );
 
 char * NasrReadFile( const char * filename );
 

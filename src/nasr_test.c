@@ -33,7 +33,7 @@ typedef enum Input {
 
 void NasrTestRun( void )
 {
-    NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES, 1 );
+    NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES, 1, 8 );
     NasrAudioInit( 256, 16, 16 );
     NasrSetPalette( "assets/palette2.png" );
     const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );
@@ -193,17 +193,17 @@ void NasrTestRun( void )
     }
     for ( int i = tilesw * ( tilesh - 4 ) + 5; i < tilesw * ( tilesh - 3 ) - 28; ++i )
     {
-        tiles3[ i ].x = 5;
+        tiles3[ i ].x = 0;
         tiles3[ i ].y = 0;
         tiles3[ i ].palette = 0;
-        tiles3[ i ].animation = 0;
+        tiles3[ i ].animation = 6;
     }
     NasrGraphicsAddTilemap
     (
         1,
         0,
         3,
-        tilestext,
+        NasrLoadFileAsTexture( "assets/universal.png" ),
         tiles3,
         tilesw,
         tilesh,
@@ -497,10 +497,9 @@ void NasrTestRun( void )
         else
         {
             current_time = NasrGetTime();
-            const double timechange = current_time - prev_time;
-            const double fps = 1.0 / timechange;
-            const float dt = 60.0f / ( float )( fps );
-            prev_time = current_time;
+            double timechange = current_time - prev_time;
+            double fps = 1.0 / timechange;
+            float dt = 60.0f / ( float )( fps );
 
             static float digitxes[ 10 ] =
             {
@@ -564,7 +563,12 @@ void NasrTestRun( void )
 
             const NasrRect d = NasrGraphicsSpriteGetDest( nasrinid );
             NasrAdjustCamera( &d, 800.0f, 800.0f );
-            NasrUpdate();
+
+            timechange = current_time - prev_time;
+            fps = 1.0 / timechange;
+            dt = 60.0f / ( float )( fps );
+            prev_time = current_time;
+            NasrUpdate( dt );
         }
     }
     NasrCloseLanguage();
