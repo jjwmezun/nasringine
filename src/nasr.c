@@ -54,10 +54,16 @@ typedef struct { NasrHashKey key; unsigned int value; } TextureMapEntry;
 typedef struct CharTemplate
 {
     NasrRect src;
-    float xoffset;
-    float yoffset;
     uint_fast8_t chartype;
 } CharTemplate;
+
+typedef struct CharNum
+{
+    NasrRect src;
+    float xoffset;
+    float yoffset;
+} CharNum;
+
 typedef struct { NasrHashKey key; CharTemplate value; } CharMapEntry;
 typedef struct CharMap
 {
@@ -66,6 +72,9 @@ typedef struct CharMap
     CharMapEntry * list;
     unsigned int texture_id;
     Texture texture;
+    CharNum nums[ 11 ];
+    float numwidth;
+    float numheight;
 } CharMap;
 typedef struct CharMapList
 {
@@ -184,6 +193,24 @@ static int GraphicAddText
     NasrColor * top_right_color,
     NasrColor * bottom_left_color,
     NasrColor * bottom_right_color,
+    uint_fast8_t palette,
+    uint_fast8_t palette_type
+);
+static int GraphicsAddCounter
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int charset,
+    float num,
+    unsigned int maxdigits,
+    unsigned int maxdecimals,
+    float x,
+    float y,
+    float shadow,
+    uint_fast8_t numpadding,
+    uint_fast8_t decimalpadding,
+    NasrColor ** colors,
     uint_fast8_t palette,
     uint_fast8_t palette_type
 );
@@ -672,6 +699,36 @@ int NasrAddCharset( const char * texture, const char * chardata )
                 entry = CharMapGenEntry( id, keys[ c ] );
                 entry->value = chars[ c ];
             }
+
+            // Generate list of digit characters for counters.
+            char digit[ 1 ] = "0";
+            charmaps.list[ id ].numwidth = 0.0f;
+            charmaps.list[ id ].numheight = 0.0f;
+            for ( int i = 0; i < 11; ++i )
+            {
+                // Include period for floating point #s.
+                digit[ 0 ] = i == 10 ? '.' : '0' + i;
+                hash_t digithash = CharMapHashString( ( unsigned int )( id ), digit );
+                CharMapEntry * digitentry = CharMapHashFindEntry( ( unsigned int )( id ), digit, digithash );
+                if ( digitentry->key.string != NULL )
+                {
+                    charmaps.list[ id ].nums[ i ].src = digitentry->value.src;
+                    if ( charmaps.list[ id ].nums[ i ].src.w > charmaps.list[ id ].numwidth )
+                    {
+                        charmaps.list[ id ].numwidth = charmaps.list[ id ].nums[ i ].src.w;
+                    }
+                    if ( charmaps.list[ id ].nums[ i ].src.h > charmaps.list[ id ].numheight )
+                    {
+                        charmaps.list[ id ].numheight = charmaps.list[ id ].nums[ i ].src.h;
+                    }
+                }
+            }
+
+            for ( int i = 0; i < 11; ++i )
+            {
+                charmaps.list[ id ].nums[ i ].xoffset = ( charmaps.list[ id ].numwidth - charmaps.list[ id ].nums[ i ].src.w ) / 2.0f;
+                charmaps.list[ id ].nums[ i ].yoffset = ( charmaps.list[ id ].numheight - charmaps.list[ id ].nums[ i ].src.h ) / 2.0f;
+            }
         }
     }
 
@@ -817,6 +874,8 @@ void NasrUpdate( float dt )
                     &graphics[ i ].data.rect.rect,
                     graphics[ i ].abs
                 );
+                
+                SetupVertices( vao );
             }
             break;
             case ( NASR_GRAPHIC_RECT_GRADIENT ):
@@ -827,6 +886,8 @@ void NasrUpdate( float dt )
                     &graphics[ i ].data.gradient.rect,
                     graphics[ i ].abs
                 );
+                
+                SetupVertices( vao );
             }
             break;
             case ( NASR_GRAPHIC_RECT_PAL ):
@@ -846,6 +907,8 @@ void NasrUpdate( float dt )
                 glBindTexture( GL_TEXTURE_2D, palette_texture_id );
                 glUniform1i( palette_data_location, 1 );
                 #undef RECT
+                
+                SetupVertices( vao );
             }
             break;
             case ( NASR_GRAPHIC_SPRITE ):
@@ -895,6 +958,8 @@ void NasrUpdate( float dt )
                 #undef SPRITE
                 #undef SRC
                 #undef DEST
+                
+                SetupVertices( vao );
             }
             break;
             case ( NASR_GRAPHIC_TILEMAP ):
@@ -946,6 +1011,8 @@ void NasrUpdate( float dt )
                 glUniform1i(map_data_location, 2);
 
                 #undef TG
+
+                SetupVertices( vao );
             }
             break;
             case ( NASR_GRAPHIC_TEXT ):
@@ -994,13 +1061,58 @@ void NasrUpdate( float dt )
                 }
             }
             break;
+            case ( NASR_GRAPHIC_COUNTER ):
+            {
+                const unsigned int shader = graphics[ i ].data.counter->palette_type ? text_pal_shader : text_shader;
+                glUseProgram( shader );
+
+                for ( int j = 0; j < graphics[ i ].data.counter->count; ++j )
+                {
+                    #define CHAR graphics[ i ].data.counter->chars[ j ]
+
+                    glBindVertexArray( graphics[ i ].data.counter->vaos[ j ] );
+                    glBindBuffer( GL_ARRAY_BUFFER, graphics[ i ].data.counter->vbos[ j ] );
+                    SetVerticesView( CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.counter->xoffset, CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.counter->yoffset, graphics[ i ].abs );
+
+                    mat4 model = BASE_MATRIX;
+                    vec3 scale = { CHAR.dest.w, CHAR.dest.h, 0.0 };
+                    glm_scale( model, scale );
+                    unsigned int model_location = glGetUniformLocation( shader, "model" );
+                    glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+                    GLint shadow_location = glGetUniformLocation( shader, "shadow" );
+                    glUniform1f( shadow_location, graphics[ i ].data.counter->shadow );
+
+                    if ( graphics[ i ].data.counter->palette_type )
+                    {
+                        GLint palette_id_location = glGetUniformLocation( shader, "palette_id" );
+                        glUniform1f( palette_id_location, ( float )( graphics[ i ].data.counter->palette_type == NASR_PALETTE_DEFAULT ? global_palette : graphics[ i ].data.counter->palette ) );
+                    }
+
+                    GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
+                    glActiveTexture( GL_TEXTURE0 );
+                    glBindTexture( GL_TEXTURE_2D, charmaps.list[ graphics[ i ].data.counter->charset ].texture_id );
+                    glUniform1i( texture_data_location, 0 );
+                    if ( graphics[ i ].data.counter->palette_type )
+                    {
+                        GLint palette_data_location = glGetUniformLocation( shader, "palette_data" );
+                        glActiveTexture( GL_TEXTURE1 );
+                        glBindTexture( GL_TEXTURE_2D, palette_texture_id );
+                        glUniform1i( palette_data_location, 1 );
+                    }
+
+                    SetupVertices( graphics[ i ].data.counter->vaos[ j ] );
+                    ClearBufferBindings();
+
+                    #undef CHAR
+                }
+            }
+            break;
             default:
             {
                 printf( "¡Trying to render invalid graphic type #%d!\n", graphics[ i ].type );
             }
             break;
         }
-        SetupVertices( vao );
         ClearBufferBindings();
     }
 
@@ -2265,6 +2377,239 @@ int NasrGraphicAddTextGradientPalette
     );
 };
 
+int NasrGraphicsAddCounter
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int charset,
+    float num,
+    unsigned int maxdigits,
+    unsigned int maxdecimals,
+    uint_fast8_t numpadding,
+    uint_fast8_t decimalpadding,
+    NasrColor color,
+    float x,
+    float y,
+    float shadow
+)
+{
+    NasrColor * colors[ 4 ] = {
+        &color,
+        &color,
+        &color,
+        &color
+    };
+    return GraphicsAddCounter
+    (
+        abs,
+        state,
+        layer,
+        charset,
+        num,
+        maxdigits,
+        maxdecimals,
+        x,
+        y,
+        shadow,
+        numpadding,
+        decimalpadding,
+        colors,
+        0,
+        NASR_PALETTE_NONE
+    );
+};
+
+static int GraphicsAddCounter
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int charset,
+    float num,
+    unsigned int maxdigits,
+    unsigned int maxdecimals,
+    float x,
+    float y,
+    float shadow,
+    uint_fast8_t numpadding,
+    uint_fast8_t decimalpadding,
+    NasrColor ** colors,
+    uint_fast8_t palette,
+    uint_fast8_t palette_type
+)
+{
+    if ( charset >= charmaps.capacity || !charmaps.list[ charset ].list )
+    {
+        return -1;
+    }
+
+    struct NasrGraphic graphic;
+    graphic.abs = abs;
+    graphic.type = NASR_GRAPHIC_COUNTER;
+    graphic.data.counter = calloc( 1, sizeof( NasrGraphicCounter ) );
+    graphic.data.counter->palette = palette;
+    graphic.data.counter->palette_type = palette_type;
+    graphic.data.counter->numpadding = numpadding;
+    graphic.data.counter->decimalpadding = decimalpadding;
+    graphic.data.counter->maxdigits = maxdigits;
+    graphic.data.counter->maxdecimals = maxdecimals;
+    // If no decimals, just have max chars maxdecimals, else have 1 extra for floating point char.
+    int count = maxdigits + ( maxdecimals > 0 ? maxdecimals + 1 : 0 );
+    graphic.data.counter->count = count;
+    graphic.data.counter->maxnum = pow( 10, maxdigits ) - pow( 10, ( int )( -maxdecimals - 1 ) );
+    graphic.data.counter->charset = charset;
+    graphic.data.counter->xoffset = x;
+    graphic.data.counter->yoffset = y;
+    graphic.data.counter->shadow = shadow;
+    graphic.data.counter->vaos = calloc( count, sizeof( unsigned int ) );
+    graphic.data.counter->vbos = calloc( count, sizeof( unsigned int ) );
+    graphic.data.counter->vertices = calloc( count * VERTEX_RECT_SIZE, sizeof( float ) );
+    graphic.data.counter->chars = calloc( count, sizeof( NasrChar ) );
+    if ( colors )
+    {
+        for ( int j = 0; j < 4; ++j )
+        {
+            memcpy( &graphic.data.counter->colors[ j ], colors[ j ], sizeof( NasrColor ) );
+        }
+    }
+    const int id = NasrGraphicsAdd( state, layer, graphic );
+
+    NasrGraphic * g = NasrGraphicGet( id );
+    glGenVertexArrays( count, g->data.counter->vaos );
+    glGenBuffers( count, g->data.counter->vbos );
+
+    // If # goes beyond maxdecimals, make it show all 9s ’stead o’ seeming to loop back round.
+    num = NASR_MATH_MIN( num, graphic.data.counter->maxnum );
+    int intnum = ( int )( floor( num ) );
+
+    for ( int i = 0; i < count; ++i )
+    {
+        float * vptr = &g->data.counter->vertices[ i * VERTEX_RECT_SIZE ];
+
+        // Get main digits, then floating point, then decimals.
+        const int c = i == maxdigits ? 10 : ( i > maxdigits ) ? NasrGetDigit( ( int )( floor( num * pow( 10, i - maxdigits ) ) ), 1 ) : NasrGetDigit( intnum, maxdigits - i );
+        CharNum * character = &charmaps.list[ charset ].nums[ c ];
+
+        graphic.data.counter->chars[ i ].src = character->src;
+        graphic.data.counter->chars[ i ].dest.x = ( charmaps.list[ charset ].numwidth * i ) + character->xoffset;
+        graphic.data.counter->chars[ i ].dest.y = character->yoffset;
+        graphic.data.counter->chars[ i ].dest.w = character->src.w;
+        graphic.data.counter->chars[ i ].dest.h = character->src.h;
+
+        glBindVertexArray( g->data.counter->vaos[ i ] );
+        glBindBuffer( GL_ARRAY_BUFFER, g->data.counter->vbos[ i ] );
+
+        ResetVertices( vptr );
+        const float texturew = ( float )( charmaps.list[ charset ].texture.width );
+        const float textureh = ( float )( charmaps.list[ charset ].texture.height );
+        vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / texturew * character->src.x; // Left X
+        vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / texturew * ( character->src.x + character->src.w );  // Right X
+        vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / textureh * ( character->src.y + character->src.h ); // Top Y
+        vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / textureh * character->src.y;  // Bottom Y
+
+        vptr[ 4 ] = graphic.data.counter->colors[ 0 ].r / 255.0f;
+        vptr[ 5 ] = graphic.data.counter->colors[ 0 ].g / 255.0f;
+        vptr[ 6 ] = graphic.data.counter->colors[ 0 ].b / 255.0f;
+        vptr[ 7 ] = graphic.data.counter->colors[ 0 ].a / 255.0f;
+
+        vptr[ 4 + VERTEX_SIZE ] = graphic.data.counter->colors[ 1 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE ] = graphic.data.counter->colors[ 1 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE ] = graphic.data.counter->colors[ 1 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE ] = graphic.data.counter->colors[ 1 ].a / 255.0f;
+
+        vptr[ 4 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 2 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 2 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 2 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 2 ].a / 255.0f;
+
+        vptr[ 4 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 3 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 3 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 3 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 3 ].a / 255.0f;
+
+        BufferVertices( vptr );
+       
+        #undef CHARACTER
+
+        // EBO
+        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
+
+        // VBO
+        glBufferData( GL_ARRAY_BUFFER, sizeof( vertices_base ), vptr, GL_STATIC_DRAW );
+        glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), 0 );
+        glEnableVertexAttribArray( 0 );
+        glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
+        glEnableVertexAttribArray( 1 );
+        glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 4 * sizeof( float ) ) );
+        glEnableVertexAttribArray( 2 );
+    }
+    ClearBufferBindings();
+
+    return id;
+};
+
+void NasrGraphicsCounterSetNumber( unsigned int id, float n )
+{
+    NasrGraphic * g = NasrGraphicGet( id );
+    if ( !g )
+    {
+        return;
+    }
+    n = NASR_MATH_MIN( n, g->data.counter->maxnum );
+    int intnum = ( int )( floor( n ) );
+    int maxdigits = g->data.counter->maxdigits;
+    for ( int i = 0; i < g->data.counter->count; ++i )
+    {
+        float * vptr = &g->data.counter->vertices[ i * VERTEX_RECT_SIZE ];
+
+        const int c = i == maxdigits ? 10 : ( i > maxdigits ) ? NasrGetDigit( ( int )( floor( n * pow( 10, i - maxdigits ) ) ), 1 ) : NasrGetDigit( intnum, maxdigits - i );
+        CharNum * character = &charmaps.list[ g->data.counter->charset ].nums[ c ];
+
+        g->data.counter->chars[ i ].src = character->src;
+        g->data.counter->chars[ i ].dest.x = ( charmaps.list[ g->data.counter->charset ].numwidth * i ) + character->xoffset;
+        g->data.counter->chars[ i ].dest.y = character->yoffset;
+        g->data.counter->chars[ i ].dest.w = character->src.w;
+        g->data.counter->chars[ i ].dest.h = character->src.h;
+
+        glBindVertexArray( g->data.counter->vaos[ i ] );
+        glBindBuffer( GL_ARRAY_BUFFER, g->data.counter->vbos[ i ] );
+
+        ResetVertices( vptr );
+        const float texturew = ( float )( charmaps.list[ g->data.counter->charset ].texture.width );
+        const float textureh = ( float )( charmaps.list[ g->data.counter->charset ].texture.height );
+        vptr[ 2 + VERTEX_SIZE * 3 ] = vptr[ 2 + VERTEX_SIZE * 2 ] = 1.0f / texturew * character->src.x; // Left X
+        vptr[ 2 ] = vptr[ 2 + VERTEX_SIZE ] = 1.0f / texturew * ( character->src.x + character->src.w );  // Right X
+        vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / textureh * ( character->src.y + character->src.h ); // Top Y
+        vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / textureh * character->src.y;  // Bottom Y
+
+        vptr[ 4 ] = g->data.counter->colors[ 0 ].r / 255.0f;
+        vptr[ 5 ] = g->data.counter->colors[ 0 ].g / 255.0f;
+        vptr[ 6 ] = g->data.counter->colors[ 0 ].b / 255.0f;
+        vptr[ 7 ] = g->data.counter->colors[ 0 ].a / 255.0f;
+
+        vptr[ 4 + VERTEX_SIZE ] = g->data.counter->colors[ 1 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE ] = g->data.counter->colors[ 1 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE ] = g->data.counter->colors[ 1 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE ] = g->data.counter->colors[ 1 ].a / 255.0f;
+
+        vptr[ 4 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 2 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 2 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 2 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 2 ].a / 255.0f;
+
+        vptr[ 4 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 3 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 3 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 3 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 3 ].a / 255.0f;
+
+        BufferVertices( vptr );
+       
+        #undef CHARACTER
+    }
+    ClearBufferBindings(); 
+};
+
 static int getCharacterSize( const char * s )
 {
     const int code = ( int )( *s );
@@ -2293,13 +2638,28 @@ static void DestroyGraphic( NasrGraphic * graphic )
                 glDeleteRenderbuffers( graphic->data.text.capacity, graphic->data.text.vbos );
                 free( graphic->data.text.vbos );
             }
-            if ( graphic->data.text.vertices )
+            free( graphic->data.text.vertices );
+            free( graphic->data.text.chars );
+            graphic->type = NASR_GRAPHIC_NONE;
+        }
+        break;
+        case ( NASR_GRAPHIC_COUNTER ):
+        {
+            if ( graphic->data.counter )
             {
-                free( graphic->data.text.vertices );
-            }
-            if ( graphic->data.text.chars )
-            {
-                free( graphic->data.text.chars );
+                if ( graphic->data.counter->vaos )
+                {
+                    glDeleteVertexArrays( graphic->data.counter->count, graphic->data.counter->vaos );
+                    free( graphic->data.counter->vaos );
+                }
+                if ( graphic->data.counter->vbos )
+                {
+                    glDeleteRenderbuffers( graphic->data.counter->count, graphic->data.counter->vbos );
+                    free( graphic->data.counter->vbos );
+                }
+                free( graphic->data.counter->vertices );
+                free( graphic->data.counter->chars );
+                free( graphic->data.counter );
             }
             graphic->type = NASR_GRAPHIC_NONE;
         }
@@ -2321,7 +2681,7 @@ static int GraphicAddText
     uint_fast8_t palette_type
 )
 {
-    if ( text.charset >= charmaps.capacity || !charmaps.list[ text.charset ].list )
+    if ( num_o_graphics >= max_graphics || text.charset >= charmaps.capacity || !charmaps.list[ text.charset ].list )
     {
         return -1;
     }
@@ -2507,11 +2867,6 @@ static int GraphicAddText
     }
 
     // End charlist
-
-    if ( num_o_graphics >= max_graphics )
-    {
-        return -1;
-    }
 
     struct NasrGraphic graphic;
     graphic.abs = abs;

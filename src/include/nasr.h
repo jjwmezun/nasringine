@@ -63,6 +63,7 @@ typedef struct NasrShader
 #define NASR_GRAPHIC_SPRITE        4
 #define NASR_GRAPHIC_TILEMAP       5
 #define NASR_GRAPHIC_TEXT          6
+#define NASR_GRAPHIC_COUNTER       7
 
 #define NASR_PALETTE_NONE    0
 #define NASR_PALETTE_SET     1
@@ -130,6 +131,27 @@ typedef struct NasrGraphicText
     float shadow;
 } NasrGraphicText;
 
+typedef struct NasrGraphicCounter
+{
+    unsigned int count;
+    unsigned int maxdigits;
+    unsigned int maxdecimals;
+    uint_fast8_t numpadding;
+    uint_fast8_t decimalpadding;
+    NasrChar * chars;
+    float maxnum;
+    float * vertices;
+    unsigned int * vaos;
+    unsigned int * vbos;
+    uint_fast8_t palette;
+    uint_fast8_t palette_type;
+    unsigned int charset;
+    float xoffset;
+    float yoffset;
+    float shadow;
+    NasrColor colors[ 4 ];
+} NasrGraphicCounter;
+
 typedef union NasrGraphicData
 {
     NasrGraphicRect         rect;
@@ -138,6 +160,7 @@ typedef union NasrGraphicData
     NasrGraphicSprite       sprite;
     NasrGraphicTilemap      tilemap;
     NasrGraphicText         text;
+    NasrGraphicCounter *    counter;
 } NasrGraphicData;
 
 typedef struct NasrGraphic
@@ -501,6 +524,23 @@ int NasrGraphicAddTextGradientPalette
     uint_fast8_t color2
 );
 
+int NasrGraphicsAddCounter
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int charset,
+    float num,
+    unsigned int maxdigits,
+    unsigned int maxdecimals,
+    uint_fast8_t numpadding,
+    uint_fast8_t decimalpadding,
+    NasrColor color,
+    float x,
+    float y,
+    float shadow
+);
+
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );
 void NasrGraphicsSpriteSetDest( unsigned int id, NasrRect v );
 float NasrGraphicsSpriteGetDestY( unsigned int id );
@@ -568,6 +608,8 @@ void NasrGraphicTextSetYOffset( unsigned int id, float v );
 void NasrGraphicTextAddToYOffset( unsigned int id, float v );
 void NasrGraphicTextSetCount( unsigned int id, int count );
 void NasrGraphicTextIncrementCount( unsigned int id );
+
+void NasrGraphicsCounterSetNumber( unsigned int id, float n );
 
 int NasrLoadFileAsTexture( char * filename );
 int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed );

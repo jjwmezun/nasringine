@@ -29,3 +29,19 @@ int NasrGetNextPrime( int n )
     }
     return n;
 };
+
+int NasrGetDigit( int n, int d )
+{
+    double a = ( double )( n % ( int )( pow( 10, d ) ) );
+    return d > 1 ? ( int )( floor( a / pow( 10, d - 1 ) ) ) : a;
+};
+
+int NasrGetNumberODigits( int n )
+{
+    int i = 1;
+    while ( n >= pow( 10, i ) )
+    {
+        ++i;
+    }
+    return i;
+};

@@ -16,5 +16,7 @@ typedef struct NasrHashKey
 int NasrMathIsPrime( int n );
 uint32_t NasrHashString( const char * key, int max );
 int NasrGetNextPrime( int n );
+int NasrGetDigit( int n, int d );
+int NasrGetNumberODigits( int n );
 
 #endif // NASR_MATH_H

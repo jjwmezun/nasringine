@@ -33,7 +33,7 @@ typedef enum Input {
 
 void NasrTestRun( void )
 {
-    NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES, 1, 8 );
+    NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 1024, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES, 0, 8 );
     NasrAudioInit( 256, 16, 16 );
     NasrSetPalette( "assets/palette2.png" );
     const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );
@@ -445,6 +445,7 @@ void NasrTestRun( void )
     static unsigned char globalpal;
     NasrSetGlobalPalette( globalpal );
 
+    /*
     const NasrRect digit_src = { 9.0f, 0.0f, 7.0f, 8.0f };
     const NasrRect digit_dest[ 3 ] =
     {
@@ -472,7 +473,25 @@ void NasrTestRun( void )
             128,
             0
         );
-    }
+    }*/
+
+    const NasrColor digitcolor = { 255.0f, 0.0f, 255.0f, 255.0f };
+    const int digits = NasrGraphicsAddCounter
+    (
+        1,
+        4,
+        0,
+        charset1,
+        7456.2368,
+        3,
+        3,
+        0,
+        0,
+        digitcolor,
+        16.0f,
+        16.0f,
+        1
+    );
 
     int citysong = NasrLoadSong( "assets/district4.wav" );
     int sewersong = NasrLoadSong( "assets/retrofuture.wav" );
@@ -501,6 +520,7 @@ void NasrTestRun( void )
             double fps = 1.0 / timechange;
             float dt = 60.0f / ( float )( fps );
 
+            /*
             static float digitxes[ 10 ] =
             {
                 9.0f,
@@ -521,6 +541,9 @@ void NasrTestRun( void )
             NasrGraphicsSpriteSetSrcX( digits[ 1 ], digitxes[ tensd ] );
             const int hunsd = ( int )( floor( ( double )( ( int )( floor( fps ) ) % 1000 ) / 100.0 ) );
             NasrGraphicsSpriteSetSrcX( digits[ 0 ], digitxes[ hunsd ] );
+            */
+
+            NasrGraphicsCounterSetNumber( digits, fps );
 
             if ( NasrHeld( INPUT_UP ) )
             {
