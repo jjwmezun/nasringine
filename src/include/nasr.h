@@ -541,6 +541,25 @@ int NasrGraphicsAddCounter
     float shadow
 );
 
+int NasrGraphicsAddCounterGradient
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int charset,
+    float num,
+    unsigned int maxdigits,
+    unsigned int maxdecimals,
+    uint_fast8_t numpadding,
+    uint_fast8_t decimalpadding,
+    uint_fast8_t dir,
+    NasrColor color1,
+    NasrColor color2,
+    float x,
+    float y,
+    float shadow
+);
+
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );
 void NasrGraphicsSpriteSetDest( unsigned int id, NasrRect v );
 float NasrGraphicsSpriteGetDestY( unsigned int id );

@@ -475,8 +475,9 @@ void NasrTestRun( void )
         );
     }*/
 
-    const NasrColor digitcolor = { 255.0f, 0.0f, 255.0f, 255.0f };
-    const int digits = NasrGraphicsAddCounter
+    const NasrColor digitcolor1 = { 255.0f, 0.0f, 255.0f, 255.0f };
+    const NasrColor digitcolor2 = { 80.0f, 0.0f, 128.0f, 255.0f };
+    const int digits = NasrGraphicsAddCounterGradient
     (
         1,
         4,
@@ -487,7 +488,9 @@ void NasrTestRun( void )
         3,
         0,
         0,
-        digitcolor,
+        NASR_DIR_DOWN,
+        digitcolor1,
+        digitcolor2,
         16.0f,
         16.0f,
         1
@@ -543,7 +546,10 @@ void NasrTestRun( void )
             NasrGraphicsSpriteSetSrcX( digits[ 0 ], digitxes[ hunsd ] );
             */
 
-            NasrGraphicsCounterSetNumber( digits, fps );
+            if ( digits > -1 )
+            {
+                NasrGraphicsCounterSetNumber( digits, fps );
+            }
 
             if ( NasrHeld( INPUT_UP ) )
             {

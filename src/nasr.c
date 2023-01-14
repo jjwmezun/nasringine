@@ -2420,6 +2420,126 @@ int NasrGraphicsAddCounter
     );
 };
 
+
+
+int NasrGraphicsAddCounterGradient
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int charset,
+    float num,
+    unsigned int maxdigits,
+    unsigned int maxdecimals,
+    uint_fast8_t numpadding,
+    uint_fast8_t decimalpadding,
+    uint_fast8_t dir,
+    NasrColor color1,
+    NasrColor color2,
+    float x,
+    float y,
+    float shadow
+)
+{
+    NasrColor * colors[ 4 ];
+    switch ( dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            colors[ 0 ] = &color2;
+            colors[ 1 ] = &color2;
+            colors[ 2 ] = &color1;
+            colors[ 3 ] = &color1;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            colors[ 0 ] = &color1;
+            colors[ 1 ] = &color2;
+            colors[ 2 ] = &color1;
+            colors[ 3 ] = &color1;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            colors[ 0 ] = &color1;
+            colors[ 1 ] = &color2;
+            colors[ 2 ] = &color1;
+            colors[ 3 ] = &color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            colors[ 0 ] = &color1;
+            colors[ 1 ] = &color1;
+            colors[ 2 ] = &color1;
+            colors[ 3 ] = &color2;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            colors[ 0 ] = &color1;
+            colors[ 1 ] = &color1;
+            colors[ 2 ] = &color2;
+            colors[ 3 ] = &color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            colors[ 0 ] = &color1;
+            colors[ 1 ] = &color1;
+            colors[ 2 ] = &color2;
+            colors[ 3 ] = &color1;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            colors[ 0 ] = &color2;
+            colors[ 1 ] = &color1;
+            colors[ 2 ] = &color2;
+            colors[ 3 ] = &color1;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            colors[ 0 ] = &color2;
+            colors[ 1 ] = &color1;
+            colors[ 2 ] = &color1;
+            colors[ 3 ] = &color1;
+        }
+        break;
+        default:
+        {
+            printf( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
+
+            // Default direction.
+            colors[ 0 ] = &color2;
+            colors[ 1 ] = &color2;
+            colors[ 2 ] = &color1;
+            colors[ 3 ] = &color1;
+        }
+        break;
+    }
+    return GraphicsAddCounter
+    (
+        abs,
+        state,
+        layer,
+        charset,
+        num,
+        maxdigits,
+        maxdecimals,
+        x,
+        y,
+        shadow,
+        numpadding,
+        decimalpadding,
+        colors,
+        0,
+        NASR_PALETTE_NONE
+    );
+};
+
 static int GraphicsAddCounter
 (
     int abs,
@@ -2508,25 +2628,25 @@ static int GraphicsAddCounter
         vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / textureh * ( character->src.y + character->src.h ); // Top Y
         vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / textureh * character->src.y;  // Bottom Y
 
-        vptr[ 4 ] = graphic.data.counter->colors[ 0 ].r / 255.0f;
-        vptr[ 5 ] = graphic.data.counter->colors[ 0 ].g / 255.0f;
-        vptr[ 6 ] = graphic.data.counter->colors[ 0 ].b / 255.0f;
-        vptr[ 7 ] = graphic.data.counter->colors[ 0 ].a / 255.0f;
+        vptr[ 4 ] = graphic.data.counter->colors[ 3 ].r / 255.0f;
+        vptr[ 5 ] = graphic.data.counter->colors[ 3 ].g / 255.0f;
+        vptr[ 6 ] = graphic.data.counter->colors[ 3 ].b / 255.0f;
+        vptr[ 7 ] = graphic.data.counter->colors[ 3 ].a / 255.0f;
 
         vptr[ 4 + VERTEX_SIZE ] = graphic.data.counter->colors[ 1 ].r / 255.0f;
         vptr[ 5 + VERTEX_SIZE ] = graphic.data.counter->colors[ 1 ].g / 255.0f;
         vptr[ 6 + VERTEX_SIZE ] = graphic.data.counter->colors[ 1 ].b / 255.0f;
         vptr[ 7 + VERTEX_SIZE ] = graphic.data.counter->colors[ 1 ].a / 255.0f;
 
-        vptr[ 4 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 2 ].r / 255.0f;
-        vptr[ 5 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 2 ].g / 255.0f;
-        vptr[ 6 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 2 ].b / 255.0f;
-        vptr[ 7 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 2 ].a / 255.0f;
+        vptr[ 4 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 0 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 0 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 0 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE * 2 ] = graphic.data.counter->colors[ 0 ].a / 255.0f;
 
-        vptr[ 4 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 3 ].r / 255.0f;
-        vptr[ 5 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 3 ].g / 255.0f;
-        vptr[ 6 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 3 ].b / 255.0f;
-        vptr[ 7 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 3 ].a / 255.0f;
+        vptr[ 4 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 2 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 2 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 2 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 2 ].a / 255.0f;
 
         BufferVertices( vptr );
        
@@ -2583,25 +2703,25 @@ void NasrGraphicsCounterSetNumber( unsigned int id, float n )
         vptr[ 3 + VERTEX_SIZE * 3 ] = vptr[ 3 ] = 1.0f / textureh * ( character->src.y + character->src.h ); // Top Y
         vptr[ 3 + VERTEX_SIZE * 2 ] = vptr[ 3 + VERTEX_SIZE ] = 1.0f / textureh * character->src.y;  // Bottom Y
 
-        vptr[ 4 ] = g->data.counter->colors[ 0 ].r / 255.0f;
-        vptr[ 5 ] = g->data.counter->colors[ 0 ].g / 255.0f;
-        vptr[ 6 ] = g->data.counter->colors[ 0 ].b / 255.0f;
-        vptr[ 7 ] = g->data.counter->colors[ 0 ].a / 255.0f;
+        vptr[ 4 ] = g->data.counter->colors[ 3 ].r / 255.0f;
+        vptr[ 5 ] = g->data.counter->colors[ 3 ].g / 255.0f;
+        vptr[ 6 ] = g->data.counter->colors[ 3 ].b / 255.0f;
+        vptr[ 7 ] = g->data.counter->colors[ 3 ].a / 255.0f;
 
         vptr[ 4 + VERTEX_SIZE ] = g->data.counter->colors[ 1 ].r / 255.0f;
         vptr[ 5 + VERTEX_SIZE ] = g->data.counter->colors[ 1 ].g / 255.0f;
         vptr[ 6 + VERTEX_SIZE ] = g->data.counter->colors[ 1 ].b / 255.0f;
         vptr[ 7 + VERTEX_SIZE ] = g->data.counter->colors[ 1 ].a / 255.0f;
 
-        vptr[ 4 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 2 ].r / 255.0f;
-        vptr[ 5 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 2 ].g / 255.0f;
-        vptr[ 6 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 2 ].b / 255.0f;
-        vptr[ 7 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 2 ].a / 255.0f;
+        vptr[ 4 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 0 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 0 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 0 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE * 2 ] = g->data.counter->colors[ 0 ].a / 255.0f;
 
-        vptr[ 4 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 3 ].r / 255.0f;
-        vptr[ 5 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 3 ].g / 255.0f;
-        vptr[ 6 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 3 ].b / 255.0f;
-        vptr[ 7 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 3 ].a / 255.0f;
+        vptr[ 4 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 2 ].r / 255.0f;
+        vptr[ 5 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 2 ].g / 255.0f;
+        vptr[ 6 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 2 ].b / 255.0f;
+        vptr[ 7 + VERTEX_SIZE * 3 ] = g->data.counter->colors[ 2 ].a / 255.0f;
 
         BufferVertices( vptr );
        
