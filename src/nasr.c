@@ -2540,6 +2540,182 @@ int NasrGraphicsAddCounterGradient
     );
 };
 
+int NasrGraphicsAddCounterPalette
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int charset,
+    float num,
+    unsigned int maxdigits,
+    unsigned int maxdecimals,
+    uint_fast8_t numpadding,
+    uint_fast8_t decimalpadding,
+    uint_fast8_t palette,
+    uint_fast8_t color,
+    uint_fast8_t useglobalpal,
+    float x,
+    float y,
+    float shadow
+)
+{
+    NasrColor c =
+    {
+        ( float )( color ),
+        0.0f,
+        0.0f,
+        255.0f
+    };
+    NasrColor * colors[ 4 ] = { &c, &c, &c, &c };
+    return GraphicsAddCounter
+    (
+        abs,
+        state,
+        layer,
+        charset,
+        num,
+        maxdigits,
+        maxdecimals,
+        x,
+        y,
+        shadow,
+        numpadding,
+        decimalpadding,
+        colors,
+        palette,
+        useglobalpal ? NASR_PALETTE_DEFAULT : NASR_PALETTE_SET
+    );
+};
+
+int NasrGraphicsAddCounterPaletteGradient
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    unsigned int charset,
+    float num,
+    unsigned int maxdigits,
+    unsigned int maxdecimals,
+    uint_fast8_t numpadding,
+    uint_fast8_t decimalpadding,
+    uint_fast8_t palette,
+    uint_fast8_t dir,
+    uint_fast8_t color1,
+    uint_fast8_t color2,
+    uint_fast8_t useglobalpal,
+    float x,
+    float y,
+    float shadow
+)
+{
+    uint_fast8_t colors[ 4 ];
+    switch ( dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            colors[ 0 ] = color2;
+            colors[ 1 ] = color2;
+            colors[ 2 ] = color1;
+            colors[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            colors[ 0 ] = color1;
+            colors[ 1 ] = color2;
+            colors[ 2 ] = color1;
+            colors[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            colors[ 0 ] = color1;
+            colors[ 1 ] = color2;
+            colors[ 2 ] = color1;
+            colors[ 3 ] = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            colors[ 0 ] = color1;
+            colors[ 1 ] = color1;
+            colors[ 2 ] = color1;
+            colors[ 3 ] = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            colors[ 0 ] = color1;
+            colors[ 1 ] = color1;
+            colors[ 2 ] = color2;
+            colors[ 3 ] = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            colors[ 0 ] = color1;
+            colors[ 1 ] = color1;
+            colors[ 2 ] = color2;
+            colors[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            colors[ 0 ] = color2;
+            colors[ 1 ] = color1;
+            colors[ 2 ] = color2;
+            colors[ 3 ] = color1;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            colors[ 0 ] = color2;
+            colors[ 1 ] = color1;
+            colors[ 2 ] = color1;
+            colors[ 3 ] = color1;
+        }
+        break;
+        default:
+        {
+            printf( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
+
+            // Default direction.
+            colors[ 0 ] = color2;
+            colors[ 1 ] = color2;
+            colors[ 2 ] = color1;
+            colors[ 3 ] = color1;
+        }
+        break;
+    }
+
+    NasrColor colorsfull[ 4 ];
+    NasrColor * colorsfinal[ 4 ];
+    for ( int i = 0; i < 4; ++i )
+    {
+        colorsfull[ i ].r = ( float )( colors[ i ] );
+        colorsfull[ i ].a = 255.0f;
+        colorsfinal[ i ] = &colorsfull[ i ];
+    }
+    return GraphicsAddCounter
+    (
+        abs,
+        state,
+        layer,
+        charset,
+        num,
+        maxdigits,
+        maxdecimals,
+        x,
+        y,
+        shadow,
+        numpadding,
+        decimalpadding,
+        colorsfinal,
+        palette,
+        useglobalpal ? NASR_PALETTE_DEFAULT : NASR_PALETTE_SET
+    );
+};
+
 static int GraphicsAddCounter
 (
     int abs,

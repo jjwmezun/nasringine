@@ -477,7 +477,7 @@ void NasrTestRun( void )
 
     const NasrColor digitcolor1 = { 255.0f, 0.0f, 255.0f, 255.0f };
     const NasrColor digitcolor2 = { 80.0f, 0.0f, 128.0f, 255.0f };
-    const int digits = NasrGraphicsAddCounterGradient
+    const int digits = NasrGraphicsAddCounterPaletteGradient
     (
         1,
         4,
@@ -488,9 +488,11 @@ void NasrTestRun( void )
         3,
         0,
         0,
+        128,
         NASR_DIR_DOWN,
-        digitcolor1,
-        digitcolor2,
+        200,
+        32,
+        0,
         16.0f,
         16.0f,
         1
