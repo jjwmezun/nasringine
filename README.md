@@ -10,5 +10,3 @@ General 2D game engine based on OpenGL.
 
 * Customizable shaders
 * Make text graphics’ text mutable
-* Time counter graphics
-* Clean up inconsistencies in function names
