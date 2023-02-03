@@ -64,6 +64,7 @@ typedef struct NasrShader
 #define NASR_GRAPHIC_TILEMAP       5
 #define NASR_GRAPHIC_TEXT          6
 #define NASR_GRAPHIC_COUNTER       7
+#define NASR_GRAPHIC_CUSTOM      255
 
 #define NASR_PALETTE_NONE    0
 #define NASR_PALETTE_SET     1
@@ -152,6 +153,12 @@ typedef struct NasrGraphicCounter
     NasrColor colors[ 4 ];
 } NasrGraphicCounter;
 
+typedef struct NasrGraphicCustom
+{
+    void ( * renderer )( struct NasrGraphic * );
+    void * data;
+} NasrGraphicCustom;
+
 typedef union NasrGraphicData
 {
     NasrGraphicRect         rect;
@@ -161,13 +168,14 @@ typedef union NasrGraphicData
     NasrGraphicTilemap      tilemap;
     NasrGraphicText         text;
     NasrGraphicCounter *    counter;
+    NasrGraphicCustom       custom;
 } NasrGraphicData;
 
 typedef struct NasrGraphic
 {
-    int type;
+    uint_fast8_t type;
+    uint_fast8_t abs;
     NasrGraphicData data;
-    int abs;
 } NasrGraphic;
 
 typedef struct NasrTile
@@ -598,6 +606,15 @@ int NasrGraphicsAddCounterPaletteGradient
     float x,
     float y,
     float shadow
+);
+
+int NasrGraphicsAddCustom
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    void ( * renderer )( NasrGraphic * ),
+    void * data
 );
 
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );

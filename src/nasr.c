@@ -1107,6 +1107,11 @@ void NasrUpdate( float dt )
                 }
             }
             break;
+            case ( NASR_GRAPHIC_CUSTOM ):
+            {
+                graphics[ i ].data.custom.renderer( &graphics[ i ] );
+            }
+            break;
             default:
             {
                 printf( "¡Trying to render invalid graphic type #%d!\n", graphics[ i ].type );
@@ -2716,6 +2721,24 @@ int NasrGraphicsAddCounterPaletteGradient
     );
 };
 
+
+int NasrGraphicsAddCustom
+(
+    int abs,
+    unsigned int state,
+    unsigned int layer,
+    void ( * renderer )( NasrGraphic * ),
+    void * data
+)
+{
+    NasrGraphic g;
+    g.abs = abs;
+    g.type = NASR_GRAPHIC_CUSTOM;
+    g.data.custom.renderer = renderer;
+    g.data.custom.data = data;
+    return NasrGraphicsAdd( state, layer, g );
+};
+
 static int GraphicsAddCounter
 (
     int abs,
@@ -2958,6 +2981,11 @@ static void DestroyGraphic( NasrGraphic * graphic )
                 free( graphic->data.counter );
             }
             graphic->type = NASR_GRAPHIC_NONE;
+        }
+        break;
+        case ( NASR_GRAPHIC_CUSTOM ):
+        {
+            free( graphic->data.custom.data );
         }
         break;
     }
