@@ -104,6 +104,7 @@ typedef struct NasrGraphicSprite
     float opacity;
     unsigned char palette;
     int_fast8_t useglobalpal;
+    int_fast8_t blendmode;
 } NasrGraphicSprite;
 
 typedef struct NasrGraphicTilemap
@@ -351,6 +352,10 @@ typedef struct NasrInput
 #define NASR_INDEXED_NO      1
 #define NASR_INDEXED_YES     2
 
+#define NASR_BLENDMODE_NORMAL   0
+#define NASR_BLENDMODE_DARKEN   1
+#define NASR_BLENDMODE_LIGHTEN  2
+
 int NasrHeld( int id );
 void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs );
 
@@ -465,7 +470,8 @@ int NasrGraphicsAddSprite
     float rotation_z,
     float opacity,
     unsigned char palette,
-    int_fast8_t useglobalpal
+    int_fast8_t useglobalpal,
+    int_fast8_t blendmode
 );
 
 int NasrGraphicsAddTilemap
@@ -628,6 +634,7 @@ float NasrGraphicsSpriteGetRotationZ( unsigned int id );
 void NasrGraphicsSpriteSetRotationZ( unsigned int id, float v );
 float NasrGraphicsSpriteGetOpacity( unsigned int id );
 void NasrGraphicsSpriteSetOpacity( unsigned int id, float v );
+void NasrGraphicsSpriteAddToOpacity( unsigned int id, float v );
 int NasrGraphicsSpriteGetFlipX( unsigned id );
 void NasrGraphicsSpriteSetFlipX( unsigned id, int v );
 void NasrGraphicsSpriteFlipX( unsigned id );
@@ -691,5 +698,8 @@ void NasrDrawSpriteToTexture( NasrGraphicSprite sprite );
 void NasrSetGlobalPalette( uint_fast8_t palette );
 
 void NasrDebugGraphics( void );
+
+void NasrNextBlendSrc( void );
+void NasrNextBlendDest( void );
 
 #endif // NASR_H

@@ -6,6 +6,7 @@
 #include "nasr_log.h"
 #include "nasr_math.h"
 #include "nasr_io.h"
+#include <GL/glext.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
@@ -487,6 +488,51 @@ int NasrInit
     return 0;
 };
 
+static GLenum BLEND_MODES[] =
+{
+    GL_ZERO,
+    GL_ONE,
+    GL_SRC_COLOR,
+    GL_ONE_MINUS_SRC_COLOR,
+    GL_DST_COLOR,
+    GL_ONE_MINUS_DST_COLOR,
+    GL_SRC_ALPHA,
+    GL_ONE_MINUS_SRC_ALPHA,
+    GL_DST_ALPHA,
+    GL_ONE_MINUS_DST_ALPHA,
+    GL_CONSTANT_COLOR,
+    GL_ONE_MINUS_CONSTANT_COLOR,
+    GL_CONSTANT_ALPHA,
+    GL_ONE_MINUS_CONSTANT_ALPHA,
+    GL_SRC_ALPHA_SATURATE,
+    GL_SRC1_COLOR,
+    GL_ONE_MINUS_SRC1_COLOR,
+    GL_SRC1_ALPHA,
+    GL_ONE_MINUS_SRC1_ALPHA
+};
+static int current_blend_source = 0;
+static int current_blend_dest = 0;
+
+void NasrNextBlendSrc( void )
+{
+    ++current_blend_source;
+    if ( current_blend_source >= sizeof( BLEND_MODES ) / sizeof( GLenum ) ) {
+        current_blend_source = 0;
+    }
+    glBlendFunc( BLEND_MODES[ current_blend_source ], BLEND_MODES[ current_blend_dest ] );
+    printf( "%d : %d\n", current_blend_source, current_blend_dest );
+};
+
+void NasrNextBlendDest( void )
+{
+    ++current_blend_dest;
+    if ( current_blend_dest >= sizeof( BLEND_MODES ) / sizeof( GLenum ) ) {
+        current_blend_dest = 0;
+    }
+    glBlendFunc( BLEND_MODES[ current_blend_source ], BLEND_MODES[ current_blend_dest ] );
+    printf( "%d : %d\n", current_blend_source, current_blend_dest );
+};
+
 double NasrGetTime( void )
 {
     return glfwGetTime();
@@ -916,6 +962,21 @@ void NasrUpdate( float dt )
                 #define SPRITE graphics[ i ].data.sprite
                 #define SRC SPRITE.src
                 #define DEST SPRITE.dest
+
+                switch ( SPRITE.blendmode )
+                {
+                    case ( NASR_BLENDMODE_DARKEN ):
+                    {
+                        glBlendFuncSeparate( GL_ONE, GL_ONE, BLEND_MODES[ current_blend_source ], BLEND_MODES[ current_blend_dest ] );
+                    }
+                    break;
+                    case ( NASR_BLENDMODE_LIGHTEN ):
+                    {
+                        glBlendFuncSeparate( GL_ONE, GL_ONE, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+                    }
+                    break;
+                }
+
                 unsigned int texture_id = ( unsigned int )( SPRITE.texture );
                 const unsigned int shader = textures[ texture_id ].indexed ? indexed_sprite_shader : sprite_shader;
                 glUseProgram( shader );
@@ -960,6 +1021,7 @@ void NasrUpdate( float dt )
                 #undef DEST
                 
                 SetupVertices( vao );
+                glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
             }
             break;
             case ( NASR_GRAPHIC_TILEMAP ):
@@ -2001,7 +2063,8 @@ int NasrGraphicsAddSprite
     float rotation_z,
     float opacity,
     unsigned char palette,
-    int_fast8_t useglobalpal
+    int_fast8_t useglobalpal,
+    int_fast8_t blendmode
 )
 {
     if ( num_o_graphics >= max_graphics )
@@ -2022,6 +2085,7 @@ int NasrGraphicsAddSprite
     graphic.data.sprite.opacity = opacity;
     graphic.data.sprite.palette = palette;
     graphic.data.sprite.useglobalpal = useglobalpal;
+    graphic.data.sprite.blendmode = blendmode;
     const int id = NasrGraphicsAdd( state, layer, graphic );
     if ( id > -1 )
     {
@@ -3397,6 +3461,11 @@ float NasrGraphicsSpriteGetOpacity( unsigned int id )
 void NasrGraphicsSpriteSetOpacity( unsigned int id, float v )
 {
     NasrGraphicGet( id )->data.sprite.opacity = v;
+};
+
+void NasrGraphicsSpriteAddToOpacity( unsigned int id, float v )
+{
+    NasrGraphicGet( id )->data.sprite.opacity += v;
 };
 
 int NasrGraphicsSpriteGetFlipX( unsigned id )

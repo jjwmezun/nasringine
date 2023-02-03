@@ -118,7 +118,30 @@ void NasrTestRun( void )
         0.0f,
         1.0f,
         0,
-        0
+        0,
+        NASR_BLENDMODE_DARKEN
+    );
+
+    NasrRect thing = { 100.0f, 100.0f, 80.0f, 100.0f };
+    NasrColor thcolor = { 255.0f, 255.0f, 255.0f, 255.0f };
+    NasrGraphicsAddRect
+    (
+        0,
+        0,
+        0,
+        thing,
+        thcolor
+    );
+
+    NasrRect thing2 = { 400.0f, 100.0f, 80.0f, 100.0f };
+    NasrColor thcolor2 = { 0.0f, 0.0f, 0.0f, 255.0f };
+    NasrGraphicsAddRect
+    (
+        0,
+        0,
+        0,
+        thing2,
+        thcolor2
     );
 
 
@@ -292,7 +315,8 @@ void NasrTestRun( void )
             0.0f,
             1.0f,
             pal[ i ],
-            1
+            1,
+            NASR_BLENDMODE_NORMAL
         );
         switch ( d )
         {
@@ -572,6 +596,27 @@ void NasrTestRun( void )
             {
                 naccx = 0.0f;
             }
+
+            static float lock = 0.0f;
+            if ( lock <= 0.0f && NasrHeld( INPUT_Z ) )
+            {
+                lock = 32.0f;
+                NasrNextBlendSrc();
+            }
+            if ( lock <= 0.0f && NasrHeld( INPUT_Y ) )
+            {
+                lock = 32.0f;
+                NasrNextBlendDest();
+            }
+            if ( NasrHeld( INPUT_A ) )
+            {
+                NasrGraphicsSpriteAddToOpacity( nasrinid, -0.01f );
+            }
+            if ( NasrHeld( INPUT_S ) )
+            {
+                NasrGraphicsSpriteAddToOpacity( nasrinid, 0.01f );
+            }
+            lock -= 1.0f * dt;
 
             nvx += naccx * dt;
             if ( nvx > 4.0f )
