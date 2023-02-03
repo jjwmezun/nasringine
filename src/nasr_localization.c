@@ -1,6 +1,7 @@
 #include "json/json.h"
 #include "nasr_io.h"
 #include "nasr_localization.h"
+#include "nasr_log.h"
 #include "nasr_math.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,15 +28,22 @@ typedef struct NasrTranslationEntry
     NasrTranslationContext * contexts;
 } NasrTranslationEntry;
 
-static NasrTranslationEntry * translations = 0;
-static size_t capacity = 0;
 
-static NasrTranslationEntry * NasrTranslationFindEntry( const char * needle_string, hash_t needle_hash );
-static NasrTranslationEntry * NasrTranslationGenEntry( const char * key );
-static NasrTranslationContext * NasrTranslationFindContext( NasrTranslationEntry * entry, const char * needle_string, hash_t needle_hash );
-static NasrTranslationContext * NasrTranslationGenContext( NasrTranslationEntry * entry, const char * key );
+
+// Static Data
+static NasrTranslationEntry * translations;
+static size_t capacity;
+
+
+// Static Functions
+static NasrTranslationContext * FindContext( NasrTranslationEntry * entry, const char * needle_string, hash_t needle_hash );
+static NasrTranslationEntry * FindEntry( const char * needle_string, hash_t needle_hash );
+static NasrTranslationContext * GenContext( NasrTranslationEntry * entry, const char * key );
 static char * GenString( const char * in );
 
+
+
+// Public Functions
 int NasrSetLanguage( const char * filename, const char * domain )
 {
     NasrCloseLanguage();
@@ -157,7 +165,7 @@ int NasrSetLanguage( const char * filename, const char * domain )
                 if ( trans[ t ].original )
                 {
                     hash_t needle_hash = NasrHashString( trans[ t ].original, capacity );
-                    NasrTranslationEntry * entry = NasrTranslationFindEntry( trans[ t ].original, needle_hash );
+                    NasrTranslationEntry * entry = FindEntry( trans[ t ].original, needle_hash );
                     if ( !entry->key.string )
                     {
                         for ( int u = 0; u < keycount; ++u )
@@ -181,7 +189,7 @@ int NasrSetLanguage( const char * filename, const char * domain )
                     }
 
 
-                    NasrTranslationContext * context = NasrTranslationGenContext( entry, contextname );
+                    NasrTranslationContext * context = GenContext( entry, contextname );
                     if ( trans[ t ].translation )
                     {
                         context->value.translation = GenString( trans[ t ].translation );
@@ -243,15 +251,14 @@ void NasrCloseLanguage( void )
 
 const char * Nasr__( const char * string, const char * domain )
 {
-    char * out = string;
     if ( translations )
     {
         hash_t needle_hash = NasrHashString( string, capacity );
-        NasrTranslationEntry * entry = NasrTranslationFindEntry( string, needle_hash );
+        NasrTranslationEntry * entry = FindEntry( string, needle_hash );
         if ( entry->contexts && entry->capacity )
         {
             needle_hash = NasrHashString( "", entry->capacity );
-            NasrTranslationContext * contextobj = NasrTranslationFindContext( entry, "", needle_hash );
+            NasrTranslationContext * contextobj = FindContext( entry, "", needle_hash );
             if ( contextobj )
             {
                 if ( contextobj->value.translation )
@@ -261,20 +268,19 @@ const char * Nasr__( const char * string, const char * domain )
             }
         }
     }
-    return out;
+    return string;
 };
 
 const char * Nasr_x( const char * string, const char * context, const char * domain )
 {
-    char * out = string;
     if ( translations )
     {
         hash_t needle_hash = NasrHashString( string, capacity );
-        NasrTranslationEntry * entry = NasrTranslationFindEntry( string, needle_hash );
+        NasrTranslationEntry * entry = FindEntry( string, needle_hash );
         if ( entry->contexts && entry->capacity )
         {
             needle_hash = NasrHashString( context, entry->capacity );
-            NasrTranslationContext * contextobj = NasrTranslationFindContext( entry, context, needle_hash );
+            NasrTranslationContext * contextobj = FindContext( entry, context, needle_hash );
             if ( contextobj )
             {
                 if ( contextobj->value.translation )
@@ -284,7 +290,7 @@ const char * Nasr_x( const char * string, const char * context, const char * dom
             }
         }
     }
-    return out;
+    return string;
 };
 
 const char * Nasr_n( const char * singular, const char * plural, int count, const char * domain )
@@ -292,11 +298,11 @@ const char * Nasr_n( const char * singular, const char * plural, int count, cons
     if ( translations )
     {
         hash_t needle_hash = NasrHashString( singular, capacity );
-        NasrTranslationEntry * entry = NasrTranslationFindEntry( singular, needle_hash );
+        NasrTranslationEntry * entry = FindEntry( singular, needle_hash );
         if ( entry->contexts && entry->capacity )
         {
             needle_hash = NasrHashString( "", entry->capacity );
-            NasrTranslationContext * contextobj = NasrTranslationFindContext( entry, "", needle_hash );
+            NasrTranslationContext * contextobj = FindContext( entry, "", needle_hash );
             if ( contextobj )
             {
                 if ( count == 1 && contextobj->value.translation )
@@ -313,33 +319,10 @@ const char * Nasr_n( const char * singular, const char * plural, int count, cons
     return count == 1 ? singular : plural;
 };
 
-static NasrTranslationEntry * NasrTranslationFindEntry( const char * needle_string, hash_t needle_hash )
-{
-    while ( 1 )
-    {
-        NasrTranslationEntry * entry = &translations[ needle_hash ];
-        if ( entry->key.string == NULL || strcmp( entry->key.string, needle_string ) == 0 )
-        {
-            return entry;
-        }
-        needle_hash = ( needle_hash + 1 ) % capacity;
-    }
-};
 
-static NasrTranslationEntry * NasrTranslationGenEntry( const char * key )
-{
-    hash_t needle_hash = NasrHashString( key, capacity );
-    NasrTranslationEntry * entry = NasrTranslationFindEntry( key, needle_hash );
-    if ( !entry->key.string )
-    {
-        entry->key.string = ( char * )( malloc( strlen( key ) + 1 ) );
-        strcpy( entry->key.string, key );
-        entry->key.hash = needle_hash;
-    }
-    return entry;
-};
 
-static NasrTranslationContext * NasrTranslationFindContext( NasrTranslationEntry * entry, const char * needle_string, hash_t needle_hash )
+// Static Functions
+static NasrTranslationContext * FindContext( NasrTranslationEntry * entry, const char * needle_string, hash_t needle_hash )
 {
     for ( int i = 0; i < entry->capacity; ++i )
     {
@@ -353,10 +336,23 @@ static NasrTranslationContext * NasrTranslationFindContext( NasrTranslationEntry
     return 0;
 };
 
-static NasrTranslationContext * NasrTranslationGenContext( NasrTranslationEntry * entry, const char * key )
+static NasrTranslationEntry * FindEntry( const char * needle_string, hash_t needle_hash )
+{
+    while ( 1 )
+    {
+        NasrTranslationEntry * entry = &translations[ needle_hash ];
+        if ( entry->key.string == NULL || strcmp( entry->key.string, needle_string ) == 0 )
+        {
+            return entry;
+        }
+        needle_hash = ( needle_hash + 1 ) % capacity;
+    }
+};
+
+static NasrTranslationContext * GenContext( NasrTranslationEntry * entry, const char * key )
 {
     hash_t needle_hash = NasrHashString( key, entry->capacity );
-    NasrTranslationContext * context = NasrTranslationFindContext( entry, key, needle_hash );
+    NasrTranslationContext * context = FindContext( entry, key, needle_hash );
     if ( !context->key.string )
     {
         context->key.string = ( char * )( malloc( strlen( key ) + 1 ) );

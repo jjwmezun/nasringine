@@ -1,8 +1,7 @@
 #ifndef NASR_H
 #define NASR_H
 
-#include <glad/glad.h>
-#include "GLFW/glfw3.h"
+#include <stdint.h>
 
 typedef struct NasrColor
 {
@@ -11,8 +10,6 @@ typedef struct NasrColor
     float b;
     float a;
 } NasrColor;
-
-void NasrColorPrint( const struct NasrColor * c );
 
 typedef struct NasrRect
 {
@@ -30,67 +27,6 @@ typedef struct NasrRectInt
     int h;
 } NasrRectInt;
 
-#define NASR_CHAR_NORMAL     0
-#define NASR_CHAR_WHITESPACE 1
-#define NASR_CHAR_NEWLINE    2
-
-typedef struct NasrChar
-{
-    NasrRect src;
-    NasrRect dest;
-    uint_fast8_t type;
-} NasrChar;
-
-float NasrRectRight( const struct NasrRect * r );
-float NasrRectBottom( const struct NasrRect * r );
-int NasrRectEqual( const struct NasrRect * a, const struct NasrRect * b );
-void NasrRectPrint( const struct NasrRect * r );
-struct NasrRectInt NasrRectToNasrRectInt( const struct NasrRect r );
-
-#define NASR_SHADER_VERTEX   0
-#define NASR_SHADER_FRAGMENT 1
-
-typedef struct NasrShader
-{
-    int type;
-    const char * code;
-} NasrShader;
-
-#define NASR_GRAPHIC_NONE          0
-#define NASR_GRAPHIC_RECT          1
-#define NASR_GRAPHIC_RECT_GRADIENT 2
-#define NASR_GRAPHIC_RECT_PAL      3
-#define NASR_GRAPHIC_SPRITE        4
-#define NASR_GRAPHIC_TILEMAP       5
-#define NASR_GRAPHIC_TEXT          6
-#define NASR_GRAPHIC_COUNTER       7
-
-#define NASR_PALETTE_NONE    0
-#define NASR_PALETTE_SET     1
-#define NASR_PALETTE_DEFAULT 2
-
-typedef struct NasrGraphicRect
-{
-    NasrRect rect;
-    NasrColor color;
-} NasrGraphicRect;
-
-typedef struct NasrGraphicRectPalette
-{
-    NasrRect rect;
-    uint_fast8_t palette;
-    uint_fast8_t useglobalpal;
-} NasrGraphicRectPalette;
-
-typedef struct NasrGraphicRectGradient
-{
-    NasrRect rect;
-    NasrColor color1;
-    NasrColor color2;
-    NasrColor color3;
-    NasrColor color4;
-} NasrGraphicRectGradient;
-
 typedef struct NasrGraphicSprite
 {
     int texture;
@@ -105,70 +41,6 @@ typedef struct NasrGraphicSprite
     unsigned char palette;
     int_fast8_t useglobalpal;
 } NasrGraphicSprite;
-
-typedef struct NasrGraphicTilemap
-{
-    unsigned int texture;
-    unsigned int tilemap;
-    NasrRect src;
-    NasrRect dest;
-    int_fast8_t useglobalpal;
-} NasrGraphicTilemap;
-
-typedef struct NasrGraphicText
-{
-    unsigned int capacity;
-    unsigned int count;
-    NasrChar * chars;
-    float * vertices;
-    unsigned int * vaos;
-    unsigned int * vbos;
-    uint_fast8_t palette;
-    uint_fast8_t palette_type;
-    unsigned int charset;
-    float xoffset;
-    float yoffset;
-    float shadow;
-} NasrGraphicText;
-
-typedef struct NasrGraphicCounter
-{
-    unsigned int count;
-    unsigned int maxdigits;
-    unsigned int maxdecimals;
-    uint_fast8_t numpadding;
-    uint_fast8_t decimalpadding;
-    NasrChar * chars;
-    float maxnum;
-    float * vertices;
-    unsigned int * vaos;
-    unsigned int * vbos;
-    uint_fast8_t palette;
-    uint_fast8_t palette_type;
-    unsigned int charset;
-    float xoffset;
-    float yoffset;
-    float shadow;
-    NasrColor colors[ 4 ];
-} NasrGraphicCounter;
-
-typedef union NasrGraphicData
-{
-    NasrGraphicRect         rect;
-    NasrGraphicRectGradient gradient;
-    NasrGraphicRectPalette  rectpal;
-    NasrGraphicSprite       sprite;
-    NasrGraphicTilemap      tilemap;
-    NasrGraphicText         text;
-    NasrGraphicCounter *    counter;
-} NasrGraphicData;
-
-typedef struct NasrGraphic
-{
-    int type;
-    NasrGraphicData data;
-    int abs;
-} NasrGraphic;
 
 typedef struct NasrTile
 {
@@ -205,135 +77,6 @@ typedef struct NasrText
     float shadow;
 } NasrText;
 
-#define NASR_KEY_UNKNOWN		GLFW_KEY_UNKNOWN
-#define NASR_KEY_SPACE			GLFW_KEY_SPACE
-#define NASR_KEY_APOSTROPHE		GLFW_KEY_APOSTROPHE
-#define NASR_KEY_COMMA			GLFW_KEY_COMMA
-#define NASR_KEY_MINUS			GLFW_KEY_MINUS
-#define NASR_KEY_PERIOD			GLFW_KEY_PERIOD
-#define NASR_KEY_SLASH			GLFW_KEY_SLASH
-#define NASR_KEY_0				GLFW_KEY_0
-#define NASR_KEY_1				GLFW_KEY_1
-#define NASR_KEY_2				GLFW_KEY_2
-#define NASR_KEY_3				GLFW_KEY_3
-#define NASR_KEY_4				GLFW_KEY_4
-#define NASR_KEY_5				GLFW_KEY_5
-#define NASR_KEY_6				GLFW_KEY_6
-#define NASR_KEY_7				GLFW_KEY_7
-#define NASR_KEY_8				GLFW_KEY_8
-#define NASR_KEY_9				GLFW_KEY_9
-#define NASR_KEY_SEMICOLON		GLFW_KEY_SEMICOLON
-#define NASR_KEY_EQUAL			GLFW_KEY_EQUAL
-#define NASR_KEY_A				GLFW_KEY_A
-#define NASR_KEY_B				GLFW_KEY_B
-#define NASR_KEY_C				GLFW_KEY_C
-#define NASR_KEY_D				GLFW_KEY_D
-#define NASR_KEY_E				GLFW_KEY_E
-#define NASR_KEY_F				GLFW_KEY_F
-#define NASR_KEY_G				GLFW_KEY_G
-#define NASR_KEY_H				GLFW_KEY_H
-#define NASR_KEY_I				GLFW_KEY_I
-#define NASR_KEY_J				GLFW_KEY_J
-#define NASR_KEY_K				GLFW_KEY_K
-#define NASR_KEY_L				GLFW_KEY_L
-#define NASR_KEY_M				GLFW_KEY_M
-#define NASR_KEY_N				GLFW_KEY_N
-#define NASR_KEY_O				GLFW_KEY_O
-#define NASR_KEY_P				GLFW_KEY_P
-#define NASR_KEY_Q				GLFW_KEY_Q
-#define NASR_KEY_R				GLFW_KEY_R
-#define NASR_KEY_S				GLFW_KEY_S
-#define NASR_KEY_T				GLFW_KEY_T
-#define NASR_KEY_U				GLFW_KEY_U
-#define NASR_KEY_V				GLFW_KEY_V
-#define NASR_KEY_W				GLFW_KEY_W
-#define NASR_KEY_X				GLFW_KEY_X
-#define NASR_KEY_Y				GLFW_KEY_Y
-#define NASR_KEY_Z				GLFW_KEY_Z
-#define NASR_KEY_LEFT_BRACKET	GLFW_KEY_LEFT_BRACKET
-#define NASR_KEY_BACKSLASH		GLFW_KEY_BACKSLASH
-#define NASR_KEY_RIGHT_BRACKET	GLFW_KEY_RIGHT_BRACKET
-#define NASR_KEY_GRAVE_ACCENT	GLFW_KEY_GRAVE_ACCENT
-#define NASR_KEY_WORLD_1		GLFW_KEY_WORLD_1
-#define NASR_KEY_WORLD_2		GLFW_KEY_WORLD_2
-#define NASR_KEY_ESCAPE			GLFW_KEY_ESCAPE
-#define NASR_KEY_ENTER			GLFW_KEY_ENTER
-#define NASR_KEY_TAB			GLFW_KEY_TAB
-#define NASR_KEY_BACKSPACE		GLFW_KEY_BACKSPACE
-#define NASR_KEY_INSERT			GLFW_KEY_INSERT
-#define NASR_KEY_DELETE			GLFW_KEY_DELETE
-#define NASR_KEY_RIGHT			GLFW_KEY_RIGHT
-#define NASR_KEY_LEFT			GLFW_KEY_LEFT
-#define NASR_KEY_DOWN			GLFW_KEY_DOWN
-#define NASR_KEY_UP				GLFW_KEY_UP
-#define NASR_KEY_PAGE_UP		GLFW_KEY_PAGE_UP
-#define NASR_KEY_PAGE_DOWN		GLFW_KEY_PAGE_DOWN
-#define NASR_KEY_HOME			GLFW_KEY_HOME
-#define NASR_KEY_END			GLFW_KEY_END
-#define NASR_KEY_CAPS_LOCK		GLFW_KEY_CAPS_LOCK
-#define NASR_KEY_SCROLL_LOCK	GLFW_KEY_SCROLL_LOCK
-#define NASR_KEY_NUM_LOCK		GLFW_KEY_NUM_LOCK
-#define NASR_KEY_PRINT_SCREEN	GLFW_KEY_PRINT_SCREEN
-#define NASR_KEY_PAUSE			GLFW_KEY_PAUSE
-#define NASR_KEY_F1				GLFW_KEY_F1
-#define NASR_KEY_F2			    GLFW_KEY_F2
-#define NASR_KEY_F3			    GLFW_KEY_F3
-#define NASR_KEY_F4			    GLFW_KEY_F4
-#define NASR_KEY_F5			    GLFW_KEY_F5
-#define NASR_KEY_F6			    GLFW_KEY_F6
-#define NASR_KEY_F7			    GLFW_KEY_F7
-#define NASR_KEY_F8			    GLFW_KEY_F8
-#define NASR_KEY_F9				GLFW_KEY_F9
-#define NASR_KEY_F10			GLFW_KEY_F10
-#define NASR_KEY_F11			GLFW_KEY_F11
-#define NASR_KEY_F12			GLFW_KEY_F12
-#define NASR_KEY_F13			GLFW_KEY_F13
-#define NASR_KEY_F14			GLFW_KEY_F14
-#define NASR_KEY_F15			GLFW_KEY_F15
-#define NASR_KEY_F16			GLFW_KEY_F16
-#define NASR_KEY_F17			GLFW_KEY_F17
-#define NASR_KEY_F18			GLFW_KEY_F18
-#define NASR_KEY_F19			GLFW_KEY_F19
-#define NASR_KEY_F20			GLFW_KEY_F20
-#define NASR_KEY_F21			GLFW_KEY_F21
-#define NASR_KEY_F22			GLFW_KEY_F22
-#define NASR_KEY_F23			GLFW_KEY_F23
-#define NASR_KEY_F24			GLFW_KEY_F24
-#define NASR_KEY_F25			GLFW_KEY_F25
-#define NASR_KEY_KP_0			GLFW_KEY_KP_0
-#define NASR_KEY_KP_1			GLFW_KEY_KP_1
-#define NASR_KEY_KP_2			GLFW_KEY_KP_2
-#define NASR_KEY_KP_3			GLFW_KEY_KP_3
-#define NASR_KEY_KP_4			GLFW_KEY_KP_4
-#define NASR_KEY_KP_5			GLFW_KEY_KP_5
-#define NASR_KEY_KP_6			GLFW_KEY_KP_6
-#define NASR_KEY_KP_7			GLFW_KEY_KP_7
-#define NASR_KEY_KP_8			GLFW_KEY_KP_8
-#define NASR_KEY_KP_9			GLFW_KEY_KP_9
-#define NASR_KEY_KP_DECIMAL		GLFW_KEY_KP_DECIMAL
-#define NASR_KEY_KP_DIVIDE		GLFW_KEY_KP_DIVIDE
-#define NASR_KEY_KP_MULTIPLY	GLFW_KEY_KP_MULTIPLY
-#define NASR_KEY_KP_SUBTRACT	GLFW_KEY_KP_SUBTRACT
-#define NASR_KEY_KP_ADD			GLFW_KEY_KP_ADD
-#define NASR_KEY_KP_ENTER		GLFW_KEY_KP_ENTER
-#define NASR_KEY_KP_EQUAL		GLFW_KEY_KP_EQUAL
-#define NASR_KEY_LEFT_SHIFT		GLFW_KEY_LEFT_SHIFT
-#define NASR_KEY_LEFT_CONTROL	GLFW_KEY_LEFT_CONTROL
-#define NASR_KEY_LEFT_ALT		GLFW_KEY_LEFT_ALT
-#define NASR_KEY_LEFT_SUPER		GLFW_KEY_LEFT_SUPER
-#define NASR_KEY_RIGHT_SHIFT	GLFW_KEY_RIGHT_SHIFT
-#define NASR_KEY_RIGHT_CONTROL	GLFW_KEY_RIGHT_CONTROL
-#define NASR_KEY_RIGHT_ALT		GLFW_KEY_RIGHT_ALT
-#define NASR_KEY_RIGHT_SUPER	GLFW_KEY_RIGHT_SUPER
-#define NASR_KEY_MENU			GLFW_KEY_MENU
-#define NASR_KEY_LAST			GLFW_KEY_LAST
-
-typedef struct NasrInput
-{
-    int id;
-    int key;
-} NasrInput;
-
 #define NASR_DIR_UP        0
 #define NASR_DIR_UPRIGHT   1
 #define NASR_DIR_RIGHT     2
@@ -351,9 +94,9 @@ typedef struct NasrInput
 #define NASR_INDEXED_NO      1
 #define NASR_INDEXED_YES     2
 
-int NasrHeld( int id );
-void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs );
+typedef void ( * input_handle_t )( void *, int, int, int, int );
 
+// Init, Close, Update
 int NasrInit
 (
     const char * program_title,
@@ -368,24 +111,36 @@ int NasrInit
     uint_fast8_t vsync,
     int ticks_per_frame
 );
-void NasrSetPalette( const char * filename );
-int NasrAddCharset( const char * texture, const char * chardata );
-void NasrRemoveCharset( unsigned int charset );
 void NasrClose( void );
-void NasrClearTextures( void );
 void NasrUpdate( float dt );
-
-char * NasrReadFile( const char * filename );
-
-double NasrGetTime( void );
-
 int NasrHasClosed( void );
 
-void NasrResetCamera( void );
+// Input
+void NasrRegisterInputHandler( input_handle_t new_handler );
+
+// Rect
+float NasrRectRight( const NasrRect * r );
+float NasrRectBottom( const NasrRect * r );
+int NasrRectEqual( const NasrRect * a, const NasrRect * b );
+struct NasrRectInt NasrRectToNasrRectInt( const NasrRect r );
+
+// Palette
+void NasrSetPalette( const char * filename );
+void NasrSetGlobalPalette( uint_fast8_t palette );
+
+// Charset
+int NasrAddCharset( const char * texture, const char * chardata );
+void NasrRemoveCharset( unsigned int charset );
+
+// Time
+double NasrGetTime( void );
+
+// Camera
 void NasrAdjustCamera( struct NasrRect * target, float max_w, float max_h );
 void NasrMoveCamera( float x, float y, float max_w, float max_h );
+void NasrResetCamera( void );
 
-NasrGraphic * NasrGraphicGet( unsigned int id );
+// Layers
 void NasrGraphicChangeLayer( unsigned int id, unsigned int layer );
 void NasrSendGraphicToFrontOLayer( unsigned int id );
 void NasrSendGraphicToBackOLayer( unsigned int id );
@@ -396,13 +151,8 @@ void NasrPlaceGraphicAbovePositionInLayer( unsigned int id, unsigned int pos );
 unsigned int NasrGetLayer( unsigned int id );
 unsigned int NasrGetLayerPosition( unsigned int id );
 unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer );
-int NasrGraphicsAdd
-(
-    unsigned int state,
-    unsigned int layer,
-    struct NasrGraphic graphic
-);
-void NasrGraphicsRemove( unsigned int id );
+
+// Graphics
 int NasrGraphicsAddCanvas
 (
     int abs,
@@ -467,7 +217,6 @@ int NasrGraphicsAddSprite
     unsigned char palette,
     int_fast8_t useglobalpal
 );
-
 int NasrGraphicsAddTilemap
 (
     int abs,
@@ -479,7 +228,6 @@ int NasrGraphicsAddTilemap
     unsigned int h,
     int_fast8_t useglobalpal
 );
-
 int NasrGraphicAddText
 (
     int abs,
@@ -488,7 +236,6 @@ int NasrGraphicAddText
     NasrText text,
     NasrColor color
 );
-
 int NasrGraphicAddTextGradient
 (
     int abs,
@@ -499,7 +246,6 @@ int NasrGraphicAddTextGradient
     NasrColor color1,
     NasrColor color2
 );
-
 int NasrGraphicAddTextPalette
 (
     int abs,
@@ -510,7 +256,6 @@ int NasrGraphicAddTextPalette
     uint_fast8_t useglobalpal,
     uint_fast8_t color
 );
-
 int NasrGraphicAddTextGradientPalette
 (
     int abs,
@@ -523,7 +268,6 @@ int NasrGraphicAddTextGradientPalette
     uint_fast8_t color1,
     uint_fast8_t color2
 );
-
 int NasrGraphicsAddCounter
 (
     int abs,
@@ -540,7 +284,6 @@ int NasrGraphicsAddCounter
     float y,
     float shadow
 );
-
 int NasrGraphicsAddCounterGradient
 (
     int abs,
@@ -559,7 +302,6 @@ int NasrGraphicsAddCounterGradient
     float y,
     float shadow
 );
-
 int NasrGraphicsAddCounterPalette
 (
     int abs,
@@ -578,7 +320,6 @@ int NasrGraphicsAddCounterPalette
     float y,
     float shadow
 );
-
 int NasrGraphicsAddCounterPaletteGradient
 (
     int abs,
@@ -599,7 +340,9 @@ int NasrGraphicsAddCounterPaletteGradient
     float y,
     float shadow
 );
+void NasrGraphicsRemove( unsigned int id );
 
+// NasrGraphicsSprite Manipulation
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );
 void NasrGraphicsSpriteSetDest( unsigned int id, NasrRect v );
 float NasrGraphicsSpriteGetDestY( unsigned int id );
@@ -637,6 +380,7 @@ void NasrGraphicsSpriteFlipY( unsigned id );
 unsigned char NasrGraphicsSpriteGetPalette( unsigned int id );
 void NasrGraphicsSpriteSetPalette( unsigned int id, unsigned char v );
 
+// RectGraphics Manipulation
 float NasrGraphicsRectGetX( unsigned int id );
 void NasrGraphicsRectSetX( unsigned int id, float v );
 void NasrGraphicsRectAddToX( unsigned int id, float v );
@@ -649,27 +393,30 @@ void NasrGraphicsRectAddToW( unsigned int id, float v );
 float NasrGraphicsRectGetH( unsigned int id );
 void NasrGraphicsRectSetH( unsigned int id, float v );
 void NasrGraphicsRectAddToH( unsigned int id, float v );
-
 void NasrGraphicRectSetColor( unsigned int id, NasrColor v );
 void NasrGraphicRectSetColorR( unsigned int id, float v );
 void NasrGraphicRectSetColorG( unsigned int id, float v );
 void NasrGraphicRectSetColorB( unsigned int id, float v );
 void NasrGraphicRectSetColorA( unsigned int id, float v );
 
+// TilemapGraphics Manipulation
 void NasrGraphicsTilemapSetX( unsigned int id, float v );
 void NasrGraphicsTilemapSetY( unsigned int id, float v );
 
-float NasrGraphicTextGetXOffset( unsigned int id );
-void NasrGraphicTextSetXOffset( unsigned int id, float v );
-void NasrGraphicTextAddToXOffset( unsigned int id, float v );
-float NasrGraphicTextGetYOffset( unsigned int id );
-void NasrGraphicTextSetYOffset( unsigned int id, float v );
-void NasrGraphicTextAddToYOffset( unsigned int id, float v );
-void NasrGraphicTextSetCount( unsigned int id, int count );
-void NasrGraphicTextIncrementCount( unsigned int id );
+// TextGraphics Manipulation
+float NasrGraphicsTextGetXOffset( unsigned int id );
+void NasrGraphicsTextSetXOffset( unsigned int id, float v );
+void NasrGraphicsTextAddToXOffset( unsigned int id, float v );
+float NasrGraphicsTextGetYOffset( unsigned int id );
+void NasrGraphicsTextSetYOffset( unsigned int id, float v );
+void NasrGraphicsTextAddToYOffset( unsigned int id, float v );
+void NasrGraphicsTextSetCount( unsigned int id, int count );
+void NasrGraphicsTextIncrementCount( unsigned int id );
 
+// CounterGraphics Manipulation
 void NasrGraphicsCounterSetNumber( unsigned int id, float n );
 
+// Texture
 int NasrLoadFileAsTexture( char * filename );
 int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed );
 int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height );
@@ -678,18 +425,21 @@ int NasrAddTextureBlank( unsigned int width, unsigned int height );
 int NasrAddTextureBlankEx( unsigned int width, unsigned int height, int sampling, int indexed );
 void NasrGetTexturePixels( unsigned int texture, void * pixels );
 void NasrCopyTextureToTexture( unsigned int src, unsigned int dest, NasrRectInt srccoords, NasrRectInt destcoords );
-void NasrApplyTextureToPixelData( unsigned int texture, void * dest, NasrRectInt srccoords, NasrRectInt destcoords );
-void NasrCopyPixelData( void * src, void * dest, NasrRectInt srccoords, NasrRectInt destcoords, int maxsrcw, int maxsrch );
-void NasrTileTexture( unsigned int texture, void * pixels, NasrRectInt srccoords, NasrRectInt destcoords );
+void NasrApplyTextureToPixelData( unsigned int texture, unsigned char * dest, NasrRectInt srccoords, NasrRectInt destcoords );
+void NasrCopyPixelData( unsigned char * src, unsigned char * dest, NasrRectInt srccoords, NasrRectInt destcoords, int maxsrcw, int maxsrch );
+void NasrTileTexture( unsigned int texture, unsigned char * pixels, NasrRectInt srccoords, NasrRectInt destcoords );
 void NasrSetTextureAsTarget( int texture );
 void NasrReleaseTextureTarget( void );
+void NasrClearTextures( void );
 
+// Draw to Texture
 void NasrDrawRectToTexture( NasrRect rect, NasrColor color );
 void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, NasrColor color2 );
 void NasrDrawSpriteToTexture( NasrGraphicSprite sprite );
 
-void NasrSetGlobalPalette( uint_fast8_t palette );
-
+// Debug
+void NasrRectPrint( const NasrRect * r );
+void NasrColorPrint( const NasrColor * c );
 void NasrDebugGraphics( void );
 
 #endif // NASR_H

@@ -1,5 +1,6 @@
 #include "nasr.h"
 #include "nasr_audio.h"
+#include "nasr_input.h"
 #include "nasr_localization.h"
 #include "nasr_test.h"
 
@@ -422,7 +423,7 @@ void NasrTestRun( void )
         texcolor1,
         texcolor2
     );
-    NasrGraphicTextSetCount( textid2, 0 );
+    NasrGraphicsTextSetCount( textid2, 0 );
     NasrGraphicAddTextPalette(
         0,
         2,
@@ -508,6 +509,8 @@ void NasrTestRun( void )
 
     float naccx = 0.0f;
     float nvx = 0.0f;
+
+    NasrPlaySong( NasrAddPermanentSoundtoQueue( sewersong, 1 ) );
 
     double prev_time = NasrGetTime();
     double current_time = 0;
@@ -604,5 +607,6 @@ void NasrTestRun( void )
     }
     NasrCloseLanguage();
     NasrAudioClose();
+    NasrInputClose();
     NasrClose();
 };

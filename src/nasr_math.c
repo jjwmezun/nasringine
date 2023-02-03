@@ -1,12 +1,30 @@
+#include <math.h>
 #include "nasr_math.h"
+#include <string.h>
 
-int NasrMathIsPrime( int n )
+int NasrGetDigit( int n, int d )
 {
-    for ( int i = 2; i < n; ++i )
+    double a = ( double )( n % ( int )( pow( 10, d ) ) );
+    return d > 1 ? ( int )( floor( a / pow( 10, d - 1 ) ) ) : a;
+};
+
+int NasrGetNextPrime( int n )
+{
+    while ( !NasrIsPrime( n ) )
     {
-        if ( n % i == 0 ) return 0;
+        ++n;
     }
-    return 1;
+    return n;
+};
+
+int NasrGetNumberODigits( int n )
+{
+    int i = 1;
+    while ( n >= pow( 10, i ) )
+    {
+        ++i;
+    }
+    return i;
 };
 
 uint32_t NasrHashString( const char * key, int max )
@@ -21,27 +39,11 @@ uint32_t NasrHashString( const char * key, int max )
     return hash % max;
 };
 
-int NasrGetNextPrime( int n )
+int NasrIsPrime( int n )
 {
-    while ( !NasrMathIsPrime( n ) )
+    for ( int i = 2; i < n; ++i )
     {
-        ++n;
+        if ( n % i == 0 ) return 0;
     }
-    return n;
-};
-
-int NasrGetDigit( int n, int d )
-{
-    double a = ( double )( n % ( int )( pow( 10, d ) ) );
-    return d > 1 ? ( int )( floor( a / pow( 10, d - 1 ) ) ) : a;
-};
-
-int NasrGetNumberODigits( int n )
-{
-    int i = 1;
-    while ( n >= pow( 10, i ) )
-    {
-        ++i;
-    }
-    return i;
+    return 1;
 };

@@ -3,6 +3,9 @@
 #include "nasr_audio.h"
 #include "nasr_log.h"
 #include "nasr_math.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 typedef struct Sound
 {
@@ -25,22 +28,31 @@ typedef struct SongMap
     unsigned int capacity;
 } SongMap;
 
+
+
+// Static Data
 static float master_volume = 0.5f;
-static ALuint * buffers = 0;
-static ALuint * sources = 0;
-static Sound * queue = 0;
+static ALuint * buffers;
+static ALuint * sources;
+static Sound * queue;
 static SongMap songmap = { 0, 0 };
-static int maxsongs_ = 0;
-static int perma_queuesize_ = 0;
-static int queuesize_ = 0;
-static int song_pos = 0;
-static int perma_queue_pos = 0;
-static int temp_queue_pos = 0;
+static int maxsongs_;
+static int perma_queuesize_;
+static int queuesize_;
+static int song_pos;
+static int perma_queue_pos;
+static int temp_queue_pos;
 
-static int NasrAddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent, uint_fast8_t loop );
+
+
+// Static Functions
+static int AddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent, uint_fast8_t loop );
+static SongEntry * FindSongEntry( const char * needle_string, hash_t needle_hash );
 static void TestForErrors( void );
-static SongEntry * NasrFindSongEntry( const char * needle_string, hash_t needle_hash );
 
+
+
+// Init/Close
 int NasrAudioInit( unsigned int maxsongs, unsigned int perma_queuesize, unsigned int temp_queuesize )
 {
     maxsongs_ = NASR_MATH_MIN( 256, maxsongs );
@@ -111,10 +123,13 @@ void NasrAudioClose( void )
     alutExit();
 };
 
+
+
+// Loading
 int NasrLoadSong( const char * filename )
 {
     hash_t needle_hash = NasrHashString( filename, songmap.capacity );
-    SongEntry * entry = NasrFindSongEntry( filename, needle_hash );
+    SongEntry * entry = FindSongEntry( filename, needle_hash );
     if ( !entry->key.string )
     {
         entry->key.string = ( char * )( malloc( strlen( filename ) + 1 ) );
@@ -142,7 +157,7 @@ int NasrAddTemporarySoundtoQueue( unsigned int songid, uint_fast8_t loop )
     {
         if ( !queue[ i ].persistent )
         {               
-            ALuint playing;
+            ALint playing;
             alGetSourcei( sources[ i ], AL_SOURCE_STATE, &playing );
             if ( playing )
             {
@@ -151,47 +166,20 @@ int NasrAddTemporarySoundtoQueue( unsigned int songid, uint_fast8_t loop )
             }
         }
     }
-    return NasrAddSongToQueue( songid, id, 0, loop );
+    return AddSongToQueue( songid, id, 0, loop );
 };
 
 int NasrAddPermanentSoundtoQueue( unsigned int songid, uint_fast8_t loop )
 {
-    return NasrAddSongToQueue( songid, perma_queue_pos < perma_queuesize_ ? perma_queue_pos++ : -1, 1, loop );
+    return AddSongToQueue( songid, perma_queue_pos < perma_queuesize_ ? perma_queue_pos++ : -1, 1, loop );
 };
 
-static int NasrAddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent, uint_fast8_t loop )
-{
-    if ( queueid == -1 )
-    {
-        NasrLog( "Cannot add song to queue: queue is full.\n" );
-        return -1;
-    }
 
-    // Initialize song.
-    queue[ queueid ].id = queueid;
-    queue[ queueid ].persistent = persistent;
-    queue[ queueid ].mute = 0;
-    queue[ queueid ].volume = master_volume;
-    queue[ queueid ].pitch = 1.0f;
 
-    alSourceStop( sources[ queueid ] );
-
-    ALfloat pos[] = { -2.0, 0.0, 0.0 };
-    ALfloat velocity[] = { 0.0, 0.0, 0.0 };
-
-    alSourcef( sources[ queueid ], AL_PITCH, queue[ queueid ].pitch );
-    alSourcef( sources[ queueid ], AL_GAIN, queue[ queueid ].volume );
-    alSourcefv( sources[ queueid ], AL_POSITION, pos );
-    alSourcefv( sources[ queueid ], AL_VELOCITY, velocity );
-    alSourcei( sources[ queueid ], AL_BUFFER, buffers[ songid ] );
-    alSourcei( sources[ queueid ], AL_LOOPING, loop ? AL_TRUE : AL_FALSE );
-
-    return queueid;
-};
-
+// Play/Pause/Stop
 void NasrPlaySong( unsigned int id )
 {
-    ALuint playing;
+    ALint playing;
     alGetSourcei( sources[ id ], AL_SOURCE_STATE, &playing );
     if ( playing != AL_PLAYING )
     {
@@ -211,7 +199,7 @@ void NasrPauseSong( unsigned int id )
 
 void NasrToggleSong( unsigned int id )
 {
-    ALuint playing;
+    ALint playing;
     alGetSourcei( sources[ id ], AL_SOURCE_STATE, &playing );
     if ( playing == AL_PLAYING )
     {
@@ -223,6 +211,9 @@ void NasrToggleSong( unsigned int id )
     }
 };
 
+
+
+// Volume
 void NasrVolumeSet( unsigned int id, float amount )
 {
     queue[ id ].volume = amount;
@@ -272,6 +263,9 @@ void NasrVolumeToggleMute( unsigned int id )
     }
 };
 
+
+
+// Pitch
 void NasrPitchSet( unsigned int id, float amount )
 {
     queue[ id ].pitch = amount;
@@ -296,21 +290,48 @@ void NasrPitchDecrease( unsigned int id, float amount )
     NasrPitchSet( id, queue[ id ].pitch - amount );
 };
 
+
+
+// Loop
 void NasrSetSongLoop( unsigned int id, uint_fast8_t value )
 {
     alSourcei( sources[ id ], AL_LOOPING, value ? AL_TRUE : AL_FALSE );
 };
 
-static void TestForErrors( void )
+
+
+// Static Functions
+static int AddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent, uint_fast8_t loop )
 {
-    int error = alGetError();
-    if( error != AL_NO_ERROR ) 
+    if ( queueid == -1 )
     {
-        printf( "Nasringine Audio Error: %s\n", alutGetErrorString( error ) );
+        NasrLog( "Cannot add song to queue: queue is full.\n" );
+        return -1;
     }
+
+    // Initialize song.
+    queue[ queueid ].id = queueid;
+    queue[ queueid ].persistent = persistent;
+    queue[ queueid ].mute = 0;
+    queue[ queueid ].volume = master_volume;
+    queue[ queueid ].pitch = 1.0f;
+
+    alSourceStop( sources[ queueid ] );
+
+    ALfloat pos[] = { -2.0, 0.0, 0.0 };
+    ALfloat velocity[] = { 0.0, 0.0, 0.0 };
+
+    alSourcef( sources[ queueid ], AL_PITCH, queue[ queueid ].pitch );
+    alSourcef( sources[ queueid ], AL_GAIN, queue[ queueid ].volume );
+    alSourcefv( sources[ queueid ], AL_POSITION, pos );
+    alSourcefv( sources[ queueid ], AL_VELOCITY, velocity );
+    alSourcei( sources[ queueid ], AL_BUFFER, buffers[ songid ] );
+    alSourcei( sources[ queueid ], AL_LOOPING, loop ? AL_TRUE : AL_FALSE );
+
+    return queueid;
 };
 
-static SongEntry * NasrFindSongEntry( const char * needle_string, hash_t needle_hash )
+static SongEntry * FindSongEntry( const char * needle_string, hash_t needle_hash )
 {
     while ( 1 )
     {
@@ -320,5 +341,14 @@ static SongEntry * NasrFindSongEntry( const char * needle_string, hash_t needle_
             return entry;
         }
         needle_hash = ( needle_hash + 1 ) % songmap.capacity;
+    }
+};
+
+static void TestForErrors( void )
+{
+    int error = alGetError();
+    if( error != AL_NO_ERROR ) 
+    {
+        printf( "Nasringine Audio Error: %s\n", alutGetErrorString( error ) );
     }
 };
