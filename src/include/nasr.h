@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#define NASR_DEBUG 1
+#define NASR_SAFE 1
+
 typedef struct NasrColor
 {
     float r;
@@ -29,16 +32,16 @@ typedef struct NasrRectInt
 
 typedef struct NasrGraphicSprite
 {
-    int texture;
+    unsigned int texture;
     NasrRect src;
     NasrRect dest;
-    int flip_x;
-    int flip_y;
+    uint_fast8_t flip_x;
+    uint_fast8_t flip_y;
     float rotation_x;
     float rotation_y;
     float rotation_z;
     float opacity;
-    unsigned char palette;
+    uint_fast8_t palette;
     int_fast8_t useglobalpal;
 } NasrGraphicSprite;
 
@@ -155,14 +158,14 @@ unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer );
 // Graphics
 int NasrGraphicsAddCanvas
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     struct NasrColor color
 );
 int NasrGraphicsAddRect
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -170,7 +173,7 @@ int NasrGraphicsAddRect
 );
 int NasrGraphicsAddRectGradient
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -180,7 +183,7 @@ int NasrGraphicsAddRectGradient
 );
 int NasrGraphicsAddRectPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -190,7 +193,7 @@ int NasrGraphicsAddRectPalette
 );
 int NasrGraphicsAddRectGradientPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -202,10 +205,10 @@ int NasrGraphicsAddRectGradientPalette
 );
 int NasrGraphicsAddSprite
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
-    int texture,
+    unsigned int texture,
     NasrRect src,
     NasrRect dest,
     int flip_x,
@@ -214,12 +217,12 @@ int NasrGraphicsAddSprite
     float rotation_y,
     float rotation_z,
     float opacity,
-    unsigned char palette,
+    uint_fast8_t palette,
     int_fast8_t useglobalpal
 );
 int NasrGraphicsAddTilemap
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int texture,
@@ -230,7 +233,7 @@ int NasrGraphicsAddTilemap
 );
 int NasrGraphicAddText
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -238,7 +241,7 @@ int NasrGraphicAddText
 );
 int NasrGraphicAddTextGradient
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -248,7 +251,7 @@ int NasrGraphicAddTextGradient
 );
 int NasrGraphicAddTextPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -258,7 +261,7 @@ int NasrGraphicAddTextPalette
 );
 int NasrGraphicAddTextGradientPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -270,7 +273,7 @@ int NasrGraphicAddTextGradientPalette
 );
 int NasrGraphicsAddCounter
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -286,7 +289,7 @@ int NasrGraphicsAddCounter
 );
 int NasrGraphicsAddCounterGradient
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -304,7 +307,7 @@ int NasrGraphicsAddCounterGradient
 );
 int NasrGraphicsAddCounterPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -322,7 +325,7 @@ int NasrGraphicsAddCounterPalette
 );
 int NasrGraphicsAddCounterPaletteGradient
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -371,14 +374,14 @@ float NasrGraphicsSpriteGetRotationZ( unsigned int id );
 void NasrGraphicsSpriteSetRotationZ( unsigned int id, float v );
 float NasrGraphicsSpriteGetOpacity( unsigned int id );
 void NasrGraphicsSpriteSetOpacity( unsigned int id, float v );
-int NasrGraphicsSpriteGetFlipX( unsigned id );
+uint_fast8_t NasrGraphicsSpriteGetFlipX( unsigned id );
 void NasrGraphicsSpriteSetFlipX( unsigned id, int v );
 void NasrGraphicsSpriteFlipX( unsigned id );
-int NasrGraphicsSpriteGetFlipY( unsigned id );
+uint_fast8_t NasrGraphicsSpriteGetFlipY( unsigned id );
 void NasrGraphicsSpriteSetFlipY( unsigned id, int v );
 void NasrGraphicsSpriteFlipY( unsigned id );
-unsigned char NasrGraphicsSpriteGetPalette( unsigned int id );
-void NasrGraphicsSpriteSetPalette( unsigned int id, unsigned char v );
+uint_fast8_t NasrGraphicsSpriteGetPalette( unsigned int id );
+void NasrGraphicsSpriteSetPalette( unsigned int id, uint_fast8_t v );
 
 // RectGraphics Manipulation
 float NasrGraphicsRectGetX( unsigned int id );
@@ -428,7 +431,7 @@ void NasrCopyTextureToTexture( unsigned int src, unsigned int dest, NasrRectInt 
 void NasrApplyTextureToPixelData( unsigned int texture, unsigned char * dest, NasrRectInt srccoords, NasrRectInt destcoords );
 void NasrCopyPixelData( unsigned char * src, unsigned char * dest, NasrRectInt srccoords, NasrRectInt destcoords, int maxsrcw, int maxsrch );
 void NasrTileTexture( unsigned int texture, unsigned char * pixels, NasrRectInt srccoords, NasrRectInt destcoords );
-void NasrSetTextureAsTarget( int texture );
+void NasrSetTextureAsTarget( unsigned int texture );
 void NasrReleaseTextureTarget( void );
 void NasrClearTextures( void );
 

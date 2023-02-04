@@ -40,8 +40,7 @@ static NasrTranslationContext * FindContext( NasrTranslationEntry * entry, const
 static NasrTranslationEntry * FindEntry( const char * needle_string, hash_t needle_hash );
 static NasrTranslationContext * GenContext( NasrTranslationEntry * entry, const char * key );
 static char * GenString( const char * in );
-
-
+static void LanguageError( const char * msg, const char * filename );
 
 // Public Functions
 int NasrSetLanguage( const char * filename, const char * domain )
@@ -51,25 +50,28 @@ int NasrSetLanguage( const char * filename, const char * domain )
     char * text = NasrReadFile( filename );
     if ( !text )
     {
+        NasrLog( "NasrSetLanguage Error: couldn’t load file “%s”.", filename );
         return -1;
     }
     json_char * json = ( json_char * )( text );
     json_value * root = json_parse( json, strlen( text ) + 1 );
     free( text );
-    if ( !root || root->type != json_object )
+    if ( !root || root->type != json_object || !root->u.object.length )
     {
-        NasrLog( "¡Localization file failed to load!\n" );
+        NasrLog( "NasrSetLanguage Error: file “%s” isn’t a valid JSON format.", filename );
         return -1;
     }
 
+    int localization_found = 0;
     for ( unsigned int i = 0; i < root->u.object.length; ++i )
     {
+        localization_found = 1;
         const json_object_entry root_entry = root->u.object.values[ i ];
         if ( strcmp( "localization", root_entry.name ) == 0 )
         {
             if ( root_entry.value->type != json_array )
             {
-                NasrLog( "Localization file malformed: localization object is not an array." );
+                LanguageError( "localization object isn’t an array", filename );
                 return -1;
             }
 
@@ -89,7 +91,7 @@ int NasrSetLanguage( const char * filename, const char * domain )
                 const json_value * char_item = root_entry.value->u.array.values[ j ];
                 if ( char_item->type != json_object )
                 {
-                    NasrLog( "Charset file malformed: localization entry not an object." );
+                    LanguageError( "localization entry isn’t an object", filename );
                     return -1;
                 }
 
@@ -105,7 +107,7 @@ int NasrSetLanguage( const char * filename, const char * domain )
                     {
                         if ( char_entry.value->type != json_string )
                         {
-                            NasrLog( "Charset file malformed: original value is not a string." );
+                            LanguageError( "original value isn’t a string", filename );
                             return -1;
                         }
                         trans[ j ].original = char_entry.value->u.string.ptr;
@@ -130,7 +132,7 @@ int NasrSetLanguage( const char * filename, const char * domain )
                     {
                         if ( char_entry.value->type != json_string )
                         {
-                            NasrLog( "Charset file malformed: translation value is not a string." );
+                            LanguageError( "translation value isn’t a string", filename );
                             return -1;
                         }
                         trans[ j ].translation = char_entry.value->u.string.ptr;
@@ -139,7 +141,7 @@ int NasrSetLanguage( const char * filename, const char * domain )
                     {
                         if ( char_entry.value->type != json_string )
                         {
-                            NasrLog( "Charset file malformed: translation value is not a string." );
+                            LanguageError( "translation value isn’t a string", filename );
                             return -1;
                         }
                         trans[ j ].translation_plural = char_entry.value->u.string.ptr;
@@ -148,7 +150,7 @@ int NasrSetLanguage( const char * filename, const char * domain )
                     {
                         if ( char_entry.value->type != json_string )
                         {
-                            NasrLog( "Charset file malformed: context value is not a string." );
+                            LanguageError( "context value isn’t a string", filename );
                             return -1;
                         }
                         trans[ j ].context = char_entry.value->u.string.ptr;
@@ -201,6 +203,11 @@ int NasrSetLanguage( const char * filename, const char * domain )
                 }
             }
         }
+    }
+
+    if ( !localization_found )
+    {
+        NasrLog( "NasrSetLanguage Error: couldn’t find “locations” object in file “%s”.", filename );
     }
 
     json_value_free( root );
@@ -367,4 +374,9 @@ static char * GenString( const char * in )
     char * out = malloc( strlen( in ) + 1 );
     strcpy( out, in );
     return out;
+};
+
+static void LanguageError( const char * msg, const char * filename )
+{
+    NasrLog( "NasrSetLanguage Error: Charset file “%s” malformed: %s.", filename, msg );
 };

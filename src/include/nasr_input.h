@@ -104,8 +104,8 @@
 
 typedef struct NasrInput
 {
-    int id;
-    int key;
+    unsigned int id;
+    unsigned int key;
 } NasrInput;
 
 int NasrHeld( int id );

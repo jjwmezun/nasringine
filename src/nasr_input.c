@@ -163,6 +163,11 @@ static void HandleInput( void * window, int key, int scancode, int action, int m
 // Public Functions
 int NasrHeld( int id )
 {
+    if ( id >= max_inputs )
+    {
+        NasrLog( "NasrHeld Error: invalid id #%d.", id );
+        return 0;
+    }
     return GetHeld( id )[ 0 ];
 };
 
@@ -187,8 +192,15 @@ void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs )
 
     // These several loops are necessary to find the max inputs per key & max keys per input.
     int keys_max_inputs[ GLFW_KEY_LAST ] = { 0 };
+    const int mapsize = sizeof( nasr_to_glfw_map ) / sizeof( int );
     for ( int i = 0; i < num_o_inputs; ++i )
     {
+        if ( inputs[ i ].key >= mapsize )
+        {
+            NasrLog( "NasrRegisterInputs Error: Input #%d has invalid key “%d”.", i, inputs[ i ].key );
+            max_inputs = 0;
+            return;
+        }
         if ( inputs[ i ].id + 1 > max_inputs )
         {
             max_inputs = inputs[ i ].id + 1;
@@ -288,6 +300,11 @@ static int * GetKeyInputs( int key )
 
 static void HandleInput( void * window, int key, int scancode, int action, int mods )
 {
+    if ( !keydata )
+    {
+        NasrLog( "HandleInput Error: key data not initialized." );
+        return;
+    }
     switch ( action )
     {
         case ( GLFW_PRESS ):

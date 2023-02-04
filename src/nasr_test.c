@@ -510,8 +510,6 @@ void NasrTestRun( void )
     float naccx = 0.0f;
     float nvx = 0.0f;
 
-    NasrPlaySong( NasrAddPermanentSoundtoQueue( sewersong, 1 ) );
-
     double prev_time = NasrGetTime();
     double current_time = 0;
 

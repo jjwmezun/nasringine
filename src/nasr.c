@@ -139,9 +139,9 @@ typedef union NasrGraphicData
 
 typedef struct NasrGraphic
 {
-    int type;
+    uint_fast8_t type;
+    uint_fast8_t abs;
     NasrGraphicData data;
-    int abs;
 } NasrGraphic;
 
 typedef struct Texture
@@ -272,9 +272,10 @@ static void BufferVertices( float * vptr );
 static CharMapEntry * CharMapGenEntry( unsigned int id, const char * key );
 static CharMapEntry * CharMapHashFindEntry( unsigned int id, const char * needle_string, hash_t needle_hash );
 static uint32_t CharMapHashString( unsigned int id, const char * key );
+static void CharsetMalformedError( const char * msg, const char * file );
 static void ClearBufferBindings( void );
 static void DestroyGraphic( NasrGraphic * graphic );
-static void DrawBox( unsigned int vao, const NasrRect * rect, int abs );
+static void DrawBox( unsigned int vao, const NasrRect * rect, uint_fast8_t abs );
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
 static int GetCharacterSize( const char * s );
@@ -285,7 +286,7 @@ static unsigned int GetStateLayerIndex( unsigned int state, unsigned int layer )
 static float * GetVertices( unsigned int id );
 static int GraphicsAddCounter
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -303,7 +304,7 @@ static int GraphicsAddCounter
 );
 static int GraphicAddText
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -318,7 +319,7 @@ static unsigned char * LoadTextureFileData( const char * filename, unsigned int 
 static void ResetVertices( float * vptr );
 static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
-static void SetVerticesView( float x, float y, int abs );
+static void SetVerticesView( float x, float y, uint_fast8_t abs );
 static void SetupVertices( unsigned int vao );
 static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash );
 static uint32_t TextureMapHashString( const char * key );
@@ -562,76 +563,51 @@ int NasrInit
 
 void NasrClose( void )
 {
-    // Close charmaps
-    if ( charmaps.list )
-    {
-        for ( int i = 0; i < charmaps.capacity; ++i )
+    #ifdef NASR_DEBUG
+        // Close charmaps
+        if ( charmaps.list )
         {
-            NasrRemoveCharset( i );
+            for ( int i = 0; i < charmaps.capacity; ++i )
+            {
+                NasrRemoveCharset( i );
+            }
+            free( charmaps.list );
         }
-        free( charmaps.list );
-    }
 
-    for ( int i = 0; i < num_o_graphics; ++i )
-    {
-        DestroyGraphic( &graphics[ i ] );
-    }
-    glDeleteBuffers( 1, &ebo );
-    if ( vaos )
-    {
-        glDeleteVertexArrays( max_graphics + 1, vaos );
-        free( vaos );
-    }
-    if ( vbos )
-    {
-        glDeleteBuffers( max_graphics + 1, vbos );
-        free( vbos );
-    }
-    if ( vertices )
-    {
+        for ( int i = 0; i < num_o_graphics; ++i )
+        {
+            DestroyGraphic( &graphics[ i ] );
+        }
+        glDeleteBuffers( 1, &ebo );
+        if ( vaos )
+        {
+            glDeleteVertexArrays( max_graphics + 1, vaos );
+            free( vaos );
+        }
+        if ( vbos )
+        {
+            glDeleteBuffers( max_graphics + 1, vbos );
+            free( vbos );
+        }
         free( vertices );
-    }
-    glDeleteFramebuffers( 1, &framebuffer );
-    NasrClearTextures();
-    if ( texture_map )
-    {
+        glDeleteFramebuffers( 1, &framebuffer );
+        NasrClearTextures();
         free( texture_map );
-    }
-    if ( textures )
-    {
         free( textures );
-    }
-    glDeleteTextures( 1, &palette_texture_id );
-    if ( texture_ids )
-    {
-        glDeleteTextures( max_textures, texture_ids );
-        free( texture_ids );
-    }
-    if ( graphics )
-    {
+        glDeleteTextures( 1, &palette_texture_id );
+        if ( texture_ids )
+        {
+            glDeleteTextures( max_textures, texture_ids );
+            free( texture_ids );
+        }
         free( graphics );
-    }
-    if ( gfx_ptrs_id_to_pos )
-    {
         free( gfx_ptrs_id_to_pos );
-    }
-    if ( gfx_ptrs_pos_to_id )
-    {
         free( gfx_ptrs_pos_to_id );
-    }
-    if ( layer_pos )
-    {
         free( layer_pos );
-    }
-    if ( state_for_gfx )
-    {
         free( state_for_gfx );
-    }
-    if ( layer_for_gfx )
-    {
         free( layer_for_gfx );
-    }
-    glfwTerminate();
+        glfwTerminate();
+    #endif
 };
 
 void NasrUpdate( float dt )
@@ -986,14 +962,15 @@ int NasrAddCharset( const char * texture, const char * chardata )
     char * text = NasrReadFile( chardata );
     if ( !text )
     {
+        NasrLog( "NasrAddCharset Error: Could not load file “%s”.", chardata );
         return -1;
     }
     json_char * json = ( json_char * )( text );
     json_value * root = json_parse( json, strlen( text ) + 1 );
     free( text );
-    if ( !root || root->type != json_object )
+    if ( !root || root->type != json_object || !root->u.object.length )
     {
-        NasrLog( "¡Charset failed to load!\n" );
+        NasrLog( "NasrAddCharset Error: Could not parse JSON from “%s”.", chardata );
         return -1;
     }
 
@@ -1005,7 +982,7 @@ int NasrAddCharset( const char * texture, const char * chardata )
         {
             if ( root_entry.value->type != json_array )
             {
-                NasrLog( "Charset file malformed: characters is not an array." );
+                CharsetMalformedError( "characters is not an array.", chardata );
                 return -1;
             }
 
@@ -1017,11 +994,12 @@ int NasrAddCharset( const char * texture, const char * chardata )
                 const json_value * char_item = root_entry.value->u.array.values[ j ];
                 if ( char_item->type != json_object )
                 {
-                    NasrLog( "Charset file malformed: character entry not an object." );
+                    CharsetMalformedError( "character entry not an object.", chardata );
                     return -1;
                 }
 
                 // Setup defaults.
+                keys[ j ] = 0;
                 chars[ j ].src.x = chars[ j ].src.y = 0.0f;
                 chars[ j ].src.w = chars[ j ].src.h = 8.0f;
                 chars[ j ].chartype = NASR_CHAR_NORMAL;
@@ -1033,7 +1011,7 @@ int NasrAddCharset( const char * texture, const char * chardata )
                     {
                         if ( char_entry.value->type != json_string )
                         {
-                            NasrLog( "Charset file malformed: character key is not a string." );
+                            CharsetMalformedError( "character key is not a string.", chardata );
                             return -1;
                         }
                         keys[ j ] = char_entry.value->u.string.ptr;
@@ -1042,7 +1020,7 @@ int NasrAddCharset( const char * texture, const char * chardata )
                     {
                         if ( char_entry.value->type != json_string )
                         {
-                            NasrLog( "Charset file malformed: character type is not a string." );
+                            CharsetMalformedError( "character type is not a string.", chardata );
                             return -1;
                         }
                         if ( strcmp( "whitespace", char_entry.value->u.string.ptr ) == 0 )
@@ -1062,7 +1040,7 @@ int NasrAddCharset( const char * texture, const char * chardata )
                         }
                         else
                         {
-                            NasrLog( "Charset file malformed: x is not an int." );
+                            CharsetMalformedError( "x is not an int.", chardata );
                             return -1;
                         }
                     }
@@ -1078,7 +1056,7 @@ int NasrAddCharset( const char * texture, const char * chardata )
                         }
                         else
                         {
-                            NasrLog( "Charset file malformed: y is not an int." );
+                            CharsetMalformedError( "y is not an int.", chardata );
                             return -1;
                         }
                     }
@@ -1094,7 +1072,7 @@ int NasrAddCharset( const char * texture, const char * chardata )
                         }
                         else
                         {
-                            NasrLog( "Charset file malformed: w is not an int." );
+                            CharsetMalformedError( "w is not an int.", chardata );
                             return -1;
                         }
                     }
@@ -1110,10 +1088,16 @@ int NasrAddCharset( const char * texture, const char * chardata )
                         }
                         else
                         {
-                            NasrLog( "Charset file malformed: h is not an int." );
+                            CharsetMalformedError( "h is not an int.", chardata );
                             return -1;
                         }
                     }
+                }
+
+                if ( !keys[ j ] )
+                {
+                    CharsetMalformedError( "key missing from characters entry", chardata );
+                    return -1;
                 }
             }
 
@@ -1204,6 +1188,11 @@ int NasrAddCharset( const char * texture, const char * chardata )
                 charmaps.list[ id ].nums[ i ].yoffset = ( charmaps.list[ id ].numheight - charmaps.list[ id ].nums[ i ].src.h ) / 2.0f;
             }
         }
+    }
+
+    if ( id <= -1 )
+    {
+        NasrLog( "NasrAddCharset Error: Could not find characters object in “%s”.", chardata );
     }
 
     json_value_free( root );
@@ -1533,7 +1522,7 @@ unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer )
 // Graphics
 int NasrGraphicsAddCanvas
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrColor color
@@ -1551,7 +1540,7 @@ int NasrGraphicsAddCanvas
 
 int NasrGraphicsAddRect
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrRect rect,
@@ -1573,7 +1562,7 @@ int NasrGraphicsAddRect
 
 int NasrGraphicsAddRectGradient
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -1675,7 +1664,7 @@ int NasrGraphicsAddRectGradient
 
 int NasrGraphicsAddRectPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -1709,7 +1698,7 @@ int NasrGraphicsAddRectPalette
 
 int NasrGraphicsAddRectGradientPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -1825,10 +1814,10 @@ int NasrGraphicsAddRectGradientPalette
 
 int NasrGraphicsAddSprite
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
-    int texture,
+    unsigned int texture,
     NasrRect src,
     NasrRect dest,
     int flip_x,
@@ -1843,8 +1832,16 @@ int NasrGraphicsAddSprite
 {
     if ( num_o_graphics >= max_graphics )
     {
+        NasrLog( "NasrGraphicsAddSprite Error: not ’nough space for any mo’ graphics." );
         return -1;
     }
+    #ifdef NASR_SAFE
+        if ( texture >= texture_count )
+        {
+            NasrLog( "NasrGraphicsAddSprite Error: invalid texture #%u.", texture );
+            return -1;
+        }
+    #endif
     struct NasrGraphic graphic;
     graphic.abs = abs;
     graphic.type = NASR_GRAPHIC_SPRITE;
@@ -1870,7 +1867,7 @@ int NasrGraphicsAddSprite
 
 int NasrGraphicsAddTilemap
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int texture,
@@ -1935,7 +1932,7 @@ int NasrGraphicsAddTilemap
 
 int NasrGraphicAddText
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -1959,7 +1956,7 @@ int NasrGraphicAddText
 
 int NasrGraphicAddTextGradient
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -2067,7 +2064,7 @@ int NasrGraphicAddTextGradient
 
 int NasrGraphicAddTextPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -2100,7 +2097,7 @@ int NasrGraphicAddTextPalette
 
 int NasrGraphicAddTextGradientPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -2216,7 +2213,7 @@ int NasrGraphicAddTextGradientPalette
 
 int NasrGraphicsAddCounter
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -2261,7 +2258,7 @@ int NasrGraphicsAddCounter
 
 int NasrGraphicsAddCounterGradient
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -2379,7 +2376,7 @@ int NasrGraphicsAddCounterGradient
 
 int NasrGraphicsAddCounterPalette
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -2426,7 +2423,7 @@ int NasrGraphicsAddCounterPalette
 
 int NasrGraphicsAddCounterPaletteGradient
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -2587,188 +2584,441 @@ void NasrGraphicsRemove( unsigned int id )
 // SpriteGraphics Manipulation
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetDest Error: invalid id %u", id );
+            NasrRect r = { NAN, NAN, NAN, NAN };
+            return r;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.dest;
 };
 
 void NasrGraphicsSpriteSetDest( unsigned int id, NasrRect v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetDest Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.dest = v;
 };
 
 float NasrGraphicsSpriteGetDestY( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetDestY Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.dest.y;
 };
 
 void NasrGraphicsSpriteSetDestY( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetDestY Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.dest.y = v;
 };
 
 void NasrGraphicsSpriteAddToDestY( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteAddToDestY Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.dest.y += v;
 };
 
 float NasrGraphicsSpriteGetDestX( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetDestX Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.dest.x;
 };
 
 void NasrGraphicsSpriteSetDestX( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetDestX Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.dest.x = v;
 };
 
 void NasrGraphicsSpriteAddToDestX( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteAddToDestX Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.dest.x += v;
 };
 
 float NasrGraphicsSpriteGetDestH( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetDestH Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.dest.h;
 };
 
 void NasrGraphicsSpriteSetDestH( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetDestH Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.dest.h = v;
 };
 
 float NasrGraphicsSpriteGetDestW( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetDestW Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.dest.w;
 };
 
 void NasrGraphicsSpriteSetDestW( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetDestW Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.dest.w = v;
 };
 
 float NasrGraphicsSpriteGetSrcY( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetSrcY Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.src.y;
 };
 
 void NasrGraphicsSpriteSetSrcY( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetSrcY Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.src.y = v;
     UpdateSpriteVertices( id );
 };
 
 float NasrGraphicsSpriteGetSrcX( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetSrcX Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.src.x;
 };
 
 void NasrGraphicsSpriteSetSrcX( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetSrcX Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.src.x = v;
     UpdateSpriteVertices( id );
 };
 
 float NasrGraphicsSpriteGetSrcH( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetSrcH Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.src.h;
 };
 
 void NasrGraphicsSpriteSetSrcH( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetSrcH Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.src.h = v;
     UpdateSpriteVertices( id );
 };
 
 float NasrGraphicsSpriteGetSrcW( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetSrcW Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.src.w;
 };
 
 void NasrGraphicsSpriteSetSrcW( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetSrcW Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.src.w = v;
     UpdateSpriteVertices( id );
 };
 
 float NasrGraphicsSpriteGetRotationX( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetRotationX Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.rotation_x;
 };
 
 void NasrGraphicsSpriteSetRotationX( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetRotationX Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.rotation_x = v;
 };
 
 float NasrGraphicsSpriteGetRotationY( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetRotationY Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.rotation_y;
 };
 
 void NasrGraphicsSpriteSetRotationY( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetRotationY Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.rotation_y = v;
 };
 
-unsigned char NasrGraphicsSpriteGetPalette( unsigned int id )
+uint_fast8_t NasrGraphicsSpriteGetPalette( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetPalette Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.palette;
 };
 
-void NasrGraphicsSpriteSetPalette( unsigned int id, unsigned char v )
+void NasrGraphicsSpriteSetPalette( unsigned int id, uint_fast8_t v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.palette = v;
 };
 
 float NasrGraphicsSpriteGetRotationZ( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetRotationZ Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.rotation_z;
 };
 
 void NasrGraphicsSpriteSetRotationZ( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetRotationZ Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.rotation_z = v;
 };
 
 float NasrGraphicsSpriteGetOpacity( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetOpacity Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.opacity;
 };
 
 void NasrGraphicsSpriteSetOpacity( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetOpacity Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.opacity = v;
 };
 
-int NasrGraphicsSpriteGetFlipX( unsigned id )
+uint_fast8_t NasrGraphicsSpriteGetFlipX( unsigned id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetFlipX Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.flip_x;
 };
 
 void NasrGraphicsSpriteSetFlipX( unsigned id, int v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetFlipX Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.flip_x = v;
     UpdateSpriteX( id );
 };
 
 void NasrGraphicsSpriteFlipX( unsigned id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteFlipX Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.flip_x = !GetGraphic( id )->data.sprite.flip_x;
     UpdateSpriteX( id );
 };
 
-int NasrGraphicsSpriteGetFlipY( unsigned id )
+uint_fast8_t NasrGraphicsSpriteGetFlipY( unsigned id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetFlipY Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
     return GetGraphic( id )->data.sprite.flip_y;
 };
 
 void NasrGraphicsSpriteSetFlipY( unsigned id, int v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetFlipY Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.flip_y = v;
     UpdateSpriteY( id );
 };
 
 void NasrGraphicsSpriteFlipY( unsigned id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteFlipY Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.sprite.flip_y = !GetGraphic( id )->data.sprite.flip_y;
     UpdateSpriteY( id );
 };
@@ -2778,66 +3028,157 @@ void NasrGraphicsSpriteFlipY( unsigned id )
 // RectGraphics Manipulation
 float NasrGraphicsRectGetX( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGetX Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.rect.rect.x;
 };
 
 void NasrGraphicsRectSetX( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectSetX Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.rect.rect.x = v;
 };
 
 void NasrGraphicsRectAddToX( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectAddToX Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.rect.rect.x += v;
 };
 
 float NasrGraphicsRectGetY( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGetY Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.rect.rect.y;
 };
 
 void NasrGraphicsRectSetY( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectSetY Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.rect.rect.y = v;
 };
 
 void NasrGraphicsRectAddToY( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectAddToY Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.rect.rect.y += v;
 };
 
 float NasrGraphicsRectGetW( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGetW Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.rect.rect.w;
 };
 
 void NasrGraphicsRectSetW( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectSetW Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.rect.rect.w = v;
 };
 
 void NasrGraphicsRectAddToW( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectAddToW Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.rect.rect.w += v;
 };
 
 float NasrGraphicsRectGetH( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGetH Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.rect.rect.h;
 };
 
 void NasrGraphicsRectSetH( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectSetH Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.rect.rect.h = v;
 };
 
 void NasrGraphicsRectAddToH( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectAddToH Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.rect.rect.h += v;
 };
 
 void NasrGraphicRectSetColor( unsigned int id, NasrColor v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicRectSetColor Error: invalid id %u", id );
+            return;
+        }
+    #endif
     BindBuffers( id );
     float * vptr = GetVertices( id );
     vptr[ 4 ] = vptr[ 4 + VERTEX_SIZE ] = vptr[ 4 + VERTEX_SIZE * 2 ] = vptr[ 4 + VERTEX_SIZE * 3 ] = v.r / 255.0f;
@@ -2850,6 +3191,13 @@ void NasrGraphicRectSetColor( unsigned int id, NasrColor v )
 
 void NasrGraphicRectSetColorR( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicRectSetColorR Error: invalid id %u", id );
+            return;
+        }
+    #endif
     BindBuffers( id );
     float * vptr = GetVertices( id );
     vptr[ 4 ] = vptr[ 4 + VERTEX_SIZE ] = vptr[ 4 + VERTEX_SIZE * 2 ] = vptr[ 4 + VERTEX_SIZE * 3 ] = v / 255.0f;
@@ -2859,6 +3207,13 @@ void NasrGraphicRectSetColorR( unsigned int id, float v )
 
 void NasrGraphicRectSetColorG( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicRectSetColorG Error: invalid id %u", id );
+            return;
+        }
+    #endif
     BindBuffers( id );
     float * vptr = GetVertices( id );
     vptr[ 5 ] = vptr[ 5 + VERTEX_SIZE ] = vptr[ 5 + VERTEX_SIZE * 2 ] = vptr[ 5 + VERTEX_SIZE * 3 ] = v / 255.0f;
@@ -2868,6 +3223,13 @@ void NasrGraphicRectSetColorG( unsigned int id, float v )
 
 void NasrGraphicRectSetColorB( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicRectSetColorB Error: invalid id %u", id );
+            return;
+        }
+    #endif
     BindBuffers( id );
     float * vptr = GetVertices( id );
     vptr[ 6 ] = vptr[ 6 + VERTEX_SIZE ] = vptr[ 6 + VERTEX_SIZE * 2 ] = vptr[ 6 + VERTEX_SIZE * 3 ] = v / 255.0f;
@@ -2877,6 +3239,13 @@ void NasrGraphicRectSetColorB( unsigned int id, float v )
 
 void NasrGraphicRectSetColorA( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicRectSetColorA Error: invalid id %u", id );
+            return;
+        }
+    #endif
     BindBuffers( id );
     float * vptr = GetVertices( id );
     vptr[ 7 ] = vptr[ 7 + VERTEX_SIZE ] = vptr[ 7 + VERTEX_SIZE * 2 ] = vptr[ 7 + VERTEX_SIZE * 3 ] = v / 255.0f;
@@ -2889,11 +3258,25 @@ void NasrGraphicRectSetColorA( unsigned int id, float v )
 // TilemapGraphics Manipulation
 void NasrGraphicsTilemapSetX( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapSetX Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.tilemap.dest.x = v;
 };
 
 void NasrGraphicsTilemapSetY( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapSetY Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.tilemap.dest.y = v;
 };
 
@@ -2902,42 +3285,98 @@ void NasrGraphicsTilemapSetY( unsigned int id, float v )
 // TextGraphics Manipulation
 float NasrGraphicsTextGetXOffset( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTextGetXOffset Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.text.xoffset;
 };
 
 void NasrGraphicsTextSetXOffset( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTextSetXOffset Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.text.xoffset = v;
 };
 
 void NasrGraphicsTextAddToXOffset( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTextAddToXOffset Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.text.xoffset += v;
 };
 
 float NasrGraphicsTextGetYOffset( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTextGetYOffset Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
     return GetGraphic( id )->data.text.yoffset;
 };
 
 void NasrGraphicsTextSetYOffset( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTextSetYOffset Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.text.yoffset = v;
 };
 
 void NasrGraphicsTextAddToYOffset( unsigned int id, float v )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTextAddToYOffset Error: invalid id %u", id );
+            return;
+        }
+    #endif
     GetGraphic( id )->data.text.yoffset += v;
 };
 
 void NasrGraphicsTextSetCount( unsigned int id, int count )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTextSetCount Error: invalid id %u", id );
+            return;
+        }
+    #endif
     NasrGraphicText * t = &GetGraphic( id )->data.text;
     t->count = NASR_MATH_MIN( count, t->capacity );
 };
 
 void NasrGraphicsTextIncrementCount( unsigned int id )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTextIncrementCount Error: invalid id %u", id );
+            return;
+        }
+    #endif
     NasrGraphicText * t = &GetGraphic( id )->data.text;
     t->count = NASR_MATH_MIN( t->count + 1, t->capacity );
 };
@@ -2947,6 +3386,13 @@ void NasrGraphicsTextIncrementCount( unsigned int id )
 // CounterGraphics Manipulation
 void NasrGraphicsCounterSetNumber( unsigned int id, float n )
 {
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsCounterSetNumber Error: invalid id %u", id );
+            return;
+        }
+    #endif
     NasrGraphic * g = GetGraphic( id );
     if ( !g )
     {
@@ -3032,6 +3478,7 @@ int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed )
     unsigned char * data = LoadTextureFileData( filename, &width, &height, sampling, indexed );
     if ( !data )
     {
+        NasrLog( "NasrLoadFileAsTextureEx Error: could not load data from “%s”.", filename );
         return -1;
     }
     const int id = NasrAddTextureEx( data, width, height, sampling, indexed );
@@ -3048,7 +3495,7 @@ int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int hei
 {
     if ( texture_count >= max_textures )
     {
-        NasrLog( "¡No mo’ space for textures!" );
+        NasrLog( "NasrAddTextureEx Error: ¡No mo’ space for textures!" );
         return -1;
     }
 
@@ -3066,8 +3513,13 @@ int NasrAddTextureBlankEx( unsigned int width, unsigned int height, int sampling
     return NasrAddTextureEx( 0, width, height, sampling, indexed );
 };
 
-void NasrSetTextureAsTarget( int texture )
+void NasrSetTextureAsTarget( unsigned int texture )
 {
+    if ( texture >= texture_count )
+    {
+        NasrLog( "NasrSetTextureAsTarget Error: texture #%d is beyond texture limit.", texture );
+        return;
+    }
     glBindFramebuffer( GL_FRAMEBUFFER, framebuffer );
     glFramebufferTexture( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture_ids[ texture ], 0 );
     glViewport( 0, 0, textures[ texture ].width, textures[ texture ].height );
@@ -3085,6 +3537,13 @@ void NasrReleaseTextureTarget()
 
 void NasrGetTexturePixels( unsigned int texture, void * pixels )
 {
+    #ifdef NASR_SAFE
+        if ( texture >= texture_count )
+        {
+            NasrLog( "NasrGetTexturePixels Error: texture #%u is beyond texture limit.", texture );
+            return;
+        }
+    #endif
     glGetTextureImage
     (
         texture_ids[ texture ],
@@ -3098,6 +3557,13 @@ void NasrGetTexturePixels( unsigned int texture, void * pixels )
 
 void NasrCopyTextureToTexture( unsigned int src, unsigned int dest, NasrRectInt srccoords, NasrRectInt destcoords )
 {
+    #ifdef NASR_SAFE
+        if ( dest >= texture_count )
+        {
+            NasrLog( "NasrCopyTextureToTexture Error: texture #%u is beyond texture limit.", dest );
+            return;
+        }
+    #endif
     unsigned char pixels[ textures[ dest ].width * textures[ dest ].height * 4 ];
     NasrGetTexturePixels( dest, pixels );
     NasrApplyTextureToPixelData( src, pixels, srccoords, destcoords );
@@ -3111,6 +3577,13 @@ void NasrCopyTextureToTexture( unsigned int src, unsigned int dest, NasrRectInt 
 
 void NasrApplyTextureToPixelData( unsigned int texture, unsigned char * dest, NasrRectInt srccoords, NasrRectInt destcoords )
 {
+    #ifdef NASR_SAFE
+        if ( texture >= texture_count )
+        {
+            NasrLog( "NasrApplyTextureToPixelData Error: texture #%u is beyond texture limit.", texture );
+            return;
+        }
+    #endif
     unsigned char src[ textures[ texture ].width * textures[ texture ].height * 4 ];
     NasrGetTexturePixels( texture, src );
     int maxx = srccoords.w;
@@ -3171,6 +3644,13 @@ void NasrCopyPixelData( unsigned char * src, unsigned char * dest, NasrRectInt s
 
 void NasrTileTexture( unsigned int texture, unsigned char * pixels, NasrRectInt srccoords, NasrRectInt destcoords )
 {
+    #ifdef NASR_SAFE
+        if ( texture >= texture_count )
+        {
+            NasrLog( "NasrTileTexture Error: texture #%u is beyond texture limit.", texture );
+            return;
+        }
+    #endif
     NasrApplyTextureToPixelData( texture, pixels, srccoords, destcoords );
     int w = srccoords.w;
     int h = srccoords.h;
@@ -3507,6 +3987,11 @@ static uint32_t CharMapHashString( unsigned int id, const char * key )
     return NasrHashString( key, charmaps.list[ id ].hashmax );
 };
 
+static void CharsetMalformedError( const char * msg, const char * file )
+{
+    NasrLog( "NasrAddCharset Error: Charset file “%s” malformed: “%s”.", file, msg );
+};
+
 static void ClearBufferBindings( void )
 {
     glBindVertexArray( 0 );
@@ -3559,7 +4044,7 @@ static void DestroyGraphic( NasrGraphic * graphic )
     }
 };
 
-static void DrawBox( unsigned int vao, const NasrRect * rect, int abs )
+static void DrawBox( unsigned int vao, const NasrRect * rect, uint_fast8_t abs )
 {
     glUseProgram( rect_shader );
     SetVerticesView( rect->x + ( rect->w / 2.0f ), rect->y + ( rect->h / 2.0f ), abs );
@@ -3709,7 +4194,7 @@ static float * GetVertices( unsigned int id )
 
 static int GraphicsAddCounter
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -3838,7 +4323,7 @@ static int GraphicsAddCounter
 
 static int GraphicAddText
 (
-    int abs,
+    uint_fast8_t abs,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -4126,7 +4611,7 @@ static unsigned char * LoadTextureFileData( const char * filename, unsigned int 
     unsigned char * data = stbi_load( filename, &w, &h, &channels, STBI_rgb_alpha );
     if ( data == NULL || w < 0 || h < 0 )
     {
-        printf( "Couldn’t load texture file.\n" );
+        NasrLog( "Couldn’t load texture file “%s”.", filename );
         return 0;
     }
     *width = w;
@@ -4172,7 +4657,7 @@ static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_col
     BufferVertices( vptr );
 };
 
-static void SetVerticesView( float x, float y, int abs )
+static void SetVerticesView( float x, float y, uint_fast8_t abs )
 {
     if ( abs )
     {
