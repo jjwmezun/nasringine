@@ -34,7 +34,7 @@ typedef enum Input {
 
 void NasrTestRun( void )
 {
-    NasrInit( "Nasringine 0.1", 520, 320, 5, 1024, 128, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES, 0, 8 );
+    NasrInit( "Nasringine 0.1", 520, 320, 5, 128, 128, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES, 0, 8 );
     NasrAudioInit( 256, 16, 16 );
     NasrSetPalette( "assets/palette2.png" );
     const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );

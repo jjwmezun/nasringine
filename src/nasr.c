@@ -160,8 +160,6 @@ static const float vertices_base[] =
     -0.5f,  0.5f,   0.0f, 1.0f,         1.0f, 1.0f, 1.0f, 1.0f,  // top left 
 };
 
-static float * vertices;
-
 #define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
 #define NUMBER_O_BASE_SHADERS 8
 
@@ -203,6 +201,7 @@ static int magnification = 1;
 static GLFWwindow * window;
 static unsigned int * vaos;
 static unsigned int * vbos;
+static float * vertices;
 static unsigned int ebo;
 static unsigned int rect_shader;
 static unsigned int sprite_shader;
@@ -224,8 +223,8 @@ static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] =
     &rect_pal_shader
 };
 static NasrGraphic * graphics;
-static int max_graphics;
-static int num_o_graphics;
+static unsigned int max_graphics;
+static unsigned int num_o_graphics;
 static NasrRect camera = { 0.0f, 0.0f, 0.0f, 0.0f };
 static NasrRect prev_camera = { 0.0f, 0.0f, 0.0f, 0.0f };
 static NasrRect canvas = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -269,6 +268,7 @@ static int AddGraphic
 );
 static void AddTexture( Texture * texture, unsigned int texture_id, const unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
 static void BindBuffers( unsigned int id );
+static void BufferDefault( float * vptr );
 static void BufferVertices( float * vptr );
 static CharMapEntry * CharMapGenEntry( unsigned int id, const char * key );
 static CharMapEntry * CharMapHashFindEntry( unsigned int id, const char * needle_string, hash_t needle_hash );
@@ -316,6 +316,7 @@ static int GraphicAddText
     uint_fast8_t palette,
     uint_fast8_t palette_type
 );
+static int GrowGraphics( void );
 static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
 static void ResetVertices( float * vptr );
 static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
@@ -418,21 +419,8 @@ int NasrInit
     {
         float * vptr = GetVertices( i );
         ResetVertices( vptr );
-
         BindBuffers( i );
-
-        // EBO
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
-
-        // VBO
-        glBufferData( GL_ARRAY_BUFFER, sizeof( vertices_base ), vptr, GL_STATIC_DRAW );
-        glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), 0 );
-        glEnableVertexAttribArray( 0 );
-        glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
-        glEnableVertexAttribArray( 1 );
-        glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 4 * sizeof( float ) ) );
-        glEnableVertexAttribArray( 2 );
-        BufferVertices( vptr );
+        BufferDefault( vptr );
     }
     ClearBufferBindings();
 
@@ -3960,9 +3948,12 @@ static int AddGraphic
     struct NasrGraphic graphic
 )
 {
-    if ( num_o_graphics >= max_graphics - 1 )
+    if ( num_o_graphics >= max_graphics )
     {
-        return -1;
+        if ( !GrowGraphics() )
+        {
+            return -1;
+        }
     }
 
     // Find last graphic of current layer.
@@ -4032,6 +4023,22 @@ static void BindBuffers( unsigned int id )
 {
     glBindVertexArray( vaos[ id ] );
     glBindBuffer( GL_ARRAY_BUFFER, vbos[ id ] );
+};
+
+static void BufferDefault( float * vptr )
+{
+    // EBO
+    glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
+
+    // VBO
+    glBufferData( GL_ARRAY_BUFFER, sizeof( vertices_base ), vptr, GL_STATIC_DRAW );
+    glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), 0 );
+    glEnableVertexAttribArray( 0 );
+    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
+    glEnableVertexAttribArray( 1 );
+    glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 4 * sizeof( float ) ) );
+    glEnableVertexAttribArray( 2 );
+    BufferVertices( vptr );
 };
 
 static void BufferVertices( float * vptr )
@@ -4382,22 +4389,10 @@ static int GraphicsAddCounter
         vptr[ 5 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 2 ].g / 255.0f;
         vptr[ 6 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 2 ].b / 255.0f;
         vptr[ 7 + VERTEX_SIZE * 3 ] = graphic.data.counter->colors[ 2 ].a / 255.0f;
-
-        BufferVertices( vptr );
        
         #undef CHARACTER
 
-        // EBO
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
-
-        // VBO
-        glBufferData( GL_ARRAY_BUFFER, sizeof( vertices_base ), vptr, GL_STATIC_DRAW );
-        glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), 0 );
-        glEnableVertexAttribArray( 0 );
-        glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
-        glEnableVertexAttribArray( 1 );
-        glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 4 * sizeof( float ) ) );
-        glEnableVertexAttribArray( 2 );
+        BufferDefault( vptr );
     }
     ClearBufferBindings();
 
@@ -4418,7 +4413,7 @@ static int GraphicAddText
     uint_fast8_t palette_type
 )
 {
-    if ( num_o_graphics >= max_graphics || text.charset >= charmaps.capacity || !charmaps.list[ text.charset ].list )
+    if ( text.charset >= charmaps.capacity || !charmaps.list[ text.charset ].list )
     {
         return -1;
     }
@@ -4664,26 +4659,91 @@ static int GraphicAddText
             vptr[ 6 + VERTEX_SIZE * 3 ] = bottom_left_color->b / 255.0f;
             vptr[ 7 + VERTEX_SIZE * 3 ] = bottom_left_color->a / 255.0f;
         }
-
-        BufferVertices( vptr );
        
         #undef CHARACTER
 
-        // EBO
-        glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, ebo );
-
-        // VBO
-        glBufferData( GL_ARRAY_BUFFER, sizeof( vertices_base ), vptr, GL_STATIC_DRAW );
-        glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), 0 );
-        glEnableVertexAttribArray( 0 );
-        glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 2 * sizeof( float ) ) );
-        glEnableVertexAttribArray( 1 );
-        glVertexAttribPointer( 2, 4, GL_FLOAT, GL_FALSE, VERTEX_SIZE * sizeof( float ), ( void * )( 4 * sizeof( float ) ) );
-        glEnableVertexAttribArray( 2 );
+        BufferDefault( vptr );
     }
     ClearBufferBindings();
 
     return id;
+};
+
+static int GrowGraphics( void )
+{
+    const unsigned int new_max_graphics = max_graphics * 2;
+    const unsigned int size_diff = new_max_graphics - max_graphics;
+
+    unsigned int * new_vaos = calloc( ( new_max_graphics + 1 ), sizeof( unsigned int ) );
+    unsigned int * new_vbos = calloc( ( new_max_graphics + 1 ), sizeof( unsigned int ) );
+    float * new_vertices = calloc( ( new_max_graphics + 1 ) * VERTEX_RECT_SIZE, sizeof( float ) );
+    NasrGraphic * new_graphics = calloc( new_max_graphics, sizeof( NasrGraphic ) );
+    int * new_gfx_ptrs_id_to_pos = calloc( new_max_graphics, sizeof( int ) );
+    int * new_gfx_ptrs_pos_to_id = calloc( new_max_graphics, sizeof( int ) );
+    int * new_state_for_gfx = calloc( new_max_graphics, sizeof( int ) );
+    int * new_layer_for_gfx = calloc( new_max_graphics, sizeof( int ) );
+    if
+    (
+        !new_vaos ||
+        !new_vbos ||
+        !new_vertices ||
+        !new_graphics ||
+        !new_gfx_ptrs_id_to_pos ||
+        !new_gfx_ptrs_pos_to_id ||
+        !new_state_for_gfx ||
+        !new_layer_for_gfx
+    )
+    {
+        NasrLog( "AddGraphic Error: ¡Not ’nough memory for graphics!" );
+        return 0;
+    }
+
+    memcpy( new_vaos, vaos, ( max_graphics + 1 ) * sizeof( unsigned int ) );
+    memcpy( new_vbos, vbos, ( max_graphics + 1 ) * sizeof( unsigned int ) );
+    memcpy( new_vertices, vertices, ( max_graphics + 1 ) * VERTEX_RECT_SIZE * sizeof( float ) );
+    memcpy( new_graphics, graphics, max_graphics * sizeof( NasrGraphic ) );
+    memcpy( new_gfx_ptrs_id_to_pos, gfx_ptrs_id_to_pos, max_graphics * sizeof( int ) );
+    memcpy( new_gfx_ptrs_pos_to_id, gfx_ptrs_pos_to_id, max_graphics * sizeof( int ) );
+    memcpy( new_state_for_gfx, state_for_gfx, max_graphics * sizeof( int ) );
+    memcpy( new_layer_for_gfx, layer_for_gfx, max_graphics * sizeof( int ) );
+
+    free( vaos );
+    free( vbos );
+    free( vertices );
+    free( graphics );
+    free( gfx_ptrs_id_to_pos );
+    free( gfx_ptrs_pos_to_id );
+    free( state_for_gfx );
+    free( layer_for_gfx );
+
+    vaos = new_vaos;
+    vbos = new_vbos;
+    vertices = new_vertices;
+    graphics = new_graphics;
+    gfx_ptrs_id_to_pos = new_gfx_ptrs_id_to_pos;
+    gfx_ptrs_pos_to_id = new_gfx_ptrs_pos_to_id;
+    state_for_gfx = new_state_for_gfx;
+    layer_for_gfx = new_layer_for_gfx;
+
+    glGenVertexArrays( size_diff, &vaos[ max_graphics + 1 ] );
+    glGenBuffers( size_diff, &vbos[ max_graphics + 1 ] );
+    for ( int i = max_graphics + 1; i < new_max_graphics + 1; ++i )
+    {
+        float * vptr = GetVertices( i );
+        ResetVertices( vptr );
+        BindBuffers( i );
+        BufferDefault( vptr );
+    }
+    ClearBufferBindings();
+
+    // Initialize these to null values ( since 0 is a valid value, we use -1 ).
+    for ( int i = max_graphics; i < new_max_graphics; ++i )
+    {
+        gfx_ptrs_id_to_pos[ i ] = gfx_ptrs_pos_to_id[ i ] = state_for_gfx[ i ] = layer_for_gfx[ i ] = -1;
+    }
+
+    max_graphics = new_max_graphics;
+    return 1;
 };
 
 static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed )
