@@ -165,7 +165,7 @@ static float * vertices;
 #define MAX_ANIMATION_FRAME 2 * 3 * 4 * 5 * 6 * 7 * 8
 #define NUMBER_O_BASE_SHADERS 8
 
-typedef struct { NasrHashKey key; unsigned int value; } TextureMapEntry;
+typedef struct TextureMapEntry { NasrHashKey key; unsigned int value; struct TextureMapEntry * next; } TextureMapEntry;
 
 typedef struct CharTemplate
 {
@@ -230,6 +230,7 @@ static NasrRect camera = { 0.0f, 0.0f, 0.0f, 0.0f };
 static NasrRect prev_camera = { 0.0f, 0.0f, 0.0f, 0.0f };
 static NasrRect canvas = { 0.0f, 0.0f, 0.0f, 0.0f };
 static int max_textures;
+static int texture_map_size;
 static unsigned int * texture_ids;
 static Texture * textures;
 static int texture_count;
@@ -388,7 +389,7 @@ int NasrInit
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
     // Init textures list
-    max_textures = init_max_textures;
+    max_textures = texture_map_size = init_max_textures;
     textures = calloc( max_textures, sizeof( Texture ) );
     texture_ids = calloc( max_textures, sizeof( unsigned int ) );
     glGenTextures( max_textures, texture_ids );
@@ -553,7 +554,7 @@ int NasrInit
     glViewport( magnified_canvas_x, magnified_canvas_y, magnified_canvas_width, magnified_canvas_height );
 
     // Init texture map.
-    texture_map = calloc( max_textures, sizeof( TextureMapEntry ) );
+    texture_map = calloc( texture_map_size, sizeof( TextureMapEntry ) );
 
     // Set framerate
     glfwSwapInterval( vsync );
@@ -677,7 +678,14 @@ void NasrUpdate( float dt )
                 #define SPRITE graphics[ i ].data.sprite
                 #define SRC SPRITE.src
                 #define DEST SPRITE.dest
-                unsigned int texture_id = ( unsigned int )( SPRITE.texture );
+                unsigned int texture_id = SPRITE.texture;
+
+                if ( texture_id >= max_textures )
+                {
+                    NasrLog( "NasrUpdate Error: Invalid texture #%u beyond limit.", texture_id );
+                    continue;
+                }
+
                 const unsigned int shader = textures[ texture_id ].indexed ? indexed_sprite_shader : sprite_shader;
                 glUseProgram( shader );
 
@@ -726,6 +734,13 @@ void NasrUpdate( float dt )
             case ( NASR_GRAPHIC_TILEMAP ):
             {
                 #define TG graphics[ i ].data.tilemap
+
+                if ( TG.texture >= max_textures )
+                {
+                    NasrLog( "NasrUpdate Error: Invalid texture #%u beyond limit.", TG.texture );
+                    continue;
+                }
+
                 const unsigned int shader = TG.useglobalpal ? tilemap_mono_shader : tilemap_shader;
                 glUseProgram( shader );
 
@@ -1830,11 +1845,6 @@ int NasrGraphicsAddSprite
     int_fast8_t useglobalpal
 )
 {
-    if ( num_o_graphics >= max_graphics )
-    {
-        NasrLog( "NasrGraphicsAddSprite Error: not ’nough space for any mo’ graphics." );
-        return -1;
-    }
     #ifdef NASR_SAFE
         if ( texture >= texture_count )
         {
@@ -3463,15 +3473,67 @@ int NasrLoadFileAsTexture( char * filename )
 int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed )
 {
     const hash_t needle_hash = TextureMapHashString( filename );
-    TextureMapEntry * entry = TextureMapHashFindEntry( filename, needle_hash );
-    if ( entry->key.string != NULL )
+    TextureMapEntry * entry = &texture_map[ needle_hash ];
+
+    // If root entry itself is empty, just fill it in.
+    if ( !entry->key.string )
     {
-        return entry->value;
+        entry->key.string = ( char * )( malloc( strlen( filename ) + 1 ) );
+        strcpy( entry->key.string, filename );
+        entry->key.hash = needle_hash;
+        entry->value = texture_count;
+        entry->next = 0;
     }
-    entry->key.string = ( char * )( malloc( strlen( filename ) + 1 ) );
-    strcpy( entry->key.string, filename );
-    entry->key.hash = needle_hash;
-    entry->value = texture_count;
+    else
+    {
+        const int cmp = strcmp( entry->key.string, filename );
+        // If root entry has the same string, it's what we're looking for, so just return its value.
+        if ( cmp == 0 )
+        {
+            return entry->value;
+        }
+        // If root entry is alphabetically after what we're looking for, we already know it's not here.
+        // Add new entry & set as new root & move ol’ root to new root's next node.
+        else if ( cmp > 0 )
+        {
+            TextureMapEntry * new_entry = calloc( 1, sizeof( TextureMapEntry ) );
+            *new_entry = *entry;
+            entry->key.string = ( char * )( malloc( strlen( filename ) + 1 ) );
+            strcpy( entry->key.string, filename );
+            entry->key.hash = needle_hash;
+            entry->value = texture_count;
+            entry->next = new_entry;
+        }
+        else
+        {
+            int cmp = -1;
+            TextureMapEntry * preventry;
+
+            // Loop thru linked list till we reach entry whose string is alphabetically after what we’re looking for.
+            do
+            {
+                preventry = entry;
+                entry = entry->next;
+            }
+            while ( entry && ( ( cmp = strcmp( entry->key.string, filename ) ) > 0 ) );
+
+            // If the entry we stop on has the same string, we already have what we’re looking for, so just return its value.
+            if ( cmp == 0 )
+            {
+                return entry->value;
+            }
+
+            // Otherwise, this means we don’t have what we’re looking for, so add new entry & put it ’tween preventry & entry
+            // too keep linked list alphabetically ordered.
+            TextureMapEntry * new_entry = calloc( 1, sizeof( TextureMapEntry ) );
+            new_entry->key.string = ( char * )( malloc( strlen( filename ) + 1 ) );
+            strcpy( new_entry->key.string, filename );
+            new_entry->key.hash = needle_hash;
+            new_entry->value = texture_count;
+            new_entry->next = preventry->next;
+            preventry->next = new_entry;
+        }
+    }
 
     unsigned int width;
     unsigned int height;
@@ -3495,8 +3557,22 @@ int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int hei
 {
     if ( texture_count >= max_textures )
     {
-        NasrLog( "NasrAddTextureEx Error: ¡No mo’ space for textures!" );
-        return -1;
+        const unsigned int prev_max_textures = max_textures;
+        Texture * new_textures = calloc( max_textures * 2, sizeof( Texture ) );
+        unsigned int * new_texture_ids = calloc( max_textures * 2, sizeof( unsigned int ) );
+        if ( !new_textures || !new_texture_ids )
+        {
+            NasrLog( "NasrAddTextureEx Error: ¡Not enough memory for textures!" );
+            return -1;
+        }
+        max_textures *= 2;
+        memcpy( new_textures, textures, sizeof( Texture ) * prev_max_textures );
+        memcpy( new_texture_ids, texture_ids, sizeof( unsigned int ) * prev_max_textures );
+        free( textures );
+        free( texture_ids );
+        textures = new_textures;
+        texture_ids = new_texture_ids;
+        glGenTextures( max_textures - prev_max_textures, &new_texture_ids[ prev_max_textures ] );
     }
 
     AddTexture( &textures[ texture_count ], texture_ids[ texture_count ], data, width, height, sampling, indexed );
@@ -3670,7 +3746,7 @@ void NasrTileTexture( unsigned int texture, unsigned char * pixels, NasrRectInt 
 
 void NasrClearTextures( void )
 {
-    for ( int i = 0; i < max_textures; ++i )
+    for ( int i = 0; i < texture_map_size; ++i )
     {
         if
         (
@@ -3680,6 +3756,13 @@ void NasrClearTextures( void )
             free( texture_map[ i ].key.string );
             texture_map[ i ].key.string = 0;
             texture_map[ i ].key.hash = 0;
+            while ( texture_map[ i ].next )
+            {
+                TextureMapEntry * t = texture_map[ i ].next->next;
+                free( texture_map[ i ].next->key.string );
+                free( texture_map[ i ].next );
+                texture_map[ i ].next = t;
+            }
         }
     }
     texture_count = 0;
@@ -3877,7 +3960,7 @@ static int AddGraphic
     struct NasrGraphic graphic
 )
 {
-    if ( num_o_graphics >= max_graphics )
+    if ( num_o_graphics >= max_graphics - 1 )
     {
         return -1;
     }
@@ -4678,20 +4761,17 @@ static void SetupVertices( unsigned int vao )
 
 static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash )
 {
-    while ( 1 )
+    TextureMapEntry * entry = &texture_map[ needle_hash ];
+    while ( entry && strcmp( entry->key.string, needle_string ) > 0 )
     {
-        TextureMapEntry * entry = &texture_map[ needle_hash ];
-        if ( entry->key.string == NULL || strcmp( entry->key.string, needle_string ) == 0 )
-        {
-            return entry;
-        }
-        needle_hash = ( needle_hash + 1 ) % max_textures;
+        entry = entry->next;
     }
+    return entry && strcmp( entry->key.string, needle_string ) == 0 ? entry : NULL;
 };
 
 static uint32_t TextureMapHashString( const char * key )
 {
-    return NasrHashString( key, max_textures );
+    return NasrHashString( key, texture_map_size );
 };
 
 static void UpdateShaderOrtho( void )
