@@ -1,0 +1,3 @@
+#! /bin/bash
+
+ar rcs lib/libnasringine01.a obj/glad.o obj/json.o obj/nasr_audio.o obj/nasr_input.o obj/nasr_io.o obj/nasr_localization.o obj/nasr_log.o obj/nasr_math.o obj/nasr.o

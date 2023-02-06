@@ -1,6 +1,10 @@
 #ifndef NASR_H
 #define NASR_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 #define NASR_DEBUG 1
@@ -420,8 +424,8 @@ void NasrGraphicsTextIncrementCount( unsigned int id );
 void NasrGraphicsCounterSetNumber( unsigned int id, float n );
 
 // Texture
-int NasrLoadFileAsTexture( char * filename );
-int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed );
+int NasrLoadFileAsTexture( const char * filename );
+int NasrLoadFileAsTextureEx( const char * filename, int sampling, int indexed );
 int NasrAddTexture( unsigned char * data, unsigned int width, unsigned int height );
 int NasrAddTextureEx( unsigned char * data, unsigned int width, unsigned int height, int sampling, int indexed );
 int NasrAddTextureBlank( unsigned int width, unsigned int height );
@@ -444,5 +448,9 @@ void NasrDrawSpriteToTexture( NasrGraphicSprite sprite );
 void NasrRectPrint( const NasrRect * r );
 void NasrColorPrint( const NasrColor * c );
 void NasrDebugGraphics( void );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // NASR_H

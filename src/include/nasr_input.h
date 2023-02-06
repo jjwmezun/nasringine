@@ -1,6 +1,10 @@
 #ifndef NASR_INPUT_H
 #define NASR_INPUT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define NASR_KEY_UNKNOWN 0
 #define NASR_KEY_SPACE 1
 #define NASR_KEY_APOSTROPHE 2
@@ -111,5 +115,9 @@ typedef struct NasrInput
 int NasrHeld( int id );
 void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs );
 void NasrInputClose( void );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // NASR_INPUT_H

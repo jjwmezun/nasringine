@@ -1,6 +1,10 @@
 #ifndef NASR_MATH_H
 #define NASR_MATH_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 typedef uint32_t hash_t;
@@ -18,5 +22,9 @@ int NasrGetNextPrime( int n );
 int NasrGetNumberODigits( int n );
 uint32_t NasrHashString( const char * key, int max );
 int NasrIsPrime( int n );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // NASR_MATH_H

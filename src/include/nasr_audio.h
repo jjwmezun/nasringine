@@ -1,6 +1,10 @@
 #ifndef NASR_AUDIO_H
 #define NASR_AUDIO_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 // Init/Close
@@ -36,5 +40,9 @@ void NasrPitchDecrease( unsigned int id, float amount );
 
 // Loop
 void NasrSetSongLoop( unsigned int id, uint_fast8_t value );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // NASR_AUDIO_H

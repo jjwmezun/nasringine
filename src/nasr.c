@@ -3453,12 +3453,12 @@ void NasrGraphicsCounterSetNumber( unsigned int id, float n )
 
 
 // Texture
-int NasrLoadFileAsTexture( char * filename )
+int NasrLoadFileAsTexture( const char * filename )
 {
     return NasrLoadFileAsTextureEx( filename, NASR_SAMPLING_DEFAULT, NASR_INDEXED_DEFAULT );
 };
 
-int NasrLoadFileAsTextureEx( char * filename, int sampling, int indexed )
+int NasrLoadFileAsTextureEx( const char * filename, int sampling, int indexed )
 {
     const hash_t needle_hash = TextureMapHashString( filename );
     TextureMapEntry * entry = &texture_map[ needle_hash ];
