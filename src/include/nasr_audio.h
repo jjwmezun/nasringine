@@ -7,6 +7,9 @@
 int NasrAudioInit( unsigned int maxsongs, unsigned int perma_queuesize, unsigned int temp_queuesize );
 void NasrAudioClose( void );
 
+// Resetting State
+void NasrAudioClear( void );
+
 // Loading
 int NasrLoadSong( const char * filename );
 int NasrAddTemporarySoundtoQueue( unsigned int songid, uint_fast8_t loop );

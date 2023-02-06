@@ -544,8 +544,24 @@ void NasrTestRun( void )
     int jumpsound = NasrLoadSong( "assets/jump.wav" );
     int gemsound = NasrLoadSong( "assets/gem.wav" );
 
-    int citysongplaying = -1;
-    int sewersongplaying = -1;
+    int queueid = NasrAddPermanentSoundtoQueue( citysong, 1 );
+    NasrPlaySong( queueid );
+    NasrAddTemporarySoundtoQueue( gemsound, 0 );
+    NasrAddTemporarySoundtoQueue( gemsound, 0 );
+    NasrAddTemporarySoundtoQueue( gemsound, 0 );
+    NasrAddTemporarySoundtoQueue( gemsound, 0 );
+
+    NasrAudioClear();
+    citysong = NasrLoadSong( "assets/retrofuture.wav" );
+    sewersong = NasrLoadSong( "assets/retrofuture.wav" );
+    jumpsound = NasrLoadSong( "assets/jump.wav" );
+    queueid = NasrAddPermanentSoundtoQueue( citysong, 1 );
+    NasrPlaySong( queueid );
+    gemsound = NasrLoadSong( "assets/gem.wav" );
+    NasrAddTemporarySoundtoQueue( gemsound, 0 );
+    NasrAddTemporarySoundtoQueue( gemsound, 0 );
+    NasrAddTemporarySoundtoQueue( gemsound, 0 );
+    int diamondsound = NasrLoadSong( "assets/diamond.wav" );
 
     float naccx = 0.0f;
     float nvx = 0.0f;
@@ -596,6 +612,7 @@ void NasrTestRun( void )
 
             if ( NasrHeld( INPUT_UP ) )
             {
+                NasrAddTemporarySoundtoQueue( diamondsound, 0 );
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {

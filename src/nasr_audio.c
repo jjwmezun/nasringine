@@ -3,6 +3,7 @@
 #include "nasr_audio.h"
 #include "nasr_log.h"
 #include "nasr_math.h"
+#include "nasr.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,7 @@ static int temp_queue_pos;
 // Static Functions
 static int AddSongToQueue( unsigned int songid, int queueid, uint_fast8_t persistent, uint_fast8_t loop );
 static SongEntry * FindSongEntry( const char * needle_string, hash_t needle_hash );
+static void ResetSongMap( void );
 static void TestForErrors( void );
 static int TestQueueId( unsigned int id );
 static int TestSongId( unsigned int id );
@@ -62,7 +64,7 @@ int NasrAudioInit( unsigned int maxsongs, unsigned int perma_queuesize, unsigned
     perma_queuesize_ = perma_queuesize;
     temp_queue_pos = perma_queuesize;
 
-    if ( maxsongs > 256 || queuesize_ > 256 )
+    if ( maxsongs > 256 || perma_queuesize + temp_queuesize > 256 )
     {
         NasrLog( "Max too long: Can only load 256 songs at once.\n" );
     }
@@ -104,13 +106,35 @@ int NasrAudioInit( unsigned int maxsongs, unsigned int perma_queuesize, unsigned
 
 void NasrAudioClose( void )
 {
-    free( queue );
-    free( songmap.entries );
-    alDeleteSources( maxsongs_, sources );
-    free( sources );
-    alDeleteBuffers( maxsongs_, buffers );
-    free( buffers );
-    alutExit();
+    #ifdef NASR_DEBUG
+        free( queue );
+        ResetSongMap();
+        free( songmap.entries );
+        alDeleteSources( queuesize_, sources );
+        free( sources );
+        alDeleteBuffers( maxsongs_, buffers );
+        free( buffers );
+        alutExit();
+    #endif
+};
+
+
+
+// Resetting State
+void NasrAudioClear( void )
+{
+    ResetSongMap();
+    for ( int i = 0; i < queuesize_; ++i )
+    {
+        alSourceStop( sources[ i ] );
+        queue[ i ].id = -1;
+        queue[ i ].persistent = 0;
+        queue[ i ].mute = 0;
+        queue[ i ].volume = master_volume;
+        queue[ i ].pitch = 1.0f;
+    }
+    song_pos = perma_queue_pos = 0;
+    temp_queue_pos = perma_queuesize_;
 };
 
 
@@ -128,7 +152,7 @@ int NasrLoadSong( const char * filename )
 
         if ( song_pos >= maxsongs_ )
         {
-            NasrLog( "Cannot load song: too many songs loaded.\n" );
+            NasrLog( "NasrLoadSong Error: too many songs loaded.\n" );
             return -1;
         }
 
@@ -137,7 +161,7 @@ int NasrLoadSong( const char * filename )
         ALuint buffer = alutCreateBufferFromFile( filename );
         if ( !buffer )
         {
-            NasrLog( "Cannot load song “%s”: file doesn’t exist.", filename );
+            NasrLog( "NasrLoadSong: Cannot load song “%s” — file doesn’t exist.", filename );
             return -1;
         }
         buffers[ entry->id ] = buffer;
@@ -151,18 +175,17 @@ int NasrAddTemporarySoundtoQueue( unsigned int songid, uint_fast8_t loop )
     int id = -1;
     for ( int i = temp_queue_pos; i < queuesize_; ++i )
     {
-        if ( !queue[ i ].persistent )
-        {               
-            ALint playing;
-            alGetSourcei( sources[ i ], AL_SOURCE_STATE, &playing );
-            if ( playing )
-            {
-                id = i;
-                break;
-            }
+        ALint playing;
+        alGetSourcei( sources[ i ], AL_SOURCE_STATE, &playing );
+        if ( playing != AL_PLAYING )
+        {
+            id = i;
+            break;
         }
     }
-    return AddSongToQueue( songid, id, 0, loop );
+    int out = AddSongToQueue( songid, id, 0, loop );
+    NasrPlaySong( out );
+    return out;
 };
 
 int NasrAddPermanentSoundtoQueue( unsigned int songid, uint_fast8_t loop )
@@ -389,6 +412,15 @@ static SongEntry * FindSongEntry( const char * needle_string, hash_t needle_hash
             return entry;
         }
         needle_hash = ( needle_hash + 1 ) % songmap.capacity;
+    }
+};
+
+static void ResetSongMap( void )
+{
+    for ( int i = 0; i < songmap.capacity; ++i )
+    {
+        free( songmap.entries[ i ].key.string );
+        songmap.entries[ i ].key.string = 0;
     }
 };
 
