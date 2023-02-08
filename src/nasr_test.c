@@ -518,7 +518,7 @@ void NasrTestRun( void )
 
     const NasrColor digitcolor1 = { 255.0f, 0.0f, 255.0f, 255.0f };
     const NasrColor digitcolor2 = { 80.0f, 0.0f, 128.0f, 255.0f };
-    const int digits = NasrGraphicsAddCounterPaletteGradient
+    int digits = NasrGraphicsAddCounterPaletteGradient
     (
         1,
         4,
@@ -569,6 +569,47 @@ void NasrTestRun( void )
     double prev_time = NasrGetTime();
     double current_time = 0;
 
+    NasrClearGraphics();
+
+    digits = NasrGraphicsAddCounterPaletteGradient
+    (
+        1,
+        4,
+        0,
+        charset1,
+        7456.2368,
+        3,
+        3,
+        0,
+        0,
+        128,
+        NASR_DIR_DOWN,
+        200,
+        32,
+        0,
+        16.0f,
+        16.0f,
+        1
+    );
+
+    nasrinid = NasrGraphicsAddSprite
+    (
+        0,
+        0,
+        4,
+        texture,
+        src,
+        dest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0,
+        0
+    );
+
     while ( running )
     {
         if ( NasrHasClosed() )
@@ -603,13 +644,13 @@ void NasrTestRun( void )
             NasrGraphicsSpriteSetSrcX( digits[ 1 ], digitxes[ tensd ] );
             const int hunsd = ( int )( floor( ( double )( ( int )( floor( fps ) ) % 1000 ) / 100.0 ) );
             NasrGraphicsSpriteSetSrcX( digits[ 0 ], digitxes[ hunsd ] );
+
             */
 
             if ( digits > -1 )
             {
                 NasrGraphicsCounterSetNumber( digits, fps );
             }
-
             if ( NasrHeld( INPUT_UP ) )
             {
                 NasrAddTemporarySoundtoQueue( diamondsound, 0 );

@@ -348,6 +348,7 @@ int NasrGraphicsAddCounterPaletteGradient
     float shadow
 );
 void NasrGraphicsRemove( unsigned int id );
+void NasrClearGraphics( void );
 
 // NasrGraphicsSprite Manipulation
 NasrRect NasrGraphicsSpriteGetDest( unsigned int id );

@@ -2577,6 +2577,38 @@ void NasrGraphicsRemove( unsigned int id )
     gfx_ptrs_pos_to_id[ num_o_graphics ] = gfx_ptrs_id_to_pos[ id ] = state_for_gfx[ id ] = layer_for_gfx[ id ] = -1;
 };
 
+void NasrClearGraphics( void )
+{
+    // Destroy specific graphic objects.
+    for ( unsigned int i = 0; i < num_o_graphics; ++i )
+    {
+        DestroyGraphic( &graphics[ i ] );
+    }
+
+    // Reset all vertices.
+    for ( unsigned int i = 0; i < max_graphics + 1; ++i )
+    {
+        float * vptr = GetVertices( i );
+        ResetVertices( vptr );
+        BindBuffers( i );
+        BufferDefault( vptr );
+    }
+    ClearBufferBindings();
+
+    // Reset maps to null values ( since 0 is a valid value, we use -1 ).
+    for ( unsigned int i = 0; i < max_graphics; ++i )
+    {
+        gfx_ptrs_id_to_pos[ i ] = gfx_ptrs_pos_to_id[ i ] = state_for_gfx[ i ] = layer_for_gfx[ i ] = -1;
+    }
+
+    for ( unsigned int i = 0; i < max_states * max_gfx_layers; ++i )
+    {
+        layer_pos[ i ] = 0;
+    }
+
+    num_o_graphics = 0;
+};
+
 
 
 // SpriteGraphics Manipulation
