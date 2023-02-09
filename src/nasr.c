@@ -4454,7 +4454,7 @@ static int GraphicAddText
     float charw = text.coords.w - text.padding_left - text.padding_right;
     float charh = text.coords.h - text.padding_top - text.padding_bottom;
     float charx = text.coords.x + text.padding_left;
-    float chary = text.coords.y + text.padding_bottom;
+    float chary = text.coords.y + text.padding_top;
     const float lnend = charx + charw;
 
     char * string = text.string;
