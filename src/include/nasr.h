@@ -120,6 +120,7 @@ int NasrInit
 );
 void NasrClose( void );
 void NasrUpdate( float dt );
+void NasrHandleEvents( void );
 int NasrHasClosed( void );
 
 // Input

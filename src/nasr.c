@@ -881,7 +881,6 @@ void NasrUpdate( float dt )
     }
 
     glfwSwapBuffers( window );
-    glfwPollEvents();
     prev_camera = camera;
 
     animation_timer += dt;
@@ -894,6 +893,11 @@ void NasrUpdate( float dt )
             animation_frame = 0;
         }
     }
+};
+
+void NasrHandleEvents( void )
+{
+    glfwPollEvents();
 };
 
 int NasrHasClosed( void )

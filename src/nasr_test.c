@@ -623,6 +623,8 @@ void NasrTestRun( void )
             double fps = 1.0 / timechange;
             float dt = 60.0f / ( float )( fps );
 
+            NasrHandleEvents();
+
             /*
             static float digitxes[ 10 ] =
             {
@@ -646,6 +648,16 @@ void NasrTestRun( void )
             NasrGraphicsSpriteSetSrcX( digits[ 0 ], digitxes[ hunsd ] );
 
             */
+
+
+            if ( NasrHeld( INPUT_Z ) )
+            {
+                printf( "¡HOLDING Z!\n" );
+            }
+            else if ( NasrPressed( INPUT_Y ) )
+            {
+                printf( "¡Pressed Y once!\n" );
+            }
 
             if ( digits > -1 )
             {
@@ -699,6 +711,7 @@ void NasrTestRun( void )
             dt = 60.0f / ( float )( fps );
             prev_time = current_time;
             NasrUpdate( dt );
+            NasrInputUpdate();
         }
     }
     NasrCloseLanguage();

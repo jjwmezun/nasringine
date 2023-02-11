@@ -112,7 +112,9 @@ typedef struct NasrInput
     unsigned int key;
 } NasrInput;
 
+void NasrInputUpdate( void );
 int NasrHeld( int id );
+int NasrPressed( int id );
 void NasrRegisterInputs( const NasrInput * inputs, int num_o_inputs );
 void NasrInputClose( void );
 
