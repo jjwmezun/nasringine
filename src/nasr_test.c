@@ -127,7 +127,7 @@ void NasrTestRun( void )
         (
             0,
             0,
-            4,
+            3,
             t,
             s,
             d,
@@ -148,7 +148,7 @@ void NasrTestRun( void )
     (
         0,
         0,
-        4,
+        3,
         texture,
         src,
         dest,
@@ -292,7 +292,7 @@ void NasrTestRun( void )
     NasrGraphicsAddSprite
     (
         1,
-        3,
+        4,
         0,
         board,
         boardrect,
@@ -572,7 +572,7 @@ void NasrTestRun( void )
     digits = NasrGraphicsAddCounterPaletteGradient
     (
         1,
-        4,
+        3,
         0,
         charset1,
         7456.2368,
@@ -661,7 +661,7 @@ void NasrTestRun( void )
 
             if ( digits > -1 )
             {
-                NasrGraphicsCounterSetNumber( digits, fps );
+                //NasrGraphicsCounterSetNumber( digits, fps );
             }
             if ( boxi < 0 && NasrHeld( INPUT_UP ) )
             {
@@ -709,6 +709,7 @@ void NasrTestRun( void )
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {
+                NasrGraphicsClearState( 2 );
             }
 
             if ( NasrHeld( INPUT_LEFT ) )

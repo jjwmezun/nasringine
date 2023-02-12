@@ -2598,6 +2598,17 @@ void NasrGraphicsRemove( unsigned int id )
     gfx_ptrs_pos_to_id[ num_o_graphics ] = gfx_ptrs_id_to_pos[ id ] = state_for_gfx[ id ] = layer_for_gfx[ id ] = -1;
 };
 
+void NasrGraphicsClearState( unsigned int state )
+{
+    unsigned int pp = ( state * max_gfx_layers ) - 1;
+    unsigned int p = layer_pos[ pp ];
+
+    while ( p < num_o_graphics )
+    {
+        NasrGraphicsRemove( gfx_ptrs_pos_to_id[ p ] );
+    }
+};
+
 void NasrClearGraphics( void )
 {
     // Destroy specific graphic objects.
