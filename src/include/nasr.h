@@ -413,6 +413,32 @@ void NasrGraphicsRectSetColorG( unsigned int id, float v );
 void NasrGraphicsRectSetColorB( unsigned int id, float v );
 void NasrGraphicsRectSetColorA( unsigned int id, float v );
 
+// RectGraphicsGradient Manipulation
+float NasrGraphicsRectGradientGetX( unsigned int id );
+void NasrGraphicsRectGradientSetX( unsigned int id, float v );
+void NasrGraphicsRectGradientAddToX( unsigned int id, float v );
+float NasrGraphicsRectGradientGetY( unsigned int id );
+void NasrGraphicsRectGradientSetY( unsigned int id, float v );
+void NasrGraphicsRectGradientAddToY( unsigned int id, float v );
+float NasrGraphicsRectGradientGetW( unsigned int id );
+void NasrGraphicsRectGradientSetW( unsigned int id, float v );
+void NasrGraphicsRectGradientAddToW( unsigned int id, float v );
+float NasrGraphicsRectGradientGetH( unsigned int id );
+void NasrGraphicsRectGradientSetH( unsigned int id, float v );
+void NasrGraphicsRectGradientAddToH( unsigned int id, float v );
+uint_fast8_t NasrGraphicsRectGradientGetDir( unsigned int id );
+void NasrGraphicsRectGradientSetDir( unsigned int id, uint_fast8_t dir );
+void NasrGraphicsRectGradientSetColor1( unsigned int id, NasrColor color );
+void NasrGraphicsRectGradientSetColor1R( unsigned int id, float v );
+void NasrGraphicsRectGradientSetColor1G( unsigned int id, float v );
+void NasrGraphicsRectGradientSetColor1B( unsigned int id, float v );
+void NasrGraphicsRectGradientSetColor1A( unsigned int id, float v );
+void NasrGraphicsRectGradientSetColor2( unsigned int id, NasrColor color );
+void NasrGraphicsRectGradientSetColor2R( unsigned int id, float v );
+void NasrGraphicsRectGradientSetColor2G( unsigned int id, float v );
+void NasrGraphicsRectGradientSetColor2B( unsigned int id, float v );
+void NasrGraphicsRectGradientSetColor2A( unsigned int id, float v );
+
 // RectGraphicsPalette Manipulation
 float NasrGraphicsRectPaletteGetX( unsigned int id );
 void NasrGraphicsRectPaletteSetX( unsigned int id, float v );

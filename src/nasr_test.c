@@ -595,6 +595,18 @@ void NasrTestRun( void )
 
     int boxi = -1;
 
+    const NasrRect ranr = { 16.0f, 16.0f, 200.0f, 100.0f };
+    const int ran = NasrGraphicsAddRectPalette
+    (
+        1,
+        4,
+        12,
+        ranr,
+        128,
+        64,
+        0
+    );
+
     while ( running )
     {
         if ( NasrHasClosed() )
@@ -637,16 +649,21 @@ void NasrTestRun( void )
 
             if ( NasrHeld( INPUT_Z ) )
             {
-                NasrSetTextOpacity( textid, 0.2f );
-                NasrSetCounterOpacity( digits, 0.5f );
+                /*
+                uint_fast8_t d = NasrGraphicsRectGradientGetDir( ran ) + 1;
+                if ( d >= 8 )
+                {
+                    d = 0;
+                }*/
+                NasrGraphicsRectPaletteSetColor( ran, 3 );
             }
             else if ( NasrPressed( INPUT_Y ) )
             {
+                NasrGraphicsRectPaletteSetColor( ran, 244 );
             }
 
             if ( digits > -1 )
             {
-                //NasrGraphicsCounterSetNumber( digits, fps );
             }
             if ( boxi < 0 && NasrHeld( INPUT_UP ) )
             {
@@ -694,7 +711,6 @@ void NasrTestRun( void )
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {
-                NasrGraphicsClearState( 2 );
             }
 
             if ( NasrHeld( INPUT_LEFT ) )
