@@ -251,48 +251,48 @@ void NasrTestRun( void )
         0
     );
 
-    const board = NasrAddTextureBlankEx( 400, 300, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
+    const board = NasrAddTextureBlankEx( 400, 200, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
     NasrSetTextureAsTarget( board );
-    const NasrRect boardrect = { 0.0f, 0.0f, 400.0f, 300.0f };
-    const NasrRect boardrect2 = { 16.0f, 16.0f, 400.0f - 32.0f, 300.0f - 32.0f };
+    const NasrRect boardrect = { 0.0f, 0.0f, 400.0f, 200.0f };
+    const NasrRect boardrect2 = { 16.0f, 16.0f, 400.0f - 32.0f, 200.0f - 32.0f };
     const NasrColor boardcolor = { 32.0f, 0.0f, 16.0f, 255.0f };
     const NasrColor boardcolor2 = { 255.0f, 180.0f, 16.0f, 255.0f };
     const NasrColor boardcolor3 = { 0.0f, 180.0f, 255.0f, 255.0f };
     NasrDrawRectToTexture( boardrect, boardcolor );
-    NasrDrawGradientRectToTexture( boardrect2, NASR_DIR_DOWNRIGHT, boardcolor2, boardcolor3 );
+    NasrDrawGradientRectToTexture( boardrect2, NASR_DIR_DOWN, boardcolor2, boardcolor3 );
 
     const NasrRect boardtilesrc = { 32.0f, 16.0f, 16.0f, 16.0f };
     NasrRect boardtiledest = { 0.0f, 0.0f, 16.0f, 16.0f };
-    NasrGraphicSprite boardsprite =
-    {
-        tilestext,
-        boardtilesrc,
-        boardtiledest,
-        0,
-        0,
-        0.0f,
-        0.0f,
-        0.0f,
-        1.0f,
-        0
-    };
     for ( int y = 0; y < 8; ++y )
     {
-        boardsprite.dest.y = 16.0f + y * 16.0f;
+        boardtiledest.y = 16.0f + y * 16.0f;
         for ( int x = 0; x < 8; ++x )
         {
-            boardsprite.dest.x = 16.0f + x * 16.0f;
-            NasrDrawSpriteToTexture( boardsprite );
+            boardtiledest.x = 16.0f + x * 16.0f;
+            NasrDrawSpriteToTexture
+            (
+                tilestext,
+                boardtilesrc,
+                boardtiledest,
+                0,
+                0,
+                0.0f,
+                0.0f,
+                0.0f,
+                1.0f,
+                0,
+                0
+            );
         }
     }
 
     NasrReleaseTextureTarget();
 
-    const NasrRect boarddest = { 32.0f, 32.0f, 400.0f, 300.0f };
-    /*NasrGraphicsAddSprite
+    const NasrRect boarddest = { 32.0f, 32.0f, 400.0f, 200.0f };
+    NasrGraphicsAddSprite
     (
         1,
-        0,
+        3,
         0,
         board,
         boardrect,
@@ -305,7 +305,7 @@ void NasrTestRun( void )
         1.0f,
         0,
         1
-    );*/
+    );
 
     for ( int i = 0; i < RECTCOUNT; ++i )
     {
@@ -556,7 +556,7 @@ void NasrTestRun( void )
     sewersong = NasrLoadSong( "assets/retrofuture.wav" );
     jumpsound = NasrLoadSong( "assets/jump.wav" );
     queueid = NasrAddPermanentSoundtoQueue( citysong, 1 );
-    NasrPlaySong( queueid );
+    //NasrPlaySong( queueid );
     gemsound = NasrLoadSong( "assets/gem.wav" );
     NasrAddTemporarySoundtoQueue( gemsound, 0 );
     NasrAddTemporarySoundtoQueue( gemsound, 0 );
@@ -568,8 +568,6 @@ void NasrTestRun( void )
 
     double prev_time = NasrGetTime();
     double current_time = 0;
-
-    NasrClearGraphics();
 
     digits = NasrGraphicsAddCounterPaletteGradient
     (
@@ -609,6 +607,8 @@ void NasrTestRun( void )
         0,
         0
     );
+
+    int boxi = -1;
 
     while ( running )
     {
@@ -663,9 +663,49 @@ void NasrTestRun( void )
             {
                 NasrGraphicsCounterSetNumber( digits, fps );
             }
-            if ( NasrHeld( INPUT_UP ) )
+            if ( boxi < 0 && NasrHeld( INPUT_UP ) )
             {
-                NasrAddTemporarySoundtoQueue( diamondsound, 0 );
+                const boxo = NasrAddTextureBlankEx( 200, 200, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+                NasrSetTextureAsTarget( boxo );
+                NasrRect boxor = { 0.0f, 0.0f, 200.0f, 200.0f };
+                NasrColor boxoc = { 0.0f, 0.0f, 255.0f, 128.0f };
+                NasrDrawRectToTexture( boxor, boxoc );
+                NasrRect boxosrc = { 0.0f, 0.0f, 1083.0f, 1881.0f };
+                NasrRect boxodest = { 8.0f, 8.0f, 54.15f, 94.05f };
+                NasrDrawSpriteToTexture
+                (
+                    texture,
+                    boxosrc,
+                    boxodest,
+                    0,
+                    0,
+                    0.0f,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    0,
+                    0
+                );
+                NasrReleaseTextureTarget();
+                NasrRect boxd = { 0.0f, 0.0f, 200.0f, 200.0f };
+                boxi = NasrGraphicsAddSprite
+                (
+                    1,
+                    4,
+                    0,
+                    boxo,
+                    boxd,
+                    boxd,
+                    0,
+                    0,
+                    0.0f,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    0,
+                    0
+                );
+
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {

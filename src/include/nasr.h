@@ -34,21 +34,6 @@ typedef struct NasrRectInt
     int h;
 } NasrRectInt;
 
-typedef struct NasrGraphicSprite
-{
-    unsigned int texture;
-    NasrRect src;
-    NasrRect dest;
-    uint_fast8_t flip_x;
-    uint_fast8_t flip_y;
-    float rotation_x;
-    float rotation_y;
-    float rotation_z;
-    float opacity;
-    uint_fast8_t palette;
-    int_fast8_t useglobalpal;
-} NasrGraphicSprite;
-
 typedef struct NasrTile
 {
     unsigned char x;
@@ -444,7 +429,20 @@ void NasrClearTextures( void );
 // Draw to Texture
 void NasrDrawRectToTexture( NasrRect rect, NasrColor color );
 void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, NasrColor color2 );
-void NasrDrawSpriteToTexture( NasrGraphicSprite sprite );
+void NasrDrawSpriteToTexture
+(
+    unsigned int texture,
+    NasrRect src,
+    NasrRect dest,
+    uint_fast8_t flip_x,
+    uint_fast8_t flip_y,
+    float rotation_x,
+    float rotation_y,
+    float rotation_z,
+    float opacity,
+    uint_fast8_t palette,
+    int_fast8_t useglobalpal
+);
 
 // Debug
 void NasrRectPrint( const NasrRect * r );

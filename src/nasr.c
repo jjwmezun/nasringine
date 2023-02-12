@@ -80,6 +80,21 @@ typedef struct NasrGraphicRectGradient
     NasrColor color4;
 } NasrGraphicRectGradient;
 
+typedef struct NasrGraphicSprite
+{
+    unsigned int texture;
+    NasrRect src;
+    NasrRect dest;
+    uint_fast8_t flip_x;
+    uint_fast8_t flip_y;
+    float rotation_x;
+    float rotation_y;
+    float rotation_z;
+    float opacity;
+    uint_fast8_t palette;
+    int_fast8_t useglobalpal;
+} NasrGraphicSprite;
+
 typedef struct NasrGraphicTilemap
 {
     unsigned int texture;
@@ -325,7 +340,8 @@ static void SetVerticesView( float x, float y, uint_fast8_t abs );
 static void SetupVertices( unsigned int vao );
 static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash );
 static uint32_t TextureMapHashString( const char * key );
-static void UpdateShaderOrtho( void );
+static void UpdateShaderOrtho( float x, float y, float w, float h );
+static void UpdateShaderOrthoToCamera( void );
 static void UpdateSpriteVertices( unsigned int id );
 static void UpdateSpriteVerticesValues( float * vptr, const NasrGraphicSprite * sprite );
 static void UpdateSpriteX( unsigned int id );
@@ -514,7 +530,7 @@ int NasrInit
 
     // Init camera
     NasrResetCamera();
-    UpdateShaderOrtho();
+    UpdateShaderOrthoToCamera();
 
     // Init graphics list
     max_states = init_max_states;
@@ -604,9 +620,10 @@ void NasrUpdate( float dt )
     glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
     glClear( GL_COLOR_BUFFER_BIT );
     
+    // Only update ortho if camera has moved.
     if ( camera.x != prev_camera.x || camera.y != prev_camera.y )
     {
-        UpdateShaderOrtho();
+        UpdateShaderOrthoToCamera();
     }
 
     for ( int i = 0; i < num_o_graphics; ++i )
@@ -3625,14 +3642,18 @@ void NasrSetTextureAsTarget( unsigned int texture )
     glViewport( 0, 0, textures[ texture ].width, textures[ texture ].height );
     selected_texture = texture;
     BindBuffers( max_graphics );
+    UpdateShaderOrtho( 0.0f, 0.0f, textures[ selected_texture ].width, textures[ selected_texture ].height );
 };
 
 void NasrReleaseTextureTarget()
 {
+    ResetVertices( GetVertices( max_graphics ) );
+    glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
     glViewport( magnified_canvas_x, magnified_canvas_y, magnified_canvas_width, magnified_canvas_height );
     selected_texture = -1;
     ClearBufferBindings();
+    UpdateShaderOrthoToCamera();
 };
 
 void NasrGetTexturePixels( unsigned int texture, void * pixels )
@@ -3888,10 +3909,7 @@ void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, Na
     }
     ResetVertices( GetVertices( max_graphics ) );
     SetVerticesColorValues( GetVertices( max_graphics ), &cbl, &cbr, &cur, &cul );
-    rect.x *= canvas.w / textures[ selected_texture ].width;
-    rect.y = ( textures[ selected_texture ].height - ( rect.y + rect.h ) ) * ( canvas.h / textures[ selected_texture ].height );
-    rect.w *= canvas.w / textures[ selected_texture ].width;
-    rect.h *= canvas.h / textures[ selected_texture ].height;
+    rect.y = ( textures[ selected_texture ].height - ( rect.y + rect.h ) );
     DrawBox
     (
         vaos[ max_graphics ],
@@ -3901,13 +3919,38 @@ void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, Na
     SetupVertices( vaos[ max_graphics ] );
 };
 
-void NasrDrawSpriteToTexture( NasrGraphicSprite sprite )
+void NasrDrawSpriteToTexture
+(
+    unsigned int texture,
+    NasrRect src,
+    NasrRect dest,
+    uint_fast8_t flip_x,
+    uint_fast8_t flip_y,
+    float rotation_x,
+    float rotation_y,
+    float rotation_z,
+    float opacity,
+    uint_fast8_t palette,
+    int_fast8_t useglobalpal
+)
 {
+    NasrGraphicSprite sprite =
+    {
+        texture,
+        src,
+        dest,
+        flip_x,
+        !flip_y,
+        rotation_x,
+        rotation_y,
+        rotation_z,
+        opacity,
+        palette,
+        useglobalpal
+    };
+
     ResetVertices( GetVertices( max_graphics ) );
-    sprite.dest.x *= canvas.w / textures[ selected_texture ].width;
-    sprite.dest.y = ( textures[ selected_texture ].height - ( sprite.dest.y + sprite.dest.h ) ) * ( canvas.h / textures[ selected_texture ].height );
-    sprite.dest.w *= canvas.w / textures[ selected_texture ].width;
-    sprite.dest.h *= canvas.h / textures[ selected_texture ].height;
+    sprite.dest.y = ( textures[ selected_texture ].height - ( sprite.dest.y + sprite.dest.h ) );
 
     glUseProgram( sprite_shader );
 
@@ -4870,7 +4913,7 @@ static uint32_t TextureMapHashString( const char * key )
     return NasrHashString( key, texture_map_size );
 };
 
-static void UpdateShaderOrtho( void )
+static void UpdateShaderOrtho( float x, float y, float w, float h )
 {
     for ( int i = 0; i < NUMBER_O_BASE_SHADERS; ++i )
     {
@@ -4883,10 +4926,15 @@ static void UpdateShaderOrtho( void )
             { 1.0f, 1.0f, 1.0f, 1.0f },
             { 1.0f, 1.0f, 1.0f, 1.0f }
         };
-        glm_ortho_rh_no( camera.x, camera.w, camera.h, camera.y, -1.0f, 1.0f, ortho );
+        glm_ortho_rh_no( x, w, h, y, -1.0f, 1.0f, ortho );
         unsigned int ortho_location = glGetUniformLocation( shader, "ortho" );
         glUniformMatrix4fv( ortho_location, 1, GL_FALSE, ( float * )( ortho ) );
     }
+};
+
+static void UpdateShaderOrthoToCamera( void )
+{
+    UpdateShaderOrtho( camera.x, camera.y, camera.w, camera.h );
 };
 
 static void UpdateSpriteVertices( unsigned int id )
