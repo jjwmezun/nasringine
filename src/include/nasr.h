@@ -67,6 +67,7 @@ typedef struct NasrText
     float xoffset;
     float yoffset;
     float shadow;
+    float opacity;
 } NasrText;
 
 #define NASR_DIR_UP        0
@@ -275,7 +276,8 @@ int NasrGraphicsAddCounter
     NasrColor color,
     float x,
     float y,
-    float shadow
+    float shadow,
+    float opacity
 );
 int NasrGraphicsAddCounterGradient
 (
@@ -293,7 +295,8 @@ int NasrGraphicsAddCounterGradient
     NasrColor color2,
     float x,
     float y,
-    float shadow
+    float shadow,
+    float opacity
 );
 int NasrGraphicsAddCounterPalette
 (
@@ -311,7 +314,8 @@ int NasrGraphicsAddCounterPalette
     uint_fast8_t useglobalpal,
     float x,
     float y,
-    float shadow
+    float shadow,
+    float opacity
 );
 int NasrGraphicsAddCounterPaletteGradient
 (
@@ -331,7 +335,8 @@ int NasrGraphicsAddCounterPaletteGradient
     uint_fast8_t useglobalpal,
     float x,
     float y,
-    float shadow
+    float shadow,
+    float opacity
 );
 void NasrGraphicsRemove( unsigned int id );
 void NasrGraphicsClearState( unsigned int state );
@@ -407,9 +412,11 @@ void NasrGraphicsTextSetYOffset( unsigned int id, float v );
 void NasrGraphicsTextAddToYOffset( unsigned int id, float v );
 void NasrGraphicsTextSetCount( unsigned int id, int count );
 void NasrGraphicsTextIncrementCount( unsigned int id );
+void NasrSetTextOpacity( unsigned int id, float v );
 
 // CounterGraphics Manipulation
 void NasrGraphicsCounterSetNumber( unsigned int id, float n );
+void NasrSetCounterOpacity( unsigned int id, float v );
 
 // Texture
 int NasrLoadFileAsTexture( const char * filename );

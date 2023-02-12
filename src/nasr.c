@@ -118,6 +118,7 @@ typedef struct NasrGraphicText
     float xoffset;
     float yoffset;
     float shadow;
+    float opacity;
 } NasrGraphicText;
 
 typedef struct NasrGraphicCounter
@@ -138,6 +139,7 @@ typedef struct NasrGraphicCounter
     float xoffset;
     float yoffset;
     float shadow;
+    float opacity;
     NasrColor colors[ 4 ];
 } NasrGraphicCounter;
 
@@ -312,6 +314,7 @@ static int GraphicsAddCounter
     float x,
     float y,
     float shadow,
+    float opacity,
     uint_fast8_t numpadding,
     uint_fast8_t decimalpadding,
     NasrColor ** colors,
@@ -497,7 +500,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform float shadow;\n  \nvoid main()\n{\n    vec4 texture_color = texture( texture_data, texture_coords );\n    if ( texture_color.r < 1.0 )\n    {\n        final_color = vec4( vec3( out_color.rgb * texture_color.rgb ), texture_color.a * shadow );\n    }\n    else\n    {\n        final_color = out_color * texture_color;\n    }\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform float opacity;\nuniform float shadow;\n  \nvoid main()\n{\n    vec4 texture_color = texture( texture_data, texture_coords );\n    if ( texture_color.r < 1.0 )\n    {\n        final_color = vec4( vec3( out_color.rgb * texture_color.rgb ), texture_color.a * shadow );\n    }\n    else\n    {\n        final_color = out_color * texture_color * opacity;\n    }\n}"
         }
     };
 
@@ -506,7 +509,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float shadow;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    vec4 texture_color = texture( texture_data, texture_coords );\n    final_color = texture_color * texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= texture_color.a;\n    if ( texture_color.r < 1.0 )\n    {\n        final_color.a *= shadow;\n    }\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\nuniform float shadow;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    vec4 texture_color = texture( texture_data, texture_coords );\n    final_color = texture_color * texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= texture_color.a * opacity;\n    if ( texture_color.r < 1.0 )\n    {\n        final_color.a *= shadow;\n    }\n}"
         }
     };
 
@@ -823,6 +826,9 @@ void NasrUpdate( float dt )
                         glUniform1f( palette_id_location, ( float )( graphics[ i ].data.text.palette_type == NASR_PALETTE_DEFAULT ? global_palette : graphics[ i ].data.text.palette ) );
                     }
 
+                    GLint opacity_location = glGetUniformLocation( shader, "opacity" );
+                    glUniform1f( opacity_location, graphics[ i ].data.text.opacity );
+
                     GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
                     glActiveTexture( GL_TEXTURE0 );
                     glBindTexture( GL_TEXTURE_2D, charmaps.list[ graphics[ i ].data.text.charset ].texture_id );
@@ -868,6 +874,11 @@ void NasrUpdate( float dt )
                         GLint palette_id_location = glGetUniformLocation( shader, "palette_id" );
                         glUniform1f( palette_id_location, ( float )( graphics[ i ].data.counter->palette_type == NASR_PALETTE_DEFAULT ? global_palette : graphics[ i ].data.counter->palette ) );
                     }
+
+                    printf( "%f\n", graphics[ i ].data.counter->opacity );
+
+                    GLint opacity_location = glGetUniformLocation( shader, "opacity" );
+                    glUniform1f( opacity_location, graphics[ i ].data.counter->opacity );
 
                     GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
                     glActiveTexture( GL_TEXTURE0 );
@@ -2244,7 +2255,8 @@ int NasrGraphicsAddCounter
     NasrColor color,
     float x,
     float y,
-    float shadow
+    float shadow,
+    float opacity
 )
 {
     NasrColor * colors[ 4 ] = {
@@ -2265,6 +2277,7 @@ int NasrGraphicsAddCounter
         x,
         y,
         shadow,
+        opacity,
         numpadding,
         decimalpadding,
         colors,
@@ -2291,7 +2304,8 @@ int NasrGraphicsAddCounterGradient
     NasrColor color2,
     float x,
     float y,
-    float shadow
+    float shadow,
+    float opacity
 )
 {
     NasrColor * colors[ 4 ];
@@ -2385,6 +2399,7 @@ int NasrGraphicsAddCounterGradient
         x,
         y,
         shadow,
+        opacity,
         numpadding,
         decimalpadding,
         colors,
@@ -2409,7 +2424,8 @@ int NasrGraphicsAddCounterPalette
     uint_fast8_t useglobalpal,
     float x,
     float y,
-    float shadow
+    float shadow,
+    float opacity
 )
 {
     NasrColor c =
@@ -2432,6 +2448,7 @@ int NasrGraphicsAddCounterPalette
         x,
         y,
         shadow,
+        opacity,
         numpadding,
         decimalpadding,
         colors,
@@ -2458,7 +2475,8 @@ int NasrGraphicsAddCounterPaletteGradient
     uint_fast8_t useglobalpal,
     float x,
     float y,
-    float shadow
+    float shadow,
+    float opacity
 )
 {
     uint_fast8_t colors[ 4 ];
@@ -2561,6 +2579,7 @@ int NasrGraphicsAddCounterPaletteGradient
         x,
         y,
         shadow,
+        opacity,
         numpadding,
         decimalpadding,
         colorsfinal,
@@ -3443,6 +3462,18 @@ void NasrGraphicsTextIncrementCount( unsigned int id )
     t->count = NASR_MATH_MIN( t->count + 1, t->capacity );
 };
 
+void NasrSetTextOpacity( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrSetTextOpacity Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.text.opacity = v;
+};
+
 
 
 // CounterGraphics Manipulation
@@ -3512,6 +3543,18 @@ void NasrGraphicsCounterSetNumber( unsigned int id, float n )
         #undef CHARACTER
     }
     ClearBufferBindings(); 
+};
+
+void NasrSetCounterOpacity( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrSetCounterOpacity Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.counter->opacity = v;
 };
 
 
@@ -4384,6 +4427,7 @@ static int GraphicsAddCounter
     float x,
     float y,
     float shadow,
+    float opacity,
     uint_fast8_t numpadding,
     uint_fast8_t decimalpadding,
     NasrColor ** colors,
@@ -4414,6 +4458,7 @@ static int GraphicsAddCounter
     graphic.data.counter->xoffset = x;
     graphic.data.counter->yoffset = y;
     graphic.data.counter->shadow = shadow;
+    graphic.data.counter->opacity = opacity;
     graphic.data.counter->vaos = calloc( count, sizeof( unsigned int ) );
     graphic.data.counter->vbos = calloc( count, sizeof( unsigned int ) );
     graphic.data.counter->vertices = calloc( count * VERTEX_RECT_SIZE, sizeof( float ) );
@@ -4700,6 +4745,7 @@ static int GraphicAddText
     graphic.data.text.xoffset = text.xoffset;
     graphic.data.text.yoffset = text.yoffset;
     graphic.data.text.shadow = text.shadow;
+    graphic.data.text.opacity = text.opacity;
     graphic.data.text.vaos = calloc( count, sizeof( unsigned int ) );
     graphic.data.text.vbos = calloc( count, sizeof( unsigned int ) );
     graphic.data.text.vertices = calloc( count * VERTEX_RECT_SIZE, sizeof( float ) );

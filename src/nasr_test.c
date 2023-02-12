@@ -402,7 +402,8 @@ void NasrTestRun( void )
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 0.0f,
-        0.5f
+        0.5f,
+        1.0f
     };
 
     NasrText text2 =
@@ -414,7 +415,8 @@ void NasrTestRun( void )
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 0.0f,
-        0.75f
+        0.75f,
+        1.0f
     };
 
     NasrText text3 =
@@ -426,7 +428,8 @@ void NasrTestRun( void )
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 0.0f,
-        0.5f
+        0.5f,
+        1.0f
     };
 
     NasrText text4 =
@@ -438,7 +441,8 @@ void NasrTestRun( void )
         NASR_VALIGN_DEFAULT,
         0.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 0.0f,
-        0.0f
+        0.0f,
+        1.0f
     };
 
     NasrColor texcolor1 = { 255.0f, 16.0f, 64.0f, 255.0f };
@@ -518,26 +522,6 @@ void NasrTestRun( void )
 
     const NasrColor digitcolor1 = { 255.0f, 0.0f, 255.0f, 255.0f };
     const NasrColor digitcolor2 = { 80.0f, 0.0f, 128.0f, 255.0f };
-    int digits = NasrGraphicsAddCounterPaletteGradient
-    (
-        1,
-        4,
-        0,
-        charset1,
-        7456.2368,
-        3,
-        3,
-        0,
-        0,
-        128,
-        NASR_DIR_DOWN,
-        200,
-        32,
-        0,
-        16.0f,
-        16.0f,
-        1
-    );
 
     int citysong = NasrLoadSong( "assets/district4.wav" );
     int sewersong = NasrLoadSong( "assets/retrofuture.wav" );
@@ -569,7 +553,7 @@ void NasrTestRun( void )
     double prev_time = NasrGetTime();
     double current_time = 0;
 
-    digits = NasrGraphicsAddCounterPaletteGradient
+    int digits = NasrGraphicsAddCounterPaletteGradient
     (
         1,
         3,
@@ -587,7 +571,8 @@ void NasrTestRun( void )
         0,
         16.0f,
         16.0f,
-        1
+        1.0f,
+        1.0f
     );
 
     nasrinid = NasrGraphicsAddSprite
@@ -652,11 +637,11 @@ void NasrTestRun( void )
 
             if ( NasrHeld( INPUT_Z ) )
             {
-                printf( "¡HOLDING Z!\n" );
+                NasrSetTextOpacity( textid, 0.2f );
+                NasrSetCounterOpacity( digits, 0.5f );
             }
             else if ( NasrPressed( INPUT_Y ) )
             {
-                printf( "¡Pressed Y once!\n" );
             }
 
             if ( digits > -1 )
