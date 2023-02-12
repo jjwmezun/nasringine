@@ -160,7 +160,7 @@ int NasrSetLanguage( const char * filename, const char * domain )
                 ++transcount;
             }
 
-            capacity = NasrGetNextPrime( keycount );
+            capacity = NasrGetNextPrime( keycount + 1 );
             translations = calloc( capacity, sizeof( NasrTranslationEntry ) );
             for ( int t = 0; t < root_entry.value->u.array.length; ++t )
             {
