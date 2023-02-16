@@ -447,7 +447,7 @@ void NasrTestRun( void )
 
     NasrColor texcolor1 = { 255.0f, 16.0f, 64.0f, 255.0f };
     NasrColor texcolor2 = { 64.0f, 16.0f, 255.0f, 255.0f };
-    const int textid = NasrGraphicAddTextGradientPalette(
+    const int textid = NasrGraphicsAddTextGradientPalette(
         1,
         2,
         0,
@@ -458,7 +458,7 @@ void NasrTestRun( void )
         255,
         1
     );
-    const int textid2 = NasrGraphicAddTextGradient(
+    const int textid2 = NasrGraphicsAddTextGradient(
         0,
         2,
         0,
@@ -468,7 +468,7 @@ void NasrTestRun( void )
         texcolor2
     );
     NasrGraphicsTextSetCount( textid2, 0 );
-    NasrGraphicAddTextPalette(
+    NasrGraphicsAddTextPalette(
         0,
         2,
         0,
@@ -477,7 +477,7 @@ void NasrTestRun( void )
         1,
         255
     );
-    NasrGraphicAddTextGradient(
+    NasrGraphicsAddTextGradient(
         0,
         2,
         0,

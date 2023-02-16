@@ -222,7 +222,7 @@ int NasrGraphicsAddTilemap
     unsigned int h,
     int_fast8_t useglobalpal
 );
-int NasrGraphicAddText
+int NasrGraphicsAddText
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -230,7 +230,7 @@ int NasrGraphicAddText
     NasrText text,
     NasrColor color
 );
-int NasrGraphicAddTextGradient
+int NasrGraphicsAddTextGradient
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -240,7 +240,7 @@ int NasrGraphicAddTextGradient
     NasrColor color1,
     NasrColor color2
 );
-int NasrGraphicAddTextPalette
+int NasrGraphicsAddTextPalette
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -250,7 +250,7 @@ int NasrGraphicAddTextPalette
     uint_fast8_t useglobalpal,
     uint_fast8_t color
 );
-int NasrGraphicAddTextGradientPalette
+int NasrGraphicsAddTextGradientPalette
 (
     uint_fast8_t abs,
     unsigned int state,

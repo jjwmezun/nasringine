@@ -338,7 +338,7 @@ static int GraphicAddText
     uint_fast8_t palette,
     uint_fast8_t palette_type
 );
-static GraphicsRectGradientPaletteUpdateColors( unsigned int id, uint_fast8_t * c );
+static void GraphicsRectGradientPaletteUpdateColors( unsigned int id, uint_fast8_t * c );
 static void GraphicsUpdateRectPalette( unsigned int id, uint_fast8_t color );
 static int GrowGraphics( void );
 static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
@@ -347,7 +347,6 @@ static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color
 static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesView( float x, float y, uint_fast8_t abs );
 static void SetupVertices( unsigned int vao );
-static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash );
 static uint32_t TextureMapHashString( const char * key );
 static void UpdateShaderOrtho( float x, float y, float w, float h );
 static void UpdateShaderOrthoToCamera( void );
@@ -1917,7 +1916,7 @@ int NasrGraphicsAddTilemap
     return id;
 }
 
-int NasrGraphicAddText
+int NasrGraphicsAddText
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -1941,7 +1940,7 @@ int NasrGraphicAddText
     );
 };
 
-int NasrGraphicAddTextGradient
+int NasrGraphicsAddTextGradient
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -2024,7 +2023,7 @@ int NasrGraphicAddTextGradient
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicAddTextGradient! %d\n", dir );
+            printf( "¡Invalid gradient direction for NasrGraphicsAddTextGradient! %d\n", dir );
 
             // Default direction.
             top_left_color = color2;
@@ -2049,7 +2048,7 @@ int NasrGraphicAddTextGradient
     );
 };
 
-int NasrGraphicAddTextPalette
+int NasrGraphicsAddTextPalette
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -2082,7 +2081,7 @@ int NasrGraphicAddTextPalette
     );
 };
 
-int NasrGraphicAddTextGradientPalette
+int NasrGraphicsAddTextGradientPalette
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -2165,7 +2164,7 @@ int NasrGraphicAddTextGradientPalette
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicAddTextGradientPalette! %d\n", dir );
+            printf( "¡Invalid gradient direction for NasrGraphicsAddTextGradientPalette! %d\n", dir );
 
             // Default direction.
             c[ 0 ] = color2;
@@ -3223,7 +3222,7 @@ void NasrGraphicsSpriteSetTexture( unsigned id, unsigned int v )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsSpriteSetTexture Error: invalid id %u", id );
-            return 0;
+            return;
         }
     #endif
     GetGraphic( id )->data.sprite.texture = v;
@@ -4152,7 +4151,7 @@ uint_fast8_t NasrGraphicsRectPaletteGetPalette( unsigned int id )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsRectPaletteGetPalette Error: invalid id %u", id );
-            return NAN;
+            return 0;
         }
     #endif
     return GetGraphic( id )->data.rectpal.palette;
@@ -4201,7 +4200,7 @@ uint_fast8_t NasrGraphicsRectPaletteGetColor( unsigned int id )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsRectPaletteGetColor Error: invalid id %u", id );
-            return NAN;
+            return 0;
         }
     #endif
     return GetGraphic( id )->data.rectpal.color1;
@@ -4398,7 +4397,7 @@ uint_fast8_t NasrGraphicsRectGradientPaletteGetDir( unsigned int id )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsRectGradientPaletteGetDir Error: invalid id %u", id );
-            return NAN;
+            return 0;
         }
     #endif
     return GetGraphic( id )->data.rectpal.dir;
@@ -4422,7 +4421,7 @@ uint_fast8_t NasrGraphicsRectGradientPaletteGetPalette( unsigned int id )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsRectGradientPaletteGetPalette Error: invalid id %u", id );
-            return NAN;
+            return 0;
         }
     #endif
     return GetGraphic( id )->data.rectpal.palette;
@@ -4470,7 +4469,7 @@ uint_fast8_t NasrGraphicsRectGradientPaletteGetColor1( unsigned int id )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsRectGradientPaletteGetColor1 Error: invalid id %u", id );
-            return NAN;
+            return 0;
         }
     #endif
     return GetGraphic( id )->data.rectpal.color1;
@@ -4576,7 +4575,7 @@ uint_fast8_t NasrGraphicsRectGradientPaletteGetColor2( unsigned int id )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsRectGradientPaletteGetColor2 Error: invalid id %u", id );
-            return NAN;
+            return 0;
         }
     #endif
     return GetGraphic( id )->data.rectpal.color2;
@@ -6147,7 +6146,7 @@ static int GraphicAddText
     return id;
 };
 
-static GraphicsRectGradientPaletteUpdateColors( unsigned int id, uint_fast8_t * c )
+static void GraphicsRectGradientPaletteUpdateColors( unsigned int id, uint_fast8_t * c )
 {
     NasrColor cobj[ 4 ];
     for ( int i = 0; i < 4; ++i )
@@ -6320,16 +6319,6 @@ static void SetVerticesView( float x, float y, uint_fast8_t abs )
 static void SetupVertices( unsigned int vao )
 {
     glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
-};
-
-static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash )
-{
-    TextureMapEntry * entry = &texture_map[ needle_hash ];
-    while ( entry && strcmp( entry->key.string, needle_string ) > 0 )
-    {
-        entry = entry->next;
-    }
-    return entry && strcmp( entry->key.string, needle_string ) == 0 ? entry : NULL;
 };
 
 static uint32_t TextureMapHashString( const char * key )

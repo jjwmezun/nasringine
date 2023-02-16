@@ -5,7 +5,7 @@
 # Compiler settings - Can be customized.
 CC = gcc
 CXXFLAGS = -Wall
-LDFLAGS = -lglfw3 -lGL -lX11 -lXrandr -lXi -ldl -lm -pthread -lopenal -lalut
+LDFLAGS = -lglfw -lGL -lX11 -lXrandr -ldl -lm -pthread -lopenal -lalut
 
 # Makefile settings - Can be customized.
 APPNAME = testprogram
