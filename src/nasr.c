@@ -880,8 +880,6 @@ void NasrUpdate( float dt )
                         glUniform1f( palette_id_location, ( float )( graphics[ i ].data.counter->palette_type == NASR_PALETTE_DEFAULT ? global_palette : graphics[ i ].data.counter->palette ) );
                     }
 
-                    printf( "%f\n", graphics[ i ].data.counter->opacity );
-
                     GLint opacity_location = glGetUniformLocation( shader, "opacity" );
                     glUniform1f( opacity_location, graphics[ i ].data.counter->opacity );
 
@@ -906,7 +904,7 @@ void NasrUpdate( float dt )
             break;
             default:
             {
-                printf( "¡Trying to render invalid graphic type #%d!\n", graphics[ i ].type );
+                NasrLog( "¡Trying to render invalid graphic type #%d!\n", graphics[ i ].type );
             }
             break;
         }
@@ -1668,7 +1666,7 @@ int NasrGraphicsAddRectGradient
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddRectGradient! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddRectGradient! %d\n", dir );
 
             // Default direction.
             graphic.data.gradient.color1 = graphic.data.gradient.color2 = color2;
@@ -1778,7 +1776,7 @@ int NasrGraphicsAddRectGradientPalette
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddRectGradientPalette! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddRectGradientPalette! %d\n", dir );
 
             // Default direction.
             c[ 0 ] = c[ 1 ] = color2;
@@ -2023,7 +2021,7 @@ int NasrGraphicsAddTextGradient
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddTextGradient! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddTextGradient! %d\n", dir );
 
             // Default direction.
             top_left_color = color2;
@@ -2164,7 +2162,7 @@ int NasrGraphicsAddTextGradientPalette
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddTextGradientPalette! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddTextGradientPalette! %d\n", dir );
 
             // Default direction.
             c[ 0 ] = color2;
@@ -2333,7 +2331,7 @@ int NasrGraphicsAddCounterGradient
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
 
             // Default direction.
             colors[ 0 ] = &color2;
@@ -2504,7 +2502,7 @@ int NasrGraphicsAddCounterPaletteGradient
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
 
             // Default direction.
             colors[ 0 ] = color2;
@@ -3743,7 +3741,7 @@ void NasrGraphicsRectGradientSetDir( unsigned int id, uint_fast8_t dir )
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsRectGradientSetDir! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsRectGradientSetDir! %d\n", dir );
 
             // Default direction.
             r->color1 = r->color2 = color2;
@@ -3810,7 +3808,7 @@ void NasrGraphicsRectGradientSetColor1( unsigned int id, NasrColor color )
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsRectGradientSetColor1! %d\n", r->dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsRectGradientSetColor1! %d\n", r->dir );
 
             // Default direction.
             r->color3 = r->color4 = color;
@@ -3931,7 +3929,7 @@ void NasrGraphicsRectGradientSetColor2( unsigned int id, NasrColor color )
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsRectGradientSetColor2! %d\n", r->dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsRectGradientSetColor2! %d\n", r->dir );
 
             // Default direction.
             r->color1 = r->color2 = color;
@@ -4640,7 +4638,7 @@ void NasrGraphicsRectGradientPaletteSetColor2( unsigned int id, uint_fast8_t v )
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsRectGradientPaletteSetColor2! %d\n", r->dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsRectGradientPaletteSetColor2! %d\n", r->dir );
 
             // Default direction.
             c[ 0 ] = c[ 1 ] = v;
@@ -5298,7 +5296,7 @@ void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, Na
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrDrawGradientRectToTexture! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrDrawGradientRectToTexture! %d\n", dir );
         }
         break;
     }

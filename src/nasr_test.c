@@ -575,6 +575,31 @@ void NasrTestRun( void )
         1.0f
     );
 
+    NasrClearGraphics();
+    NasrClearTextures();
+
+    digits = NasrGraphicsAddCounterPaletteGradient
+    (
+        1,
+        3,
+        0,
+        charset1,
+        7456.2368,
+        3,
+        3,
+        0,
+        0,
+        128,
+        NASR_DIR_DOWN,
+        200,
+        32,
+        0,
+        16.0f,
+        16.0f,
+        1.0f,
+        1.0f
+    );
+
     nasrinid = NasrGraphicsAddSprite
     (
         0,
