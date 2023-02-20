@@ -575,9 +575,6 @@ void NasrTestRun( void )
         1.0f
     );
 
-    NasrClearGraphics();
-    NasrClearTextures();
-
     digits = NasrGraphicsAddCounterPaletteGradient
     (
         1,
@@ -630,6 +627,33 @@ void NasrTestRun( void )
         128,
         64,
         0
+    );
+
+    NasrRect clockrect = { 0.0f, 0.0f, 9.0f, 9.0f };
+    NasrText clocktext =
+    {
+        "🕑",
+        charset2,
+        clockrect,
+        NASR_ALIGN_LEFT,
+        NASR_VALIGN_TOP,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.5f,
+        1.0f
+    };
+    NasrColor clockcolor = { 128.0f, 32.0f, 255.0f, 255.0f };
+    NasrGraphicsAddText
+    (
+        1,
+        4,
+        12,
+        clocktext,
+        clockcolor
     );
 
     while ( running )

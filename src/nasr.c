@@ -1170,7 +1170,7 @@ int NasrAddCharset( const char * texture, const char * chardata )
                 charmaps.capacity = newcapacity;
             }
 
-            charmaps.list[ id ].capacity = NasrGetNextPrime( root_entry.value->u.array.length + 2 );
+            charmaps.list[ id ].capacity = NasrGetNextPrime( root_entry.value->u.array.length + 3 );
             charmaps.list[ id ].hashmax = charmaps.list[ id ].capacity;
             charmaps.list[ id ].list = calloc( charmaps.list[ id ].capacity, sizeof( CharMapEntry ) );
 
