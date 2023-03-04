@@ -30,6 +30,7 @@ set( Nasringine-SRC
      )
      
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 add_library( Nasringine SHARED ${Nasringine-SRC} )
 target_link_libraries( Nasringine ${OPENGL_LIBRARIES} glfw )
