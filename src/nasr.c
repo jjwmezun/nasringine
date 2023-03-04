@@ -464,7 +464,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform float opacity;\n  \nvoid main()\n{\n    final_color = texture( texture_data, texture_coords );\n    final_color.a *= opacity;\n}"
+            "#version 330 core\n#extension GL_ARB_explicit_uniform_location : require\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nlayout ( location = 3 ) uniform float opacity;\nlayout ( location = 5 ) uniform sampler2D texture_data;\n  \nvoid main()\n{\n    final_color = texture( texture_data, texture_coords );\n    final_color.a *= opacity;\n}"
         }
     };
 
@@ -473,7 +473,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\n    vec4 index = texture( texture_data, texture_coords );\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( index.r, palette ) );\n    final_color.a *= opacity;\n}"
+            "#version 330 core\n#extension GL_ARB_explicit_uniform_location : require\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nlayout ( location = 3 ) uniform float opacity;\nlayout ( location = 4 ) uniform float palette_id;\nlayout ( location = 5 ) uniform sampler2D texture_data;\nlayout ( location = 6 ) uniform sampler2D palette_data;\n\nvoid main()\n{\n    vec4 index = texture( texture_data, texture_coords );\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( index.r, palette ) );\n    final_color.a *= opacity;\n}"
         }
     };
 
@@ -482,7 +482,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = tile.z;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
+            "#version 330 core\n#extension GL_ARB_explicit_uniform_location : require\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nlayout ( location = 3 ) uniform sampler2D texture_data;\nlayout ( location = 4 ) uniform sampler2D palette_data;\nlayout ( location = 5 ) uniform sampler2D map_data;\nlayout ( location = 6 ) uniform float map_width;\nlayout ( location = 7 ) uniform float map_height;\nlayout ( location = 8 ) uniform float tileset_width;\nlayout ( location = 9 ) uniform float tileset_height;\nlayout ( location = 10 ) uniform uint animation;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = tile.z;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
         }
     };
 
@@ -491,7 +491,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform uint global_palette;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = float( global_palette ) / 255.0;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
+            "#version 330 core\n#extension GL_ARB_explicit_uniform_location : require\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nlayout ( location = 3 ) uniform sampler2D texture_data;\nlayout ( location = 4 ) uniform sampler2D palette_data;\nlayout ( location = 5 ) uniform sampler2D map_data;\nlayout ( location = 6 ) uniform float map_width;\nlayout ( location = 7 ) uniform float map_height;\nlayout ( location = 8 ) uniform float tileset_width;\nlayout ( location = 9 ) uniform float tileset_height;\nlayout ( location = 10 ) uniform uint animation;\nlayout ( location = 11 ) uniform uint global_palette;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = float( global_palette ) / 255.0;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
         }
     };
 
@@ -500,7 +500,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform float opacity;\nuniform float shadow;\n  \nvoid main()\n{\n    vec4 texture_color = texture( texture_data, texture_coords );\n    if ( texture_color.r < 1.0 )\n    {\n        final_color = vec4( vec3( out_color.rgb * texture_color.rgb ), texture_color.a * shadow );\n    }\n    else\n    {\n        final_color = out_color * texture_color * opacity;\n    }\n}"
+            "#version 330 core\n#extension GL_ARB_explicit_uniform_location : require\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nlayout ( location = 3 ) uniform sampler2D texture_data;\nlayout ( location = 4 ) uniform float opacity;\nlayout ( location = 5 ) uniform float shadow;\n  \nvoid main()\n{\n    vec4 texture_color = texture( texture_data, texture_coords );\n    if ( texture_color.r < 1.0 )\n    {\n        final_color = vec4( vec3( out_color.rgb * texture_color.rgb ), texture_color.a * shadow );\n    }\n    else\n    {\n        final_color = out_color * texture_color * opacity;\n    }\n}"
         }
     };
 
@@ -509,7 +509,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\nuniform float shadow;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    vec4 texture_color = texture( texture_data, texture_coords );\n    final_color = texture_color * texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= texture_color.a * opacity;\n    if ( texture_color.r < 1.0 )\n    {\n        final_color.a *= shadow;\n    }\n}"
+            "#version 330 core\n#extension GL_ARB_explicit_uniform_location : require\nout vec4 final_color;\n\nin vec4 out_color;\nin vec2 texture_coords;\n\nlayout ( location = 3 ) uniform sampler2D texture_data;\nlayout ( location = 4 ) uniform sampler2D palette_data;\nlayout ( location = 5 ) uniform float palette_id;\nlayout ( location = 6 ) uniform float opacity;\nlayout ( location = 7 ) uniform float shadow;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    vec4 texture_color = texture( texture_data, texture_coords );\n    final_color = texture_color * texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= texture_color.a * opacity;\n    if ( texture_color.r < 1.0 )\n    {\n        final_color.a *= shadow;\n    }\n}"
         }
     };
 
@@ -518,7 +518,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\n\nuniform sampler2D palette_data;\nuniform float palette_id;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n}"
+            "#version 330 core\n#extension GL_ARB_explicit_uniform_location : require\nout vec4 final_color;\n\nin vec4 out_color;\n\nlayout ( location = 3 ) uniform float palette_id;\nlayout ( location = 4 ) uniform sampler2D palette_data;\n\nvoid main()\n{\nfloat palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n}"
         }
     };
     
@@ -668,7 +668,7 @@ void NasrUpdate( float dt )
                 mat4 model = BASE_MATRIX;
                 vec3 scale = { RECT.w, RECT.h, 0.0 };
                 glm_scale( model, scale );
-                unsigned int model_location = glGetUniformLocation( rect_pal_shader, "model" );
+                GLint model_location = glGetUniformLocation( rect_pal_shader, "model" );
                 glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
                 GLint palette_id_location = glGetUniformLocation( rect_pal_shader, "palette_id" );
                 glUniform1f( palette_id_location, ( float )( graphics[ i ].data.rectpal.useglobalpal ? global_palette : graphics[ i ].data.rectpal.palette ) );
@@ -874,8 +874,6 @@ void NasrUpdate( float dt )
                         GLint palette_id_location = glGetUniformLocation( shader, "palette_id" );
                         glUniform1f( palette_id_location, ( float )( graphics[ i ].data.counter->palette_type == NASR_PALETTE_DEFAULT ? global_palette : graphics[ i ].data.counter->palette ) );
                     }
-
-                    printf( "%f\n", graphics[ i ].data.counter->opacity );
 
                     GLint opacity_location = glGetUniformLocation( shader, "opacity" );
                     glUniform1f( opacity_location, graphics[ i ].data.counter->opacity );
@@ -1828,7 +1826,7 @@ int NasrGraphicsAddRectGradientPalette
     NasrColor cobj[ 4 ];
     for ( int i = 0; i < 4; ++i )
     {
-        cobj[ i ].r = ( float )( c[ i ] );
+        cobj[ i ].r = cobj[ i ].g = cobj[ i ].b = ( float )( c[ i ] );
         cobj[ i ].a = 255.0f;
     }
 
@@ -3719,13 +3717,12 @@ void NasrGetTexturePixels( unsigned int texture, void * pixels )
             return;
         }
     #endif
-    glGetTextureImage
+    glGetTexImage
     (
         texture_ids[ texture ],
   	    0,
   	    GL_RGBA,
   	    GL_UNSIGNED_BYTE,
-        textures[ texture ].width * textures[ texture ].height * 4,
         pixels
   	);
 };

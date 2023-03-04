@@ -1,5 +1,4 @@
 #include "nasr.h"
-#include "nasr_audio.h"
 #include "nasr_input.h"
 #include "nasr_localization.h"
 #include "nasr_test.h"
@@ -35,7 +34,6 @@ typedef enum Input {
 void NasrTestRun( void )
 {
     NasrInit( "Nasringine 0.1", 520, 320, 5, 128, 128, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES, 0, 8 );
-    NasrAudioInit( 256, 16, 16 );
     NasrSetPalette( "assets/palette2.png" );
     const int charset1 = NasrAddCharset( "assets/latin1.png", "assets/latin1.json" );
     const int charset2 = NasrAddCharset( "assets/latin2.png", "assets/latin2.json" );
@@ -101,46 +99,6 @@ void NasrTestRun( void )
 
     int texture = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     int tilestext = NasrLoadFileAsTexture( "assets/tilemap.png" );
-
-    const NasrRect s = { 0.0f, 0.0f, 16.0f, 25.0f };
-    for ( int i = 1; i <= 500; ++i )
-    {
-        char f[24];
-        for ( int j = 0; j < 24; ++j )
-        {
-            f[ j ] = '\0';
-        }
-        sprintf( f, "assets/autumn%d.png", i );
-        NasrLoadFileAsTexture( f );
-    }
-    for ( int i = 1; i <= 500; ++i )
-    {
-        char f[24];
-        for ( int j = 0; j < 24; ++j )
-        {
-            f[ j ] = '\0';
-        }
-        sprintf( f, "assets/autumn%d.png", i );
-        const int t = NasrLoadFileAsTexture( f );
-        const NasrRect d = { ( i % 50 ) * 20.0f, ( i / 50 ) * 30.0f, 16.0f, 25.0f };
-        NasrGraphicsAddSprite
-        (
-            0,
-            0,
-            3,
-            t,
-            s,
-            d,
-            0,
-            0,
-            0.0f,
-            0.0f,
-            0.0f,
-            1.0f,
-            0,
-            0
-        );
-    }
 
     NasrRect src = { 0.0f, 0.0f, 1083.0f, 1881.0f };
     NasrRect dest = { 200.0f, 100.0f, 54.15f, 94.05f };
@@ -523,30 +481,6 @@ void NasrTestRun( void )
     const NasrColor digitcolor1 = { 255.0f, 0.0f, 255.0f, 255.0f };
     const NasrColor digitcolor2 = { 80.0f, 0.0f, 128.0f, 255.0f };
 
-    int citysong = NasrLoadSong( "assets/district4.wav" );
-    int sewersong = NasrLoadSong( "assets/retrofuture.wav" );
-    int jumpsound = NasrLoadSong( "assets/jump.wav" );
-    int gemsound = NasrLoadSong( "assets/gem.wav" );
-
-    int queueid = NasrAddPermanentSoundtoQueue( citysong, 1 );
-    NasrPlaySong( queueid );
-    NasrAddTemporarySoundtoQueue( gemsound, 0 );
-    NasrAddTemporarySoundtoQueue( gemsound, 0 );
-    NasrAddTemporarySoundtoQueue( gemsound, 0 );
-    NasrAddTemporarySoundtoQueue( gemsound, 0 );
-
-    NasrAudioClear();
-    citysong = NasrLoadSong( "assets/retrofuture.wav" );
-    sewersong = NasrLoadSong( "assets/retrofuture.wav" );
-    jumpsound = NasrLoadSong( "assets/jump.wav" );
-    queueid = NasrAddPermanentSoundtoQueue( citysong, 1 );
-    //NasrPlaySong( queueid );
-    gemsound = NasrLoadSong( "assets/gem.wav" );
-    NasrAddTemporarySoundtoQueue( gemsound, 0 );
-    NasrAddTemporarySoundtoQueue( gemsound, 0 );
-    NasrAddTemporarySoundtoQueue( gemsound, 0 );
-    int diamondsound = NasrLoadSong( "assets/diamond.wav" );
-
     float naccx = 0.0f;
     float nvx = 0.0f;
 
@@ -741,7 +675,6 @@ void NasrTestRun( void )
         }
     }
     NasrCloseLanguage();
-    NasrAudioClose();
     NasrInputClose();
     NasrClose();
 };
