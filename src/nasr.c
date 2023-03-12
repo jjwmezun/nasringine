@@ -68,7 +68,11 @@ typedef struct NasrGraphicRectPalette
 {
     NasrRect rect;
     uint_fast8_t palette;
+    uint_fast8_t dir;
+    uint_fast8_t color1;
+    uint_fast8_t color2;
     uint_fast8_t useglobalpal;
+    float opacity;
 } NasrGraphicRectPalette;
 
 typedef struct NasrGraphicRectGradient
@@ -78,6 +82,7 @@ typedef struct NasrGraphicRectGradient
     NasrColor color2;
     NasrColor color3;
     NasrColor color4;
+    uint_fast8_t dir;
 } NasrGraphicRectGradient;
 
 typedef struct NasrGraphicSprite
@@ -334,6 +339,8 @@ static int GraphicAddText
     uint_fast8_t palette,
     uint_fast8_t palette_type
 );
+static void GraphicsRectGradientPaletteUpdateColors( unsigned int id, uint_fast8_t * c );
+static void GraphicsUpdateRectPalette( unsigned int id, uint_fast8_t color );
 static int GrowGraphics( void );
 static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
 static void ResetVertices( float * vptr );
@@ -341,7 +348,6 @@ static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color
 static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesView( float x, float y, uint_fast8_t abs );
 static void SetupVertices( unsigned int vao );
-static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash );
 static uint32_t TextureMapHashString( const char * key );
 static void UpdateShaderOrtho( float x, float y, float w, float h );
 static void UpdateShaderOrthoToCamera( void );
@@ -518,7 +524,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\n#extension GL_ARB_explicit_uniform_location : require\nout vec4 final_color;\n\nin vec4 out_color;\n\nlayout ( location = 3 ) uniform float palette_id;\nlayout ( location = 4 ) uniform sampler2D palette_data;\n\nvoid main()\n{\nfloat palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n}"
+            "#version 330 core\n#extension GL_ARB_explicit_uniform_location : require\nout vec4 final_color;\n\nin vec4 out_color;\n\nlayout ( location = 3 ) uniform float palette_id;\nlayout ( location = 4 ) uniform sampler2D palette_data;\nlayout ( location = 5 ) uniform float opacity;\n\nvoid main()\n{\nfloat palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= opacity;\n}"
         }
     };
     
@@ -673,6 +679,8 @@ void NasrUpdate( float dt )
                 GLint palette_id_location = glGetUniformLocation( rect_pal_shader, "palette_id" );
                 glUniform1f( palette_id_location, ( float )( graphics[ i ].data.rectpal.useglobalpal ? global_palette : graphics[ i ].data.rectpal.palette ) );
                 GLint palette_data_location = glGetUniformLocation( rect_pal_shader, "palette_data" );
+                GLint opacity_location = glGetUniformLocation( rect_pal_shader, "opacity" );
+                glUniform1f( opacity_location, graphics[ i ].data.rectpal.opacity );
                 glActiveTexture( GL_TEXTURE1 );
                 glBindTexture( GL_TEXTURE_2D, palette_texture_id );
                 glUniform1i( palette_data_location, 1 );
@@ -899,7 +907,7 @@ void NasrUpdate( float dt )
             break;
             default:
             {
-                printf( "¡Trying to render invalid graphic type #%d!\n", graphics[ i ].type );
+                NasrLog( "¡Trying to render invalid graphic type #%d!\n", graphics[ i ].type );
             }
             break;
         }
@@ -1165,7 +1173,7 @@ int NasrAddCharset( const char * texture, const char * chardata )
                 charmaps.capacity = newcapacity;
             }
 
-            charmaps.list[ id ].capacity = NasrGetNextPrime( root_entry.value->u.array.length + 2 );
+            charmaps.list[ id ].capacity = NasrGetNextPrime( root_entry.value->u.array.length + 3 );
             charmaps.list[ id ].hashmax = charmaps.list[ id ].capacity;
             charmaps.list[ id ].list = calloc( charmaps.list[ id ].capacity, sizeof( CharMapEntry ) );
 
@@ -1608,81 +1616,64 @@ int NasrGraphicsAddRectGradient
     graphic.abs = abs;
     graphic.type = NASR_GRAPHIC_RECT_GRADIENT;
     graphic.data.gradient.rect = rect;
+    graphic.data.gradient.dir = dir;
     switch ( dir )
     {
         case ( NASR_DIR_UP ):
         {
-            graphic.data.gradient.color1 = color2;
-            graphic.data.gradient.color2 = color2;
-            graphic.data.gradient.color3 = color1;
-            graphic.data.gradient.color4 = color1;
+            graphic.data.gradient.color1 = graphic.data.gradient.color2 = color2;
+            graphic.data.gradient.color3 = graphic.data.gradient.color4 = color1;
         }
         break;
         case ( NASR_DIR_UPRIGHT ):
         {
-            graphic.data.gradient.color1 = color1;
+            graphic.data.gradient.color1 = graphic.data.gradient.color3 = graphic.data.gradient.color4 = color1;
             graphic.data.gradient.color2 = color2;
-            graphic.data.gradient.color3 = color1;
-            graphic.data.gradient.color4 = color1;
         }
         break;
         case ( NASR_DIR_RIGHT ):
         {
-            graphic.data.gradient.color1 = color1;
-            graphic.data.gradient.color2 = color2;
-            graphic.data.gradient.color3 = color1;
-            graphic.data.gradient.color4 = color2;
+            graphic.data.gradient.color1 = graphic.data.gradient.color3 = color1;
+            graphic.data.gradient.color2 = graphic.data.gradient.color4 = color2;
         }
         break;
         case ( NASR_DIR_DOWNRIGHT ):
         {
-            graphic.data.gradient.color1 = color1;
-            graphic.data.gradient.color2 = color1;
+            graphic.data.gradient.color1 = graphic.data.gradient.color2 = graphic.data.gradient.color4 = color1;
             graphic.data.gradient.color3 = color2;
-            graphic.data.gradient.color4 = color1;
         }
         break;
         case ( NASR_DIR_DOWN ):
         {
-            graphic.data.gradient.color1 = color1;
-            graphic.data.gradient.color2 = color1;
-            graphic.data.gradient.color3 = color2;
-            graphic.data.gradient.color4 = color2;
+            graphic.data.gradient.color1 = graphic.data.gradient.color2 = color1;
+            graphic.data.gradient.color3 = graphic.data.gradient.color4 = color2;
         }
         break;
         case ( NASR_DIR_DOWNLEFT ):
         {
-            graphic.data.gradient.color1 = color1;
-            graphic.data.gradient.color2 = color1;
-            graphic.data.gradient.color3 = color1;
+            graphic.data.gradient.color1 = graphic.data.gradient.color2 = graphic.data.gradient.color3 = color1;
             graphic.data.gradient.color4 = color2;
         }
         break;
         case ( NASR_DIR_LEFT ):
         {
-            graphic.data.gradient.color1 = color2;
-            graphic.data.gradient.color2 = color1;
-            graphic.data.gradient.color3 = color2;
-            graphic.data.gradient.color4 = color1;
+            graphic.data.gradient.color1 = graphic.data.gradient.color3 = color2;
+            graphic.data.gradient.color2 = graphic.data.gradient.color4 = color1;
         }
         break;
         case ( NASR_DIR_UPLEFT ):
         {
             graphic.data.gradient.color1 = color2;
-            graphic.data.gradient.color2 = color1;
-            graphic.data.gradient.color3 = color1;
-            graphic.data.gradient.color4 = color1;
+            graphic.data.gradient.color2 = graphic.data.gradient.color3 = graphic.data.gradient.color4 = color1;
         }
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddRectGradient! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddRectGradient! %d\n", dir );
 
             // Default direction.
-            graphic.data.gradient.color1 = color2;
-            graphic.data.gradient.color2 = color2;
-            graphic.data.gradient.color3 = color1;
-            graphic.data.gradient.color4 = color1;
+            graphic.data.gradient.color1 = graphic.data.gradient.color2 = color2;
+            graphic.data.gradient.color3 = graphic.data.gradient.color4 = color1;
         }
         break;
     }
@@ -1703,31 +1694,25 @@ int NasrGraphicsAddRectPalette
     struct NasrRect rect,
     uint_fast8_t palette,
     uint_fast8_t color,
-    uint_fast8_t useglobalpal
+    uint_fast8_t useglobalpal,
+    float opacity
 )
 {
-    NasrColor c =
-    {
-        ( float )( color ),
-        0.0f,
-        0.0f,
-        255.0f
-    };
     struct NasrGraphic graphic;
     graphic.abs = abs;
     graphic.type = NASR_GRAPHIC_RECT_PAL;
     graphic.data.rectpal.rect = rect;
     graphic.data.rectpal.palette = palette;
+    graphic.data.rectpal.color1 = graphic.data.rectpal.color2 = color;
     graphic.data.rectpal.useglobalpal = useglobalpal;
+    graphic.data.rectpal.opacity = opacity;
     const int id = AddGraphic( state, layer, graphic );
-    if ( id > -1 )
+    if ( id >= 0 )
     {
-        ResetVertices( GetVertices( id ) );
-        SetVerticesColors( id, &c, &c, &c, &c );
+        GraphicsUpdateRectPalette( id, color );
     }
     return id;
 };
-
 
 int NasrGraphicsAddRectGradientPalette
 (
@@ -1739,86 +1724,69 @@ int NasrGraphicsAddRectGradientPalette
     uint_fast8_t dir,
     uint_fast8_t color1,
     uint_fast8_t color2,
-    uint_fast8_t useglobalpal
+    uint_fast8_t useglobalpal,
+    float opacity
 )
 {
-    uint_fast8_t c[4];
+    uint_fast8_t c[ 4 ];
 
     switch ( dir )
     {
         case ( NASR_DIR_UP ):
         {
-            c[ 0 ] = color2;
-            c[ 1 ] = color2;
-            c[ 2 ] = color1;
-            c[ 3 ] = color1;
+            c[ 0 ] = c[ 1 ] = color2;
+            c[ 2 ] = c[ 3 ] = color1;
         }
         break;
         case ( NASR_DIR_UPRIGHT ):
         {
-            c[ 0 ] = color1;
+            c[ 0 ] = c[ 2 ] = c[ 3 ] = color1;
             c[ 1 ] = color2;
-            c[ 2 ] = color1;
-            c[ 3 ] = color1;
         }
         break;
         case ( NASR_DIR_RIGHT ):
         {
-            c[ 0 ] = color1;
-            c[ 1 ] = color2;
-            c[ 2 ] = color1;
-            c[ 3 ] = color2;
+            c[ 0 ] = c[ 2 ] = color1;
+            c[ 1 ] = c[ 3 ] = color2;
         }
         break;
         case ( NASR_DIR_DOWNRIGHT ):
         {
-            c[ 0 ] = color1;
-            c[ 1 ] = color1;
-            c[ 2 ] = color1;
+            c[ 0 ] = c[ 1 ] = c[ 2 ] = color1;
             c[ 3 ] = color2;
         }
         break;
         case ( NASR_DIR_DOWN ):
         {
-            c[ 0 ] = color1;
-            c[ 1 ] = color1;
-            c[ 2 ] = color2;
-            c[ 3 ] = color2;
+            c[ 0 ] = c[ 1 ] = color1;
+            c[ 2 ] = c[ 3 ] = color2;
         }
         break;
         case ( NASR_DIR_DOWNLEFT ):
         {
-            c[ 0 ] = color1;
-            c[ 1 ] = color1;
+            c[ 0 ] = c[ 1 ] = c[ 3 ] = color1;
             c[ 2 ] = color2;
-            c[ 3 ] = color1;
         }
         break;
         case ( NASR_DIR_LEFT ):
         {
-            c[ 0 ] = color2;
-            c[ 1 ] = color1;
-            c[ 2 ] = color2;
-            c[ 3 ] = color1;
+            c[ 0 ] = c[ 2 ] = color2;
+            c[ 1 ] = c[ 3 ] = color1;
         }
         break;
         case ( NASR_DIR_UPLEFT ):
         {
             c[ 0 ] = color2;
-            c[ 1 ] = color1;
-            c[ 2 ] = color1;
-            c[ 3 ] = color1;
+            c[ 1 ] = c[ 2 ] = c[ 3 ] = color1;
         }
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddRectGradientPalette! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddRectGradientPalette! %d\n", dir );
 
             // Default direction.
-            c[ 0 ] = color2;
-            c[ 1 ] = color2;
-            c[ 2 ] = color1;
-            c[ 3 ] = color1;
+            c[ 0 ] = c[ 1 ] = color2;
+            c[ 2 ] = c[ 3 ] = color1;
         }
         break;
     }
@@ -1835,12 +1803,14 @@ int NasrGraphicsAddRectGradientPalette
     graphic.type = NASR_GRAPHIC_RECT_PAL;
     graphic.data.rectpal.rect = rect;
     graphic.data.rectpal.palette = palette;
+    graphic.data.rectpal.color1 = color1;
+    graphic.data.rectpal.color2 = color2;
     graphic.data.rectpal.useglobalpal = useglobalpal;
+    graphic.data.rectpal.opacity = opacity;
     const int id = AddGraphic( state, layer, graphic );
     if ( id > -1 )
     {
-        ResetVertices( GetVertices( id ) );
-        SetVerticesColors( id, &cobj[ 0 ], &cobj[ 1 ], &cobj[ 2 ], &cobj[ 3 ] );
+        GraphicsRectGradientPaletteUpdateColors( id, c );
     }
     return id;
 };
@@ -1958,7 +1928,7 @@ int NasrGraphicsAddTilemap
     return id;
 }
 
-int NasrGraphicAddText
+int NasrGraphicsAddText
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -1982,7 +1952,7 @@ int NasrGraphicAddText
     );
 };
 
-int NasrGraphicAddTextGradient
+int NasrGraphicsAddTextGradient
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -2065,7 +2035,7 @@ int NasrGraphicAddTextGradient
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicAddTextGradient! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddTextGradient! %d\n", dir );
 
             // Default direction.
             top_left_color = color2;
@@ -2090,7 +2060,7 @@ int NasrGraphicAddTextGradient
     );
 };
 
-int NasrGraphicAddTextPalette
+int NasrGraphicsAddTextPalette
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -2123,7 +2093,7 @@ int NasrGraphicAddTextPalette
     );
 };
 
-int NasrGraphicAddTextGradientPalette
+int NasrGraphicsAddTextGradientPalette
 (
     uint_fast8_t abs,
     unsigned int state,
@@ -2206,7 +2176,7 @@ int NasrGraphicAddTextGradientPalette
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicAddTextGradientPalette! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddTextGradientPalette! %d\n", dir );
 
             // Default direction.
             c[ 0 ] = color2;
@@ -2375,7 +2345,7 @@ int NasrGraphicsAddCounterGradient
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
 
             // Default direction.
             colors[ 0 ] = &color2;
@@ -2546,7 +2516,7 @@ int NasrGraphicsAddCounterPaletteGradient
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsAddCounterGradient! %d\n", dir );
 
             // Default direction.
             colors[ 0 ] = color2;
@@ -2758,30 +2728,6 @@ void NasrGraphicsSpriteAddToDestX( unsigned int id, float v )
     GetGraphic( id )->data.sprite.dest.x += v;
 };
 
-float NasrGraphicsSpriteGetDestH( unsigned int id )
-{
-    #ifdef NASR_SAFE
-        if ( id >= max_graphics )
-        {
-            NasrLog( "NasrGraphicsSpriteGetDestH Error: invalid id %u", id );
-            return NAN;
-        }
-    #endif
-    return GetGraphic( id )->data.sprite.dest.h;
-};
-
-void NasrGraphicsSpriteSetDestH( unsigned int id, float v )
-{
-    #ifdef NASR_SAFE
-        if ( id >= max_graphics )
-        {
-            NasrLog( "NasrGraphicsSpriteSetDestH Error: invalid id %u", id );
-            return;
-        }
-    #endif
-    GetGraphic( id )->data.sprite.dest.h = v;
-};
-
 float NasrGraphicsSpriteGetDestW( unsigned int id )
 {
     #ifdef NASR_SAFE
@@ -2806,29 +2752,52 @@ void NasrGraphicsSpriteSetDestW( unsigned int id, float v )
     GetGraphic( id )->data.sprite.dest.w = v;
 };
 
-float NasrGraphicsSpriteGetSrcY( unsigned int id )
+void NasrGraphicsSpriteAddToDestW( unsigned int id, float v )
 {
     #ifdef NASR_SAFE
         if ( id >= max_graphics )
         {
-            NasrLog( "NasrGraphicsSpriteGetSrcY Error: invalid id %u", id );
-            return NAN;
-        }
-    #endif
-    return GetGraphic( id )->data.sprite.src.y;
-};
-
-void NasrGraphicsSpriteSetSrcY( unsigned int id, float v )
-{
-    #ifdef NASR_SAFE
-        if ( id >= max_graphics )
-        {
-            NasrLog( "NasrGraphicsSpriteSetSrcY Error: invalid id %u", id );
+            NasrLog( "NasrGraphicsSpriteAddToDestW Error: invalid id %u", id );
             return;
         }
     #endif
-    GetGraphic( id )->data.sprite.src.y = v;
-    UpdateSpriteVertices( id );
+    GetGraphic( id )->data.sprite.dest.w += v;
+};
+
+float NasrGraphicsSpriteGetDestH( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetDestH Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.sprite.dest.h;
+};
+
+void NasrGraphicsSpriteSetDestH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetDestH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.dest.h = v;
+};
+
+void NasrGraphicsSpriteAddToDestH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteAddToDestH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.dest.h += v;
 };
 
 float NasrGraphicsSpriteGetSrcX( unsigned int id )
@@ -2856,29 +2825,53 @@ void NasrGraphicsSpriteSetSrcX( unsigned int id, float v )
     UpdateSpriteVertices( id );
 };
 
-float NasrGraphicsSpriteGetSrcH( unsigned int id )
+void NasrGraphicsSpriteAddToSrcX( unsigned int id, float v )
 {
     #ifdef NASR_SAFE
         if ( id >= max_graphics )
         {
-            NasrLog( "NasrGraphicsSpriteGetSrcH Error: invalid id %u", id );
-            return NAN;
-        }
-    #endif
-    return GetGraphic( id )->data.sprite.src.h;
-};
-
-void NasrGraphicsSpriteSetSrcH( unsigned int id, float v )
-{
-    #ifdef NASR_SAFE
-        if ( id >= max_graphics )
-        {
-            NasrLog( "NasrGraphicsSpriteSetSrcH Error: invalid id %u", id );
+            NasrLog( "NasrGraphicsSpriteAddToSrcX Error: invalid id %u", id );
             return;
         }
     #endif
-    GetGraphic( id )->data.sprite.src.h = v;
+    GetGraphic( id )->data.sprite.src.x += v;
+};
+
+float NasrGraphicsSpriteGetSrcY( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetSrcY Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.sprite.src.y;
+};
+
+void NasrGraphicsSpriteSetSrcY( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetSrcY Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.src.y = v;
     UpdateSpriteVertices( id );
+};
+
+void NasrGraphicsSpriteAddToSrcY( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteAddToSrcY Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.src.y += v;
 };
 
 float NasrGraphicsSpriteGetSrcW( unsigned int id )
@@ -2906,6 +2899,55 @@ void NasrGraphicsSpriteSetSrcW( unsigned int id, float v )
     UpdateSpriteVertices( id );
 };
 
+void NasrGraphicsSpriteAddToSrcW( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteAddToSrcW Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.src.w += v;
+};
+
+float NasrGraphicsSpriteGetSrcH( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetSrcH Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.sprite.src.h;
+};
+
+void NasrGraphicsSpriteSetSrcH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetSrcH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.src.h = v;
+    UpdateSpriteVertices( id );
+};
+
+void NasrGraphicsSpriteAddToSrcH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteAddToSrcH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.src.h += v;
+};
+
 float NasrGraphicsSpriteGetRotationX( unsigned int id )
 {
     #ifdef NASR_SAFE
@@ -2928,6 +2970,18 @@ void NasrGraphicsSpriteSetRotationX( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.rotation_x = v;
+};
+
+void NasrGraphicsSpriteAddToRotationX( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteAddToRotationX Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.rotation_x += v;
 };
 
 float NasrGraphicsSpriteGetRotationY( unsigned int id )
@@ -2954,28 +3008,16 @@ void NasrGraphicsSpriteSetRotationY( unsigned int id, float v )
     GetGraphic( id )->data.sprite.rotation_y = v;
 };
 
-uint_fast8_t NasrGraphicsSpriteGetPalette( unsigned int id )
+void NasrGraphicsSpriteAddToRotationY( unsigned int id, float v )
 {
     #ifdef NASR_SAFE
         if ( id >= max_graphics )
         {
-            NasrLog( "NasrGraphicsSpriteGetPalette Error: invalid id %u", id );
-            return 0;
-        }
-    #endif
-    return GetGraphic( id )->data.sprite.palette;
-};
-
-void NasrGraphicsSpriteSetPalette( unsigned int id, uint_fast8_t v )
-{
-    #ifdef NASR_SAFE
-        if ( id >= max_graphics )
-        {
-            NasrLog( "NasrGraphicsSpriteSetPalette Error: invalid id %u", id );
+            NasrLog( "NasrGraphicsSpriteAddToRotationY Error: invalid id %u", id );
             return;
         }
     #endif
-    GetGraphic( id )->data.sprite.palette = v;
+    GetGraphic( id )->data.sprite.rotation_y += v;
 };
 
 float NasrGraphicsSpriteGetRotationZ( unsigned int id )
@@ -3002,6 +3044,66 @@ void NasrGraphicsSpriteSetRotationZ( unsigned int id, float v )
     GetGraphic( id )->data.sprite.rotation_z = v;
 };
 
+void NasrGraphicsSpriteAddToRotationZ( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteAddToRotationZ Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.rotation_z += v;
+};
+
+uint_fast8_t NasrGraphicsSpriteGetPalette( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetPalette Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+    return GetGraphic( id )->data.sprite.palette;
+};
+
+void NasrGraphicsSpriteSetPalette( unsigned int id, uint_fast8_t v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.palette = v;
+};
+
+void NasrGraphicsSpriteIncrementPalette( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteIncrementPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    ++GetGraphic( id )->data.sprite.palette;
+};
+
+void NasrGraphicsSpriteDecrementPalette( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteDecrementPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    --GetGraphic( id )->data.sprite.palette;
+};
+
 float NasrGraphicsSpriteGetOpacity( unsigned int id )
 {
     #ifdef NASR_SAFE
@@ -3024,6 +3126,18 @@ void NasrGraphicsSpriteSetOpacity( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.opacity = v;
+};
+
+void NasrGraphicsSpriteAddToOpacity( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteAddToOpacity Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.opacity += v;
 };
 
 uint_fast8_t NasrGraphicsSpriteGetFlipX( unsigned id )
@@ -3100,6 +3214,30 @@ void NasrGraphicsSpriteFlipY( unsigned id )
     #endif
     GetGraphic( id )->data.sprite.flip_y = !GetGraphic( id )->data.sprite.flip_y;
     UpdateSpriteY( id );
+};
+
+unsigned int NasrGraphicsSpriteGetTexture( unsigned id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteGetTexture Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+    return GetGraphic( id )->data.sprite.texture;
+};
+
+void NasrGraphicsSpriteSetTexture( unsigned id, unsigned int v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsSpriteSetTexture Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.sprite.texture = v;
 };
 
 
@@ -3249,12 +3387,12 @@ void NasrGraphicsRectAddToH( unsigned int id, float v )
     GetGraphic( id )->data.rect.rect.h += v;
 };
 
-void NasrGraphicRectSetColor( unsigned int id, NasrColor v )
+void NasrGraphicsRectSetColor( unsigned int id, NasrColor v )
 {
     #ifdef NASR_SAFE
         if ( id >= max_graphics )
         {
-            NasrLog( "NasrGraphicRectSetColor Error: invalid id %u", id );
+            NasrLog( "NasrGraphicsRectSetColor Error: invalid id %u", id );
             return;
         }
     #endif
@@ -3268,12 +3406,12 @@ void NasrGraphicRectSetColor( unsigned int id, NasrColor v )
     ClearBufferBindings();
 };
 
-void NasrGraphicRectSetColorR( unsigned int id, float v )
+void NasrGraphicsRectSetColorR( unsigned int id, float v )
 {
     #ifdef NASR_SAFE
         if ( id >= max_graphics )
         {
-            NasrLog( "NasrGraphicRectSetColorR Error: invalid id %u", id );
+            NasrLog( "NasrGraphicsRectSetColorR Error: invalid id %u", id );
             return;
         }
     #endif
@@ -3284,12 +3422,12 @@ void NasrGraphicRectSetColorR( unsigned int id, float v )
     ClearBufferBindings();
 };
 
-void NasrGraphicRectSetColorG( unsigned int id, float v )
+void NasrGraphicsRectSetColorG( unsigned int id, float v )
 {
     #ifdef NASR_SAFE
         if ( id >= max_graphics )
         {
-            NasrLog( "NasrGraphicRectSetColorG Error: invalid id %u", id );
+            NasrLog( "NasrGraphicsRectSetColorG Error: invalid id %u", id );
             return;
         }
     #endif
@@ -3300,12 +3438,12 @@ void NasrGraphicRectSetColorG( unsigned int id, float v )
     ClearBufferBindings();
 };
 
-void NasrGraphicRectSetColorB( unsigned int id, float v )
+void NasrGraphicsRectSetColorB( unsigned int id, float v )
 {
     #ifdef NASR_SAFE
         if ( id >= max_graphics )
         {
-            NasrLog( "NasrGraphicRectSetColorB Error: invalid id %u", id );
+            NasrLog( "NasrGraphicsRectSetColorB Error: invalid id %u", id );
             return;
         }
     #endif
@@ -3316,12 +3454,12 @@ void NasrGraphicRectSetColorB( unsigned int id, float v )
     ClearBufferBindings();
 };
 
-void NasrGraphicRectSetColorA( unsigned int id, float v )
+void NasrGraphicsRectSetColorA( unsigned int id, float v )
 {
     #ifdef NASR_SAFE
         if ( id >= max_graphics )
         {
-            NasrLog( "NasrGraphicRectSetColorA Error: invalid id %u", id );
+            NasrLog( "NasrGraphicsRectSetColorA Error: invalid id %u", id );
             return;
         }
     #endif
@@ -3330,6 +3468,1223 @@ void NasrGraphicRectSetColorA( unsigned int id, float v )
     vptr[ 7 ] = vptr[ 7 + VERTEX_SIZE ] = vptr[ 7 + VERTEX_SIZE * 2 ] = vptr[ 7 + VERTEX_SIZE * 3 ] = v / 255.0f;
     BufferVertices( vptr );
     ClearBufferBindings();
+};
+
+
+
+// RectGraphicsGradient Manipulation
+float NasrGraphicsRectGradientGetX( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientGetX Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.gradient.rect.x;
+};
+
+void NasrGraphicsRectGradientSetX( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetX Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.gradient.rect.x = v;
+};
+
+void NasrGraphicsRectGradientAddToX( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientAddToX Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.gradient.rect.x += v;
+};
+
+float NasrGraphicsRectGradientGetY( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientGetY Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.gradient.rect.y;
+};
+
+void NasrGraphicsRectGradientSetY( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetY Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.gradient.rect.y = v;
+};
+
+void NasrGraphicsRectGradientAddToY( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientAddToY Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.gradient.rect.y += v;
+};
+
+float NasrGraphicsRectGradientGetW( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientGetW Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.gradient.rect.w;
+};
+
+void NasrGraphicsRectGradientSetW( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetW Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.gradient.rect.w = v;
+};
+
+void NasrGraphicsRectGradientAddToW( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientAddToW Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.gradient.rect.w += v;
+};
+
+float NasrGraphicsRectGradientGetH( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientGetH Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.gradient.rect.h;
+};
+
+void NasrGraphicsRectGradientSetH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.gradient.rect.h = v;
+};
+
+void NasrGraphicsRectGradientAddToH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientAddToH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.gradient.rect.h += v;
+};
+
+uint_fast8_t NasrGraphicsRectGradientGetDir( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientGetDir Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+    return GetGraphic( id )->data.gradient.dir;
+};
+
+void NasrGraphicsRectGradientSetDir( unsigned int id, uint_fast8_t dir )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetDir Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+
+    NasrGraphicRectGradient * r = &GetGraphic( id )->data.gradient;
+    NasrColor color1;
+    NasrColor color2;
+
+    switch ( r->dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            color2 = r->color1;
+            color1 = r->color3;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            color1 = r->color1;
+            color2 = r->color2;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            color1 = r->color1;
+            color2 = r->color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            color1 = r->color1;
+            color2 = r->color3;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            color1 = r->color1;
+            color2 = r->color3;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            color1 = r->color1;
+            color2 = r->color4;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            color2 = r->color1;
+            color1 = r->color2;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            color2 = r->color1;
+            color1 = r->color2;
+        }
+        break;
+        default:
+        {
+            // Default direction.
+            color2 = r->color1;
+            color1 = r->color3;
+        }
+        break;
+    }
+
+    r->dir = dir;
+    switch ( dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            r->color3 = r->color4 = color1;
+            r->color1 = r->color2 = color2;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            r->color1 = r->color3 = r->color4 = color1;
+            r->color2 = color2;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            r->color1 = r->color3 = color1;
+            r->color2 = r->color4 = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            r->color1 = r->color2 = r->color4 = color1;
+            r->color3 = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            r->color1 = r->color2 = color1;
+            r->color3 = r->color4 = color2;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            r->color1 = r->color2 = r->color3 = color1;
+            r->color4 = color2;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            r->color1 = r->color3 = color2;
+            r->color2 = r->color4 = color1;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            r->color1 = color2;
+            r->color2 = r->color3 = r->color4 = color1;
+        }
+        break;
+        default:
+        {
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsRectGradientSetDir! %d\n", dir );
+
+            // Default direction.
+            r->color1 = r->color2 = color2;
+            r->color3 = r->color4 = color1;
+        }
+        break;
+    }
+    ResetVertices( GetVertices( id ) );
+    SetVerticesColors( id, &r->color1, &r->color2, &r->color3, &r->color4 );
+};
+
+void NasrGraphicsRectGradientSetColor1( unsigned int id, NasrColor color )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor1 Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    NasrGraphicRectGradient * r = &GetGraphic( id )->data.gradient;
+    switch ( r->dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            r->color3 = r->color4 = color;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            r->color1 = r->color3 = r->color4 = color;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            r->color1 = r->color3 = color;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            r->color1 = r->color2 = r->color4 = color;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            r->color1 = r->color2 = color;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            r->color1 = r->color2 = r->color3 = color;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            r->color2 = r->color4 = color;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            r->color1 = r->color2 = r->color3 = r->color4 = color;
+        }
+        break;
+        default:
+        {
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsRectGradientSetColor1! %d\n", r->dir );
+
+            // Default direction.
+            r->color3 = r->color4 = color;
+        }
+        break;
+    }
+    ResetVertices( GetVertices( id ) );
+    SetVerticesColors( id, &r->color1, &r->color2, &r->color3, &r->color4 );
+};
+
+void NasrGraphicsRectGradientSetColor1R( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor1R Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrColor c = GetGraphic( id )->data.gradient.color1;
+    c.r = v;
+    NasrGraphicsRectGradientSetColor1( id, c );
+};
+
+void NasrGraphicsRectGradientSetColor1G( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor1G Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrColor c = GetGraphic( id )->data.gradient.color1;
+    c.g = v;
+    NasrGraphicsRectGradientSetColor1( id, c );
+};
+
+void NasrGraphicsRectGradientSetColor1B( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor1B Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrColor c = GetGraphic( id )->data.gradient.color1;
+    c.b = v;
+    NasrGraphicsRectGradientSetColor1( id, c );
+};
+
+void NasrGraphicsRectGradientSetColor1A( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor1A Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrColor c = GetGraphic( id )->data.gradient.color1;
+    c.a = v;
+    NasrGraphicsRectGradientSetColor1( id, c );
+};
+
+void NasrGraphicsRectGradientSetColor2( unsigned int id, NasrColor color )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor2 Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    NasrGraphicRectGradient * r = &GetGraphic( id )->data.gradient;
+    switch ( r->dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            r->color1 = r->color2 = color;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            r->color2 = color;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            r->color2 = r->color4 = color;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            r->color3 = color;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            r->color3 = r->color4 = color;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            r->color4 = color;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            r->color1 = r->color3 = color;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+        }
+        break;
+        default:
+        {
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsRectGradientSetColor2! %d\n", r->dir );
+
+            // Default direction.
+            r->color1 = r->color2 = color;
+        }
+        break;
+    }
+    ResetVertices( GetVertices( id ) );
+    SetVerticesColors( id, &r->color1, &r->color2, &r->color3, &r->color4 );
+};
+
+void NasrGraphicsRectGradientSetColor2R( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor2R Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrColor c = GetGraphic( id )->data.gradient.color2;
+    c.r = v;
+    NasrGraphicsRectGradientSetColor2( id, c );
+};
+
+void NasrGraphicsRectGradientSetColor2G( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor2G Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrColor c = GetGraphic( id )->data.gradient.color2;
+    c.g = v;
+    NasrGraphicsRectGradientSetColor2( id, c );
+};
+
+void NasrGraphicsRectGradientSetColor2B( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor2B Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrColor c = GetGraphic( id )->data.gradient.color2;
+    c.b = v;
+    NasrGraphicsRectGradientSetColor2( id, c );
+};
+
+void NasrGraphicsRectGradientSetColor2A( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientSetColor2A Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrColor c = GetGraphic( id )->data.gradient.color2;
+    c.a = v;
+    NasrGraphicsRectGradientSetColor2( id, c );
+};
+
+
+
+// RectGraphicsPalette Manipulation
+float NasrGraphicsRectPaletteGetX( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteGetX Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.rect.x;
+};
+
+void NasrGraphicsRectPaletteSetX( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteSetX Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.x = v;
+};
+
+void NasrGraphicsRectPaletteAddToX( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteAddToX Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.x += v;
+};
+
+float NasrGraphicsRectPaletteGetY( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteGetY Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.rect.y;
+};
+
+void NasrGraphicsRectPaletteSetY( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteSetY Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.y = v;
+};
+
+void NasrGraphicsRectPaletteAddToY( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteAddToY Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.y += v;
+};
+
+float NasrGraphicsRectPaletteGetW( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteGetW Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.rect.w;
+};
+
+void NasrGraphicsRectPaletteSetW( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteSetW Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.w = v;
+};
+
+void NasrGraphicsRectPaletteAddToW( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteAddToW Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.w += v;
+};
+
+float NasrGraphicsRectPaletteGetH( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteGetH Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.rect.h;
+};
+
+void NasrGraphicsRectPaletteSetH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteSetH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.h = v;
+};
+
+void NasrGraphicsRectPaletteAddToH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteAddToH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.h += v;
+};
+
+uint_fast8_t NasrGraphicsRectPaletteGetPalette( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteGetPalette Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.palette;
+};
+
+void NasrGraphicsRectPaletteSetPalette( unsigned int id, uint_fast8_t v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteSetPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.palette = v;
+};
+
+void NasrGraphicsRectPaletteIncrementPalette( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteIncrementPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    ++GetGraphic( id )->data.rectpal.palette;
+};
+
+void NasrGraphicsRectPaletteDecrementPalette( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteDecrementPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    --GetGraphic( id )->data.rectpal.palette;
+};
+
+
+uint_fast8_t NasrGraphicsRectPaletteGetColor( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteGetColor Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.color1;
+};
+
+void NasrGraphicsRectPaletteSetColor( unsigned int id, uint_fast8_t v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteSetColor Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.color1 =
+        GetGraphic( id )->data.rectpal.color2 = v;
+    GraphicsUpdateRectPalette( id, v );
+};
+
+void NasrGraphicsRectPaletteIncrementColor( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteIncrementColor Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GraphicsUpdateRectPalette( id, ++GetGraphic( id )->data.rectpal.color1 );
+};
+
+void NasrGraphicsRectPaletteDecrementColor( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteDecrementColor Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GraphicsUpdateRectPalette( id, --GetGraphic( id )->data.rectpal.color1 );
+};
+
+
+
+// RectGraphicsGradientPalette Manipulation
+float NasrGraphicsRectGradientPaletteGetX( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteGetX Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.rect.x;
+};
+
+void NasrGraphicsRectGradientPaletteSetX( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteSetX Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.x = v;
+};
+
+void NasrGraphicsRectGradientPaletteAddToX( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteAddToX Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.x += v;
+};
+
+float NasrGraphicsRectGradientPaletteGetY( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteGetY Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.rect.y;
+};
+
+void NasrGraphicsRectGradientPaletteSetY( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteSetY Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.y = v;
+};
+
+void NasrGraphicsRectGradientPaletteAddToY( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteAddToY Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.y += v;
+};
+
+float NasrGraphicsRectGradientPaletteGetW( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteGetW Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.rect.w;
+};
+
+void NasrGraphicsRectGradientPaletteSetW( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteSetW Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.w = v;
+};
+
+void NasrGraphicsRectGradientPaletteAddToW( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteAddToW Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.w += v;
+};
+
+float NasrGraphicsRectGradientPaletteGetH( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteGetH Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.rect.h;
+};
+
+void NasrGraphicsRectGradientPaletteSetH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteSetH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.h = v;
+};
+
+void NasrGraphicsRectGradientPaletteAddToH( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteAddToH Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.rect.h += v;
+};
+
+uint_fast8_t NasrGraphicsRectGradientPaletteGetDir( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteGetDir Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.dir;
+};
+
+void NasrGraphicsRectGradientPaletteSetDir( unsigned int id, uint_fast8_t v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteSetDir Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.dir = v;
+};
+
+uint_fast8_t NasrGraphicsRectGradientPaletteGetPalette( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteGetPalette Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.palette;
+};
+
+void NasrGraphicsRectGradientPaletteSetPalette( unsigned int id, uint_fast8_t v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteSetPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.palette = v;
+};
+
+void NasrGraphicsRectGradientPaletteIncrementPalette( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteIncrementPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    ++GetGraphic( id )->data.rectpal.palette;
+};
+
+void NasrGraphicsRectGradientPaletteDecrementPalette( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteDecrementPalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    --GetGraphic( id )->data.rectpal.palette;
+};
+
+uint_fast8_t NasrGraphicsRectGradientPaletteGetColor1( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteGetColor1 Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.color1;
+};
+
+void NasrGraphicsRectGradientPaletteSetColor1( unsigned int id, uint_fast8_t v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteSetColor1 Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    NasrGraphicRectPalette * r = &GetGraphic( id )->data.rectpal;
+
+    r->color1 = v;
+    uint_fast8_t c[ 4 ];
+
+    switch ( r->dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            c[ 2 ] = c[ 3 ] = v;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            c[ 0 ] = c[ 2 ] = c[ 3 ] = v;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            c[ 0 ] = c[ 2 ] = v;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            c[ 0 ] = c[ 1 ] = c[ 2 ] = v;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            c[ 0 ] = c[ 1 ] = v;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            c[ 0 ] = c[ 1 ] = c[ 3 ] = v;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            c[ 1 ] = c[ 3 ] = v;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            c[ 1 ] = c[ 2 ] = c[ 3 ] = v;
+        }
+        break;
+        default:
+        {
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsRectGradientPaletteSetColor1! %d\n", r->dir );
+
+            // Default direction.
+            c[ 2 ] = c[ 3 ] = v;
+        }
+        break;
+    }
+
+    GraphicsRectGradientPaletteUpdateColors( id, c );
+};
+
+void NasrGraphicsRectGradientPaletteIncrementColor1( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteIncrementColor1 Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrGraphicsRectGradientPaletteSetColor1( id, GetGraphic( id )->data.rectpal.color1 + 1 );
+};
+
+void NasrGraphicsRectGradientPaletteDecrementColor1( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteDecrementColor1 Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    NasrGraphicsRectGradientPaletteSetColor1( id, GetGraphic( id )->data.rectpal.color1 - 1 );
+};
+
+uint_fast8_t NasrGraphicsRectGradientPaletteGetColor2( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteGetColor2 Error: invalid id %u", id );
+            return 0;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.color2;
+};
+
+void NasrGraphicsRectGradientPaletteSetColor2( unsigned int id, uint_fast8_t v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteSetColor2 Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    NasrGraphicRectPalette * r = &GetGraphic( id )->data.rectpal;
+
+    r->color1 = v;
+    uint_fast8_t c[ 4 ];
+
+    switch ( r->dir )
+    {
+        case ( NASR_DIR_UP ):
+        {
+            c[ 0 ] = c[ 1 ] = v;
+        }
+        break;
+        case ( NASR_DIR_UPRIGHT ):
+        {
+            c[ 1 ] = v;
+        }
+        break;
+        case ( NASR_DIR_RIGHT ):
+        {
+            c[ 1 ] = c[ 3 ] = v;
+        }
+        break;
+        case ( NASR_DIR_DOWNRIGHT ):
+        {
+            c[ 3 ] = v;
+        }
+        break;
+        case ( NASR_DIR_DOWN ):
+        {
+            c[ 2 ] = c[ 3 ] = v;
+        }
+        break;
+        case ( NASR_DIR_DOWNLEFT ):
+        {
+            c[ 2 ] = v;
+        }
+        break;
+        case ( NASR_DIR_LEFT ):
+        {
+            c[ 0 ] = c[ 2 ] = v;
+        }
+        break;
+        case ( NASR_DIR_UPLEFT ):
+        {
+            c[ 0 ] = v;
+        }
+        break;
+        default:
+        {
+            NasrLog( "¡Invalid gradient direction for NasrGraphicsRectGradientPaletteSetColor2! %d\n", r->dir );
+
+            // Default direction.
+            c[ 0 ] = c[ 1 ] = v;
+        }
+        break;
+    }
+
+    GraphicsRectGradientPaletteUpdateColors( id, c );
+};
+
+void NasrGraphicsRectGradientPaletteIncrementColor2( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteIncrementColor2 Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GraphicsUpdateRectPalette( id, ++GetGraphic( id )->data.rectpal.color2 );
+};
+
+void NasrGraphicsRectGradientPaletteDecrementColor2( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectGradientPaletteDecrementColor2 Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GraphicsUpdateRectPalette( id, --GetGraphic( id )->data.rectpal.color2 );
 };
 
 
@@ -3954,7 +5309,7 @@ void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, Na
         break;
         default:
         {
-            printf( "¡Invalid gradient direction for NasrDrawGradientRectToTexture! %d\n", dir );
+            NasrLog( "¡Invalid gradient direction for NasrDrawGradientRectToTexture! %d\n", dir );
         }
         break;
     }
@@ -4802,6 +6157,31 @@ static int GraphicAddText
     return id;
 };
 
+static void GraphicsRectGradientPaletteUpdateColors( unsigned int id, uint_fast8_t * c )
+{
+    NasrColor cobj[ 4 ];
+    for ( int i = 0; i < 4; ++i )
+    {
+        cobj[ i ].r = ( float )( c[ i ] );
+        cobj[ i ].a = 255.0f;
+    }
+    ResetVertices( GetVertices( id ) );
+    SetVerticesColors( id, &cobj[ 0 ], &cobj[ 1 ], &cobj[ 2 ], &cobj[ 3 ] );
+};
+
+static void GraphicsUpdateRectPalette( unsigned int id, uint_fast8_t color )
+{
+    NasrColor c =
+    {
+        ( float )( color ),
+        0.0f,
+        0.0f,
+        255.0f
+    };
+    ResetVertices( GetVertices( id ) );
+    SetVerticesColors( id, &c, &c, &c, &c );
+};
+
 static int GrowGraphics( void )
 {
     const unsigned int new_max_graphics = max_graphics * 2;
@@ -4950,16 +6330,6 @@ static void SetVerticesView( float x, float y, uint_fast8_t abs )
 static void SetupVertices( unsigned int vao )
 {
     glDrawElements( GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 );
-};
-
-static TextureMapEntry * TextureMapHashFindEntry( const char * needle_string, hash_t needle_hash )
-{
-    TextureMapEntry * entry = &texture_map[ needle_hash ];
-    while ( entry && strcmp( entry->key.string, needle_string ) > 0 )
-    {
-        entry = entry->next;
-    }
-    return entry && strcmp( entry->key.string, needle_string ) == 0 ? entry : NULL;
 };
 
 static uint32_t TextureMapHashString( const char * key )

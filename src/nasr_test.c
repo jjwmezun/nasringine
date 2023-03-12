@@ -74,7 +74,8 @@ void NasrTestRun( void )
         NASR_DIR_DOWN,
         255,
         1,
-        1
+        1,
+        0.5f
     );
 
     #define RECTCOUNT 128
@@ -405,7 +406,7 @@ void NasrTestRun( void )
 
     NasrColor texcolor1 = { 255.0f, 16.0f, 64.0f, 255.0f };
     NasrColor texcolor2 = { 64.0f, 16.0f, 255.0f, 255.0f };
-    const int textid = NasrGraphicAddTextGradientPalette(
+    const int textid = NasrGraphicsAddTextGradientPalette(
         1,
         2,
         0,
@@ -416,7 +417,7 @@ void NasrTestRun( void )
         255,
         1
     );
-    const int textid2 = NasrGraphicAddTextGradient(
+    const int textid2 = NasrGraphicsAddTextGradient(
         0,
         2,
         0,
@@ -426,7 +427,7 @@ void NasrTestRun( void )
         texcolor2
     );
     NasrGraphicsTextSetCount( textid2, 0 );
-    NasrGraphicAddTextPalette(
+    NasrGraphicsAddTextPalette(
         0,
         2,
         0,
@@ -435,7 +436,7 @@ void NasrTestRun( void )
         1,
         255
     );
-    NasrGraphicAddTextGradient(
+    NasrGraphicsAddTextGradient(
         0,
         2,
         0,
@@ -509,6 +510,28 @@ void NasrTestRun( void )
         1.0f
     );
 
+    digits = NasrGraphicsAddCounterPaletteGradient
+    (
+        1,
+        3,
+        0,
+        charset1,
+        7456.2368,
+        3,
+        3,
+        0,
+        0,
+        128,
+        NASR_DIR_DOWN,
+        200,
+        32,
+        0,
+        16.0f,
+        16.0f,
+        1.0f,
+        1.0f
+    );
+
     nasrinid = NasrGraphicsAddSprite
     (
         0,
@@ -528,6 +551,46 @@ void NasrTestRun( void )
     );
 
     int boxi = -1;
+
+    const NasrRect ranr = { 200.0f, 16.0f, 200.0f, 100.0f };
+    const int ran = NasrGraphicsAddRectPalette
+    (
+        1,
+        4,
+        12,
+        ranr,
+        128,
+        64,
+        0,
+        0.5f
+    );
+
+    NasrRect clockrect = { 0.0f, 0.0f, 9.0f, 9.0f };
+    NasrText clocktext =
+    {
+        "🕑",
+        charset2,
+        clockrect,
+        NASR_ALIGN_LEFT,
+        NASR_VALIGN_TOP,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.5f,
+        1.0f
+    };
+    NasrColor clockcolor = { 128.0f, 32.0f, 255.0f, 255.0f };
+    NasrGraphicsAddText
+    (
+        1,
+        4,
+        12,
+        clocktext,
+        clockcolor
+    );
 
     while ( running )
     {
@@ -571,16 +634,21 @@ void NasrTestRun( void )
 
             if ( NasrHeld( INPUT_Z ) )
             {
-                NasrSetTextOpacity( textid, 0.2f );
-                NasrSetCounterOpacity( digits, 0.5f );
+                /*
+                uint_fast8_t d = NasrGraphicsRectGradientGetDir( ran ) + 1;
+                if ( d >= 8 )
+                {
+                    d = 0;
+                }*/
+                NasrGraphicsRectPaletteSetColor( ran, 3 );
             }
             else if ( NasrPressed( INPUT_Y ) )
             {
+                NasrGraphicsRectPaletteSetColor( ran, 244 );
             }
 
             if ( digits > -1 )
             {
-                //NasrGraphicsCounterSetNumber( digits, fps );
             }
             if ( boxi < 0 && NasrHeld( INPUT_UP ) )
             {
@@ -628,7 +696,6 @@ void NasrTestRun( void )
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {
-                NasrGraphicsClearState( 2 );
             }
 
             if ( NasrHeld( INPUT_LEFT ) )
