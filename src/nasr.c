@@ -72,6 +72,7 @@ typedef struct NasrGraphicRectPalette
     uint_fast8_t color1;
     uint_fast8_t color2;
     uint_fast8_t useglobalpal;
+    float opacity;
 } NasrGraphicRectPalette;
 
 typedef struct NasrGraphicRectGradient
@@ -523,7 +524,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\n\nuniform sampler2D palette_data;\nuniform float palette_id;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\n\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= opacity;\n}"
         }
     };
     
@@ -678,6 +679,8 @@ void NasrUpdate( float dt )
                 GLint palette_id_location = glGetUniformLocation( rect_pal_shader, "palette_id" );
                 glUniform1f( palette_id_location, ( float )( graphics[ i ].data.rectpal.useglobalpal ? global_palette : graphics[ i ].data.rectpal.palette ) );
                 GLint palette_data_location = glGetUniformLocation( rect_pal_shader, "palette_data" );
+                GLint opacity_location = glGetUniformLocation( rect_pal_shader, "opacity" );
+                glUniform1f( opacity_location, graphics[ i ].data.rectpal.opacity );
                 glActiveTexture( GL_TEXTURE1 );
                 glBindTexture( GL_TEXTURE_2D, palette_texture_id );
                 glUniform1i( palette_data_location, 1 );
@@ -1691,7 +1694,8 @@ int NasrGraphicsAddRectPalette
     struct NasrRect rect,
     uint_fast8_t palette,
     uint_fast8_t color,
-    uint_fast8_t useglobalpal
+    uint_fast8_t useglobalpal,
+    float opacity
 )
 {
     struct NasrGraphic graphic;
@@ -1701,6 +1705,7 @@ int NasrGraphicsAddRectPalette
     graphic.data.rectpal.palette = palette;
     graphic.data.rectpal.color1 = graphic.data.rectpal.color2 = color;
     graphic.data.rectpal.useglobalpal = useglobalpal;
+    graphic.data.rectpal.opacity = opacity;
     const int id = AddGraphic( state, layer, graphic );
     if ( id >= 0 )
     {
@@ -1719,7 +1724,8 @@ int NasrGraphicsAddRectGradientPalette
     uint_fast8_t dir,
     uint_fast8_t color1,
     uint_fast8_t color2,
-    uint_fast8_t useglobalpal
+    uint_fast8_t useglobalpal,
+    float opacity
 )
 {
     uint_fast8_t c[ 4 ];
@@ -1793,6 +1799,7 @@ int NasrGraphicsAddRectGradientPalette
     graphic.data.rectpal.color1 = color1;
     graphic.data.rectpal.color2 = color2;
     graphic.data.rectpal.useglobalpal = useglobalpal;
+    graphic.data.rectpal.opacity = opacity;
     const int id = AddGraphic( state, layer, graphic );
     if ( id > -1 )
     {

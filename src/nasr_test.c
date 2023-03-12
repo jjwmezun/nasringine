@@ -76,7 +76,8 @@ void NasrTestRun( void )
         NASR_DIR_DOWN,
         255,
         1,
-        1
+        1,
+        0.5f
     );
 
     #define RECTCOUNT 128
@@ -617,7 +618,7 @@ void NasrTestRun( void )
 
     int boxi = -1;
 
-    const NasrRect ranr = { 16.0f, 16.0f, 200.0f, 100.0f };
+    const NasrRect ranr = { 200.0f, 16.0f, 200.0f, 100.0f };
     const int ran = NasrGraphicsAddRectPalette
     (
         1,
@@ -626,7 +627,8 @@ void NasrTestRun( void )
         ranr,
         128,
         64,
-        0
+        0,
+        0.5f
     );
 
     NasrRect clockrect = { 0.0f, 0.0f, 9.0f, 9.0f };

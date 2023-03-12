@@ -180,7 +180,8 @@ int NasrGraphicsAddRectPalette
     struct NasrRect rect,
     uint_fast8_t palette,
     uint_fast8_t color,
-    uint_fast8_t useglobalpal
+    uint_fast8_t useglobalpal,
+    float opacity
 );
 int NasrGraphicsAddRectGradientPalette
 (
@@ -192,7 +193,8 @@ int NasrGraphicsAddRectGradientPalette
     uint_fast8_t dir,
     uint_fast8_t color1,
     uint_fast8_t color2,
-    uint_fast8_t useglobalpal
+    uint_fast8_t useglobalpal,
+    float opacity
 );
 int NasrGraphicsAddSprite
 (
