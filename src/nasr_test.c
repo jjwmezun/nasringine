@@ -103,6 +103,7 @@ void NasrTestRun( void )
     int texture = NasrLoadFileAsTextureEx( "assets/nasrin.png", NASR_SAMPLING_LINEAR, NASR_INDEXED_NO );
     int tilestext = NasrLoadFileAsTexture( "assets/tilemap.png" );
 
+    /*
     const NasrRect s = { 0.0f, 0.0f, 16.0f, 25.0f };
     for ( int i = 1; i <= 500; ++i )
     {
@@ -141,7 +142,7 @@ void NasrTestRun( void )
             0,
             0
         );
-    }
+    }*/
 
     NasrRect src = { 0.0f, 0.0f, 1083.0f, 1881.0f };
     NasrRect dest = { 200.0f, 100.0f, 54.15f, 94.05f };
@@ -194,8 +195,12 @@ void NasrTestRun( void )
         tiles,
         tilesw,
         tilesh,
-        1
+        0
     );
+
+    NasrTile till = { 5, 1, 150, 2 };
+    NasrGraphicsTilemapSetTile( tilemap1, 5, 1, till );
+    NasrGraphicsTilemapClearTile( tilemap1, 5, tilesh - 1 );
 
     NasrTile tiles2[ tilesw * tilesh ];
     for ( int i = 0; i < tilesw * tilesh; ++i )

@@ -107,6 +107,7 @@ typedef struct NasrGraphicTilemap
     NasrRect src;
     NasrRect dest;
     int_fast8_t useglobalpal;
+    unsigned char * data;
 } NasrGraphicTilemap;
 
 typedef struct NasrGraphicText
@@ -1870,6 +1871,11 @@ int NasrGraphicsAddTilemap
 {
     // Generate texture from tile data.
     unsigned char * data = ( unsigned char * )( calloc( w * h * 4, sizeof( unsigned char ) ) );
+    if ( data == NULL )
+    {
+        NasrLog( "Couldn’t generate tilemap." );
+        return -1;
+    }
     int i4 = 0;
     for ( int i = 0; i < w * h; ++i )
     {
@@ -1879,15 +1885,11 @@ int NasrGraphicsAddTilemap
         data[ i4 + 3 ] = tiles[ i ].animation;
         i4 += 4;
     }
-    if ( data == NULL )
-    {
-        NasrLog( "Couldn’t generate tilemap." );
-        return -1;
-    }
     const int tilemap_texture = NasrAddTextureEx( data, w, h, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
-    free( data );
+
     if ( tilemap_texture < 0 )
     {
+        free( data );
         return -1;
     }
 
@@ -1905,6 +1907,7 @@ int NasrGraphicsAddTilemap
     graphic.data.tilemap.dest.w = ( float )( w ) * 16.0f;
     graphic.data.tilemap.dest.h = ( float )( h ) * 16.0f;
     graphic.data.tilemap.useglobalpal = useglobalpal;
+    graphic.data.tilemap.data = data;
     const int id = AddGraphic( state, layer, graphic );
     if ( id > -1 )
     {
@@ -4707,6 +4710,165 @@ void NasrGraphicsTilemapSetY( unsigned int id, float v )
     GetGraphic( id )->data.tilemap.dest.y = v;
 };
 
+unsigned int NasrGraphicsTilemapGetWidth( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapGetWidth Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    return textures[ GetGraphic( id )->data.tilemap.tilemap ].width;
+};
+
+unsigned int NasrGraphicsTilemapGetHeight( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapGetHeight Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    return textures[ GetGraphic( id )->data.tilemap.tilemap ].height;
+};
+
+void NasrGraphicsTilemapSetTileX( unsigned int id, unsigned int x, unsigned int y, unsigned char v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapSetTileX Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    #define TEX textures[ t->tilemap ]
+    NasrGraphicTilemap * t = &GetGraphic( id )->data.tilemap;
+    const unsigned int i = ( y * TEX.width + x ) * 4;
+    t->data[ i ] = v;
+
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ t->tilemap ] );
+    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, TEX.width, TEX.height, GL_RGBA, GL_UNSIGNED_BYTE, t->data );
+    ClearBufferBindings();
+
+    #undef TEX
+};
+
+void NasrGraphicsTilemapSetTileY( unsigned int id, unsigned int x, unsigned int y, unsigned char v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapSetTileY Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    #define TEX textures[ t->tilemap ]
+    NasrGraphicTilemap * t = &GetGraphic( id )->data.tilemap;
+    const unsigned int i = ( ( y * TEX.width + x ) * 4 ) + 1;
+    t->data[ i ] = v;
+
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ t->tilemap ] );
+    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, TEX.width, TEX.height, GL_RGBA, GL_UNSIGNED_BYTE, t->data );
+    ClearBufferBindings();
+
+    #undef TEX
+};
+
+void NasrGraphicsTilemapSetTilePalette( unsigned int id, unsigned int x, unsigned int y, unsigned char v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapSetTilePalette Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    #define TEX textures[ t->tilemap ]
+    NasrGraphicTilemap * t = &GetGraphic( id )->data.tilemap;
+    const unsigned int i = ( ( y * TEX.width + x ) * 4 ) + 2;
+    t->data[ i ] = v;
+
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ t->tilemap ] );
+    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, TEX.width, TEX.height, GL_RGBA, GL_UNSIGNED_BYTE, t->data );
+    ClearBufferBindings();
+
+    #undef TEX
+};
+
+void NasrGraphicsTilemapSetTileAnimation( unsigned int id, unsigned int x, unsigned int y, unsigned char v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapSetTileAnimation Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    #define TEX textures[ t->tilemap ]
+    NasrGraphicTilemap * t = &GetGraphic( id )->data.tilemap;
+    const unsigned int i = ( ( y * TEX.width + x ) * 4 ) + 3;
+    t->data[ i ] = v;
+
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ t->tilemap ] );
+    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, TEX.width, TEX.height, GL_RGBA, GL_UNSIGNED_BYTE, t->data );
+    ClearBufferBindings();
+
+    #undef TEX
+};
+
+void NasrGraphicsTilemapSetTile( unsigned int id, unsigned int x, unsigned int y, NasrTile tile )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapSetTile Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    #define TEX textures[ t->tilemap ]
+    NasrGraphicTilemap * t = &GetGraphic( id )->data.tilemap;
+    const unsigned int i = ( ( y * TEX.width + x ) * 4 );
+    t->data[ i ]     = tile.x;
+    t->data[ i + 1 ] = tile.y;
+    t->data[ i + 2 ] = tile.palette;
+    t->data[ i + 3 ] = tile.animation;
+
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ t->tilemap ] );
+    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, TEX.width, TEX.height, GL_RGBA, GL_UNSIGNED_BYTE, t->data );
+    ClearBufferBindings();
+
+    #undef TEX
+};
+
+void NasrGraphicsTilemapClearTile( unsigned int id, unsigned int x, unsigned int y )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapClearTile Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    #define TEX textures[ t->tilemap ]
+    NasrGraphicTilemap * t = &GetGraphic( id )->data.tilemap;
+    const unsigned int i = ( ( y * TEX.width + x ) * 4 ) + 3;
+    t->data[ i ] = 255;
+
+    glBindTexture( GL_TEXTURE_2D, texture_ids[ t->tilemap ] );
+    glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, TEX.width, TEX.height, GL_RGBA, GL_UNSIGNED_BYTE, t->data );
+    ClearBufferBindings();
+
+    #undef TEX
+};
+
 
 
 // TextGraphics Manipulation
@@ -5606,6 +5768,15 @@ static void DestroyGraphic( NasrGraphic * graphic )
                 free( graphic->data.counter->vertices );
                 free( graphic->data.counter->chars );
                 free( graphic->data.counter );
+            }
+            graphic->type = NASR_GRAPHIC_NONE;
+        }
+        break;
+        case ( NASR_GRAPHIC_TILEMAP ):
+        {
+            if ( graphic->data.tilemap.data )
+            {
+                free( graphic->data.tilemap.data );
             }
             graphic->type = NASR_GRAPHIC_NONE;
         }

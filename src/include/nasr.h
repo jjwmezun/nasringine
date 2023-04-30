@@ -494,6 +494,14 @@ void NasrGraphicsRectGradientPaletteDecrementColor2( unsigned int id );
 // TilemapGraphics Manipulation
 void NasrGraphicsTilemapSetX( unsigned int id, float v );
 void NasrGraphicsTilemapSetY( unsigned int id, float v );
+unsigned int NasrGraphicsTilemapGetWidth( unsigned int id );
+unsigned int NasrGraphicsTilemapGetHeight( unsigned int id );
+void NasrGraphicsTilemapSetTileX( unsigned int id, unsigned int x, unsigned int y, unsigned char v );
+void NasrGraphicsTilemapSetTileY( unsigned int id, unsigned int x, unsigned int y, unsigned char v );
+void NasrGraphicsTilemapSetTilePalette( unsigned int id, unsigned int x, unsigned int y, unsigned char v );
+void NasrGraphicsTilemapSetTileAnimation( unsigned int id, unsigned int x, unsigned int y, unsigned char v );
+void NasrGraphicsTilemapSetTile( unsigned int id, unsigned int x, unsigned int y, NasrTile tile );
+void NasrGraphicsTilemapClearTile( unsigned int id, unsigned int x, unsigned int y );
 
 // TextGraphics Manipulation
 float NasrGraphicsTextGetXOffset( unsigned int id );
