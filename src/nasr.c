@@ -5053,16 +5053,40 @@ void NasrGraphicsCounterSetNumber( unsigned int id, float n )
     ClearBufferBindings(); 
 };
 
-void NasrSetCounterOpacity( unsigned int id, float v )
+void NasrGraphicsCounterSetOpacity( unsigned int id, float v )
 {
     #ifdef NASR_SAFE
         if ( id >= max_graphics )
         {
-            NasrLog( "NasrSetCounterOpacity Error: invalid id %u", id );
+            NasrLog( "NasrGraphicsCounterSetOpacity Error: invalid id %u", id );
             return;
         }
     #endif
     GetGraphic( id )->data.counter->opacity = v;
+};
+
+void NasrGraphicsCounterSetXOffset( unsigned id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsCounterSetXOffset Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.counter->xoffset = v;
+};
+
+void NasrGraphicsCounterSetYOffset( unsigned id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsCounterSetYOffset Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.counter->yoffset = v;
 };
 
 

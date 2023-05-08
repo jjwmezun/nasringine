@@ -565,7 +565,7 @@ void NasrTestRun( void )
         3,
         0,
         charset1,
-        7456.2368,
+        88,
         3,
         3,
         0,
@@ -602,6 +602,9 @@ void NasrTestRun( void )
         1.0f,
         1.0f
     );
+
+    NasrGraphicsCounterSetXOffset( digits, 100.0f );
+    NasrGraphicsCounterSetYOffset( digits, 20.0f );
 
     nasrinid = NasrGraphicsAddSprite
     (

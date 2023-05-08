@@ -516,7 +516,9 @@ void NasrSetTextOpacity( unsigned int id, float v );
 
 // CounterGraphics Manipulation
 void NasrGraphicsCounterSetNumber( unsigned int id, float n );
-void NasrSetCounterOpacity( unsigned int id, float v );
+void NasrGraphicsCounterSetOpacity( unsigned int id, float v );
+void NasrGraphicsCounterSetXOffset( unsigned id, float v );
+void NasrGraphicsCounterSetYOffset( unsigned id, float v );
 
 // Texture
 int NasrLoadFileAsTexture( const char * filename );
