@@ -87,15 +87,16 @@ typedef struct NasrGraphicRectGradient
 
 typedef struct NasrGraphicSprite
 {
-    unsigned int texture;
+    mat4 model;
     NasrRect src;
     NasrRect dest;
-    uint_fast8_t flip_x;
-    uint_fast8_t flip_y;
     float rotation_x;
     float rotation_y;
     float rotation_z;
     float opacity;
+    unsigned int texture;
+    uint_fast8_t flip_x;
+    uint_fast8_t flip_y;
     uint_fast8_t palette;
     int_fast8_t useglobalpal;
 } NasrGraphicSprite;
@@ -352,6 +353,7 @@ static void SetupVertices( unsigned int vao );
 static uint32_t TextureMapHashString( const char * key );
 static void UpdateShaderOrtho( float x, float y, float w, float h );
 static void UpdateShaderOrthoToCamera( void );
+static void UpdateSpriteModel( unsigned int id );
 static void UpdateSpriteVertices( unsigned int id );
 static void UpdateSpriteVerticesValues( float * vptr, const NasrGraphicSprite * sprite );
 static void UpdateSpriteX( unsigned int id );
@@ -708,17 +710,8 @@ void NasrUpdate( float dt )
 
                 SetVerticesView( DEST.x + ( DEST.w / 2.0f ), DEST.y + ( DEST.h / 2.0f ), graphics[ i ].abs );
 
-                mat4 model = BASE_MATRIX;
-                vec3 scale = { DEST.w, DEST.h, 0.0 };
-                glm_scale( model, scale );
-                vec3 xrot = { 0.0, 1.0, 0.0 };
-                glm_rotate( model, DEGREES_TO_RADIANS( SPRITE.rotation_x ), xrot );
-                vec3 yrot = { 0.0, 0.0, 1.0 };
-                glm_rotate( model, DEGREES_TO_RADIANS( SPRITE.rotation_y ), yrot );
-                vec3 zrot = { 1.0, 0.0, 0.0 };
-                glm_rotate( model, DEGREES_TO_RADIANS( SPRITE.rotation_z ), zrot );
                 unsigned int model_location = glGetUniformLocation( shader, "model" );
-                glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+                glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( SPRITE.model ) );
 
                 if ( textures[ texture_id ].indexed )
                 {
@@ -1849,9 +1842,23 @@ int NasrGraphicsAddSprite
     graphic.data.sprite.palette = palette;
     graphic.data.sprite.useglobalpal = useglobalpal;
     const int id = AddGraphic( state, layer, graphic );
+
     if ( id > -1 )
     {
         ResetVertices( GetVertices( id ) );
+
+        NasrGraphic * g = GetGraphic( id );
+        mat4 model = BASE_MATRIX;
+        memcpy( &g->data.sprite.model, &model, sizeof( model ) );
+        vec3 scale = { dest.w, dest.h, 0.0 };
+        glm_scale( g->data.sprite.model, scale );
+        vec3 xrot = { 0.0, 1.0, 0.0 };
+        glm_rotate( g->data.sprite.model, DEGREES_TO_RADIANS( rotation_x ), xrot );
+        vec3 yrot = { 0.0, 0.0, 1.0 };
+        glm_rotate( g->data.sprite.model, DEGREES_TO_RADIANS( rotation_y ), yrot );
+        vec3 zrot = { 1.0, 0.0, 0.0 };
+        glm_rotate( g->data.sprite.model, DEGREES_TO_RADIANS( rotation_z ), zrot );
+
         UpdateSpriteVertices( id );
     }
     return id;
@@ -2650,6 +2657,7 @@ void NasrGraphicsSpriteSetDest( unsigned int id, NasrRect v )
         }
     #endif
     GetGraphic( id )->data.sprite.dest = v;
+    UpdateSpriteModel( id );
 };
 
 float NasrGraphicsSpriteGetDestY( unsigned int id )
@@ -2746,6 +2754,7 @@ void NasrGraphicsSpriteSetDestW( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.dest.w = v;
+    UpdateSpriteModel( id );
 };
 
 void NasrGraphicsSpriteAddToDestW( unsigned int id, float v )
@@ -2758,6 +2767,7 @@ void NasrGraphicsSpriteAddToDestW( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.dest.w += v;
+    UpdateSpriteModel( id );
 };
 
 float NasrGraphicsSpriteGetDestH( unsigned int id )
@@ -2782,6 +2792,7 @@ void NasrGraphicsSpriteSetDestH( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.dest.h = v;
+    UpdateSpriteModel( id );
 };
 
 void NasrGraphicsSpriteAddToDestH( unsigned int id, float v )
@@ -2794,6 +2805,7 @@ void NasrGraphicsSpriteAddToDestH( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.dest.h += v;
+    UpdateSpriteModel( id );
 };
 
 float NasrGraphicsSpriteGetSrcX( unsigned int id )
@@ -2966,6 +2978,7 @@ void NasrGraphicsSpriteSetRotationX( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.rotation_x = v;
+    UpdateSpriteModel( id );
 };
 
 void NasrGraphicsSpriteAddToRotationX( unsigned int id, float v )
@@ -2978,6 +2991,7 @@ void NasrGraphicsSpriteAddToRotationX( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.rotation_x += v;
+    UpdateSpriteModel( id );
 };
 
 float NasrGraphicsSpriteGetRotationY( unsigned int id )
@@ -3002,6 +3016,7 @@ void NasrGraphicsSpriteSetRotationY( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.rotation_y = v;
+    UpdateSpriteModel( id );
 };
 
 void NasrGraphicsSpriteAddToRotationY( unsigned int id, float v )
@@ -3014,6 +3029,7 @@ void NasrGraphicsSpriteAddToRotationY( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.rotation_y += v;
+    UpdateSpriteModel( id );
 };
 
 float NasrGraphicsSpriteGetRotationZ( unsigned int id )
@@ -3038,6 +3054,7 @@ void NasrGraphicsSpriteSetRotationZ( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.rotation_z = v;
+    UpdateSpriteModel( id );
 };
 
 void NasrGraphicsSpriteAddToRotationZ( unsigned int id, float v )
@@ -3050,6 +3067,7 @@ void NasrGraphicsSpriteAddToRotationZ( unsigned int id, float v )
         }
     #endif
     GetGraphic( id )->data.sprite.rotation_z += v;
+    UpdateSpriteModel( id );
 };
 
 uint_fast8_t NasrGraphicsSpriteGetPalette( unsigned int id )
@@ -5520,20 +5538,18 @@ void NasrDrawSpriteToTexture
     int_fast8_t useglobalpal
 )
 {
-    NasrGraphicSprite sprite =
-    {
-        texture,
-        src,
-        dest,
-        flip_x,
-        !flip_y,
-        rotation_x,
-        rotation_y,
-        rotation_z,
-        opacity,
-        palette,
-        useglobalpal
-    };
+    NasrGraphicSprite sprite;
+    sprite.texture = texture;
+    sprite.src = src;
+    sprite.dest = dest;
+    sprite.flip_x = flip_x;
+    sprite.flip_y = !flip_y;
+    sprite.rotation_x = rotation_x;
+    sprite.rotation_y = rotation_y;
+    sprite.rotation_z = rotation_z;
+    sprite.opacity = opacity;
+    sprite.palette = palette;
+    sprite.useglobalpal = useglobalpal;
 
     ResetVertices( GetVertices( max_graphics ) );
     sprite.dest.y = ( textures[ selected_texture ].height - ( sprite.dest.y + sprite.dest.h ) );
@@ -6548,6 +6564,21 @@ static void UpdateShaderOrtho( float x, float y, float w, float h )
 static void UpdateShaderOrthoToCamera( void )
 {
     UpdateShaderOrtho( camera.x, camera.y, camera.w, camera.h );
+};
+
+static void UpdateSpriteModel( unsigned int id )
+{
+    NasrGraphic * g = GetGraphic( id );
+    mat4 model = BASE_MATRIX;
+    memcpy( &g->data.sprite.model, &model, sizeof( model ) );
+    vec3 scale = { g->data.sprite.dest.w, g->data.sprite.dest.h, 0.0 };
+    glm_scale( g->data.sprite.model, scale );
+    vec3 xrot = { 0.0, 1.0, 0.0 };
+    glm_rotate( g->data.sprite.model, DEGREES_TO_RADIANS( g->data.sprite.rotation_x ), xrot );
+    vec3 yrot = { 0.0, 0.0, 1.0 };
+    glm_rotate( g->data.sprite.model, DEGREES_TO_RADIANS( g->data.sprite.rotation_y ), yrot );
+    vec3 zrot = { 1.0, 0.0, 0.0 };
+    glm_rotate( g->data.sprite.model, DEGREES_TO_RADIANS( g->data.sprite.rotation_z ), zrot );
 };
 
 static void UpdateSpriteVertices( unsigned int id )

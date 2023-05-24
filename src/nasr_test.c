@@ -721,55 +721,15 @@ void NasrTestRun( void )
                 NasrGraphicsRectPaletteSetColor( ran, 244 );
             }
 
-            if ( digits > -1 )
+            if ( NasrHeld( INPUT_UP ) )
             {
-            }
-            if ( boxi < 0 && NasrHeld( INPUT_UP ) )
-            {
-                const boxo = NasrAddTextureBlankEx( 200, 200, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
-                NasrSetTextureAsTarget( boxo );
-                NasrRect boxor = { 0.0f, 0.0f, 200.0f, 200.0f };
-                NasrColor boxoc = { 0.0f, 0.0f, 255.0f, 128.0f };
-                NasrDrawRectToTexture( boxor, boxoc );
-                NasrRect boxosrc = { 0.0f, 0.0f, 1083.0f, 1881.0f };
-                NasrRect boxodest = { 8.0f, 8.0f, 54.15f, 94.05f };
-                NasrDrawSpriteToTexture
-                (
-                    texture,
-                    boxosrc,
-                    boxodest,
-                    0,
-                    0,
-                    0.0f,
-                    0.0f,
-                    0.0f,
-                    1.0f,
-                    0,
-                    0
-                );
-                NasrReleaseTextureTarget();
-                NasrRect boxd = { 0.0f, 0.0f, 200.0f, 200.0f };
-                boxi = NasrGraphicsAddSprite
-                (
-                    1,
-                    4,
-                    0,
-                    boxo,
-                    boxd,
-                    boxd,
-                    0,
-                    0,
-                    0.0f,
-                    0.0f,
-                    0.0f,
-                    1.0f,
-                    0,
-                    0
-                );
-
+                dest.w += 5.0f;
+                dest.h += 5.0f;
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {
+                dest.w -= 5.0f;
+                dest.h -= 5.0f;
             }
 
             if ( NasrHeld( INPUT_LEFT ) )
