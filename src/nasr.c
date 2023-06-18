@@ -491,7 +491,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = tile.z;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n  \nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        vec4 tile = texture( map_data, texture_coords );\n        if ( tile.a > 0.0 && tile.a < 1.0 )\n        {\n            float frames = floor( tile.a * 255.0 );\n            float frame = mod( float( animation ), frames );\n            // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n            // This fixes it.\n            while ( frame >= frames )\n            {\n                frame -= frames;\n            }\n            tile.x += frame / 255.0;\n        }\n        float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n        float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n        float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n        float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n        float palette = tile.z;\n        vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n        final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n    }\n}"
         }
     };
 
@@ -500,7 +500,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform uint global_palette;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = float( global_palette ) / 255.0;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform uint global_palette;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n  \nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        vec4 tile = texture( map_data, texture_coords );\n        if ( tile.a > 0.0 && tile.a < 1.0 )\n        {\n            float frames = floor( tile.a * 255.0 );\n            float frame = mod( float( animation ), frames );\n            // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n            // This fixes it.\n            while ( frame >= frames )\n            {\n                frame -= frames;\n            }\n            tile.x += frame / 255.0;\n        }\n        float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n        float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n        float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n        float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n        float palette = float( global_palette ) / 255.0;\n        vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n        final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n    }\n}"
         }
     };
 
@@ -762,11 +762,14 @@ void NasrUpdate( float dt )
                 unsigned int model_location = glGetUniformLocation( shader, "model" );
                 glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
 
+                const float mapw = ( float )( textures[ TG.tilemap ].width );
+                const float maph = ( float )( textures[ TG.tilemap ].height );
+
                 GLint map_width_location = glGetUniformLocation( shader, "map_width" );
-                glUniform1f( map_width_location, ( float )( textures[ TG.tilemap ].width ) );
+                glUniform1f( map_width_location, mapw );
 
                 GLint map_height_location = glGetUniformLocation( shader, "map_height" );
-                glUniform1f( map_height_location, ( float )( textures[ TG.tilemap ].height ) );
+                glUniform1f( map_height_location, maph );
 
                 GLint tileset_width_location = glGetUniformLocation( shader, "tileset_width" );
                 glUniform1f( tileset_width_location, ( float )( textures[ TG.texture ].width ) );
@@ -776,6 +779,18 @@ void NasrUpdate( float dt )
 
                 GLint animation_location = glGetUniformLocation( shader, "animation" );
                 glUniform1ui( animation_location, animation_frame );
+
+                GLint camerax_location = glGetUniformLocation( shader, "camerax" );
+                glUniform1f( camerax_location, camera.x / mapw );
+
+                GLint cameray_location = glGetUniformLocation( shader, "cameray" );
+                glUniform1f( cameray_location, camera.y / maph );
+
+                GLint camerar_location = glGetUniformLocation( shader, "camerar" );
+                glUniform1f( camerar_location, ( camera.x + camera.w ) / mapw );
+
+                GLint camerab_location = glGetUniformLocation( shader, "camerab" );
+                glUniform1f( camerab_location, ( camera.y + camera.h ) / maph );
 
                 if ( TG.useglobalpal )
                 {

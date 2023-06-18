@@ -176,19 +176,19 @@ void NasrTestRun( void )
     {
         tiles[ i ].x = 0;
         tiles[ i ].y = 1;
-        tiles[ i ].palette = 5;
+        tiles[ i ].palette = 100;
         tiles[ i ].animation = 0;
     }
     for ( int i = tilesw * ( tilesh - 2 ); i < tilesw * ( tilesh - 1 ); ++i )
     {
         tiles[ i ].x = 0;
         tiles[ i ].y = 0;
-        tiles[ i ].palette = 5;
+        tiles[ i ].palette = 200;
         tiles[ i ].animation = 0;
     }
     const int tilemap1 = NasrGraphicsAddTilemap
     (
-        1,
+        0,
         0,
         2,
         tilestext,
@@ -223,7 +223,7 @@ void NasrTestRun( void )
     }
     const int tilemap2 = NasrGraphicsAddTilemap
     (
-        1,
+        0,
         0,
         2,
         tilestext,
