@@ -482,7 +482,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\n    vec4 index = texture( texture_data, texture_coords );\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( index.r, palette ) );\n    final_color.a *= opacity;\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n\nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        vec4 index = texture( texture_data, texture_coords );\n        float palette = palette_id / 256.0;\n        final_color = texture( palette_data, vec2( index.r, palette ) );\n        final_color.a *= opacity;\n    }\n}"
         }
     };
 
@@ -500,7 +500,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform uint global_palette;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n  \nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        vec4 tile = texture( map_data, texture_coords );\n        if ( tile.a > 0.0 && tile.a < 1.0 )\n        {\n            float frames = floor( tile.a * 255.0 );\n            float frame = mod( float( animation ), frames );\n            // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n            // This fixes it.\n            while ( frame >= frames )\n            {\n                frame -= frames;\n            }\n            tile.x += frame / 255.0;\n        }\n        float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n        float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n        float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n        float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n        float palette = float( global_palette ) / 255.0;\n        vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n        final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n    }\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform uint global_palette;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n  \nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        vec4 tile = texture( map_data, texture_coords );\n        if ( tile.a < 1.0 )\n        {\n            if ( tile.a > 0.0 && tile.a < 1.0 )\n            {\n                float frames = floor( tile.a * 255.0 );\n                float frame = mod( float( animation ), frames );\n                // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n                // This fixes it.\n                while ( frame >= frames )\n                {\n                    frame -= frames;\n                }\n                tile.x += frame / 255.0;\n            }\n            float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n            float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n            float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n            float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n            float palette = float( global_palette ) / 255.0;\n            vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n            final_color = texture( palette_data, vec2( index.r, palette ) );\n        }\n    }\n}"
         }
     };
 
@@ -527,7 +527,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec4 out_color;\n\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= opacity;\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\nin vec4 out_color;\n\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n\nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        float palette = palette_id / 256.0;\n        final_color = texture( palette_data, vec2( out_color.r, palette ) );\n        final_color.a *= opacity;\n    }\n}"
         }
     };
     
@@ -631,7 +631,7 @@ void NasrUpdate( float dt )
 {
     glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
     glClear( GL_COLOR_BUFFER_BIT );
-    
+
     // Only update ortho if camera has moved.
     if ( camera.x != prev_camera.x || camera.y != prev_camera.y )
     {
@@ -679,11 +679,26 @@ void NasrUpdate( float dt )
                 glm_scale( model, scale );
                 unsigned int model_location = glGetUniformLocation( rect_pal_shader, "model" );
                 glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+
                 GLint palette_id_location = glGetUniformLocation( rect_pal_shader, "palette_id" );
                 glUniform1f( palette_id_location, ( float )( graphics[ i ].data.rectpal.useglobalpal ? global_palette : graphics[ i ].data.rectpal.palette ) );
                 GLint palette_data_location = glGetUniformLocation( rect_pal_shader, "palette_data" );
+
                 GLint opacity_location = glGetUniformLocation( rect_pal_shader, "opacity" );
                 glUniform1f( opacity_location, graphics[ i ].data.rectpal.opacity );
+
+                GLint camerax_location = glGetUniformLocation( rect_pal_shader, "camerax" );
+                glUniform1f( camerax_location, camera.x / camera.w );
+
+                GLint cameray_location = glGetUniformLocation( rect_pal_shader, "cameray" );
+                glUniform1f( cameray_location, camera.y / camera.h );
+
+                GLint camerar_location = glGetUniformLocation( rect_pal_shader, "camerar" );
+                glUniform1f( camerar_location, ( camera.x + camera.w ) / camera.w );
+
+                GLint camerab_location = glGetUniformLocation( rect_pal_shader, "camerab" );
+                glUniform1f( camerab_location, ( camera.y + camera.h ) / camera.h );
+
                 glActiveTexture( GL_TEXTURE1 );
                 glBindTexture( GL_TEXTURE_2D, palette_texture_id );
                 glUniform1i( palette_data_location, 1 );
@@ -697,6 +712,22 @@ void NasrUpdate( float dt )
                 #define SPRITE graphics[ i ].data.sprite
                 #define SRC SPRITE.src
                 #define DEST SPRITE.dest
+
+                // Ignore if offscreen.
+                if
+                (
+                    !graphics[ i ].abs &&
+                    (
+                        DEST.x + DEST.w < camera.x ||
+                        DEST.y + DEST.h < camera.y ||
+                        DEST.x > camera.x + camera.w ||
+                        DEST.y > camera.y + camera.h
+                    )
+                )
+                {
+                    break;
+                }
+
                 unsigned int texture_id = SPRITE.texture;
 
                 if ( texture_id >= max_textures )
@@ -721,6 +752,18 @@ void NasrUpdate( float dt )
 
                 GLint opacity_location = glGetUniformLocation( shader, "opacity" );
                 glUniform1f( opacity_location, ( float )( SPRITE.opacity ) );
+
+                GLint camerax_location = glGetUniformLocation( shader, "camerax" );
+                glUniform1f( camerax_location, camera.x / camera.w );
+
+                GLint cameray_location = glGetUniformLocation( shader, "cameray" );
+                glUniform1f( cameray_location, camera.y / camera.h );
+
+                GLint camerar_location = glGetUniformLocation( shader, "camerar" );
+                glUniform1f( camerar_location, ( camera.x + camera.w ) / camera.w );
+
+                GLint camerab_location = glGetUniformLocation( shader, "camerab" );
+                glUniform1f( camerab_location, ( camera.y + camera.h ) / camera.h );
 
                 GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
                 glActiveTexture( GL_TEXTURE0 );
