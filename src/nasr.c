@@ -220,6 +220,19 @@ typedef struct CharMapList
     CharMap * list;
 } CharMapList;
 
+typedef struct SpriteShader
+{
+    unsigned int uniform_model;
+    unsigned int uniform_palette_id;
+    unsigned int uniform_opacity;
+    unsigned int uniform_camerax;
+    unsigned int uniform_cameray;
+    unsigned int uniform_camerar;
+    unsigned int uniform_camerab;
+    unsigned int uniform_texture_data;
+    unsigned int uniform_palette_data;
+} SpriteShader;
+
 // Static Data
 static int magnification = 1;
 static GLFWwindow * window;
@@ -246,6 +259,8 @@ static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] =
 	&text_pal_shader,
     &rect_pal_shader
 };
+static SpriteShader sprite_uniforms;
+static SpriteShader indexed_sprite_uniforms;
 static NasrGraphic * graphics;
 static unsigned int max_graphics;
 static unsigned int num_o_graphics;
@@ -540,6 +555,24 @@ int NasrInit
     text_pal_shader = GenerateShaderProgram( text_pal_shaders, 2 );
     rect_pal_shader = GenerateShaderProgram( rect_pal_shaders, 2 );
 
+    sprite_uniforms.uniform_model = glGetUniformLocation( sprite_shader, "model" );
+    sprite_uniforms.uniform_opacity = glGetUniformLocation( sprite_shader, "opacity" );
+    sprite_uniforms.uniform_camerax = glGetUniformLocation( sprite_shader, "camerax" );
+    sprite_uniforms.uniform_cameray = glGetUniformLocation( sprite_shader, "cameray" );
+    sprite_uniforms.uniform_camerar = glGetUniformLocation( sprite_shader, "camerar" );
+    sprite_uniforms.uniform_camerab = glGetUniformLocation( sprite_shader, "camerab" );
+    sprite_uniforms.uniform_texture_data = glGetUniformLocation( sprite_shader, "texture_data" );
+
+    indexed_sprite_uniforms.uniform_model = glGetUniformLocation( indexed_sprite_shader, "model" );
+    indexed_sprite_uniforms.uniform_palette_id = glGetUniformLocation( indexed_sprite_shader, "palette_id" );
+    indexed_sprite_uniforms.uniform_opacity = glGetUniformLocation( indexed_sprite_shader, "opacity" );
+    indexed_sprite_uniforms.uniform_camerax = glGetUniformLocation( indexed_sprite_shader, "camerax" );
+    indexed_sprite_uniforms.uniform_cameray = glGetUniformLocation( indexed_sprite_shader, "cameray" );
+    indexed_sprite_uniforms.uniform_camerar = glGetUniformLocation( indexed_sprite_shader, "camerar" );
+    indexed_sprite_uniforms.uniform_camerab = glGetUniformLocation( indexed_sprite_shader, "camerab" );
+    indexed_sprite_uniforms.uniform_texture_data = glGetUniformLocation( indexed_sprite_shader, "texture_data" );
+    indexed_sprite_uniforms.uniform_palette_data = glGetUniformLocation( indexed_sprite_shader, "palette_data" );
+
     // Init camera
     NasrResetCamera();
     UpdateShaderOrthoToCamera();
@@ -737,41 +770,42 @@ void NasrUpdate( float dt )
                 }
 
                 const unsigned int shader = textures[ texture_id ].indexed ? indexed_sprite_shader : sprite_shader;
+                const SpriteShader * shader_uniforms = textures[ texture_id ].indexed ? &indexed_sprite_uniforms : &sprite_uniforms;
                 glUseProgram( shader );
 
                 SetVerticesView( DEST.x + ( DEST.w / 2.0f ), DEST.y + ( DEST.h / 2.0f ), graphics[ i ].abs );
 
-                unsigned int model_location = glGetUniformLocation( shader, "model" );
+                unsigned int model_location = shader_uniforms->uniform_model;
                 glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( SPRITE.model ) );
 
                 if ( textures[ texture_id ].indexed )
                 {
-                    GLint palette_id_location = glGetUniformLocation( shader, "palette_id" );
+                    GLint palette_id_location = shader_uniforms->uniform_palette_id;
                     glUniform1f( palette_id_location, ( float )( SPRITE.useglobalpal ? global_palette : SPRITE.palette ) );
                 }
 
-                GLint opacity_location = glGetUniformLocation( shader, "opacity" );
+                GLint opacity_location = shader_uniforms->uniform_opacity;
                 glUniform1f( opacity_location, ( float )( SPRITE.opacity ) );
 
-                GLint camerax_location = glGetUniformLocation( shader, "camerax" );
+                GLint camerax_location = shader_uniforms->uniform_camerax;
                 glUniform1f( camerax_location, camera.x / camera.w );
 
-                GLint cameray_location = glGetUniformLocation( shader, "cameray" );
+                GLint cameray_location = shader_uniforms->uniform_cameray;
                 glUniform1f( cameray_location, camera.y / camera.h );
 
-                GLint camerar_location = glGetUniformLocation( shader, "camerar" );
+                GLint camerar_location = shader_uniforms->uniform_camerar;
                 glUniform1f( camerar_location, ( camera.x + camera.w ) / camera.w );
 
-                GLint camerab_location = glGetUniformLocation( shader, "camerab" );
+                GLint camerab_location = shader_uniforms->uniform_camerab;
                 glUniform1f( camerab_location, ( camera.y + camera.h ) / camera.h );
 
-                GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
+                GLint texture_data_location = shader_uniforms->uniform_texture_data;
                 glActiveTexture( GL_TEXTURE0 );
                 glBindTexture( GL_TEXTURE_2D, texture_ids[ texture_id ] );
                 glUniform1i( texture_data_location, 0 );
                 if ( textures[ texture_id ].indexed )
                 {
-                    GLint palette_data_location = glGetUniformLocation(shader, "palette_data");
+                    GLint palette_data_location = shader_uniforms->uniform_palette_data;
                     glActiveTexture(GL_TEXTURE1);
                     glBindTexture(GL_TEXTURE_2D, palette_texture_id );
                     glUniform1i(palette_data_location, 1);
