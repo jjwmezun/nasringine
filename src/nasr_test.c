@@ -32,6 +32,11 @@ typedef enum Input {
     INPUT_M
 } Input;
 
+static float total_dt = 0.0f;
+static int dtcount = 0;
+
+static int othernas[ 100 ];
+
 void NasrTestRun( void )
 {
     NasrInit( "Nasringine 0.1", 520, 320, 5, 128, 128, 18, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES, 0, 8 );
@@ -624,6 +629,27 @@ void NasrTestRun( void )
         0
     );
 
+    for ( int i = 0; i < 100; ++i )
+    {
+        othernas[ i ] = NasrGraphicsAddSprite
+        (
+            0,
+            0,
+            4,
+            texture,
+            src,
+            dest,
+            0,
+            0,
+            0.0f,
+            0.0f,
+            0.0f,
+            1.0f,
+            0,
+            0
+        );
+    }
+
     int boxi = -1;
 
     const NasrRect ranr = { 200.0f, 16.0f, 200.0f, 100.0f };
@@ -678,6 +704,9 @@ void NasrTestRun( void )
             double timechange = current_time - prev_time;
             double fps = 1.0 / timechange;
             float dt = 60.0f / ( float )( fps );
+
+            total_dt += ( 60.0f / dt );
+            ++dtcount;
 
             NasrHandleEvents();
 
@@ -763,18 +792,22 @@ void NasrTestRun( void )
             dest.x += nvx * dt;
 
             NasrGraphicsSpriteSetDest( nasrinid, dest );
+            for ( int i = 0; i < 100; ++i )
+            {
+                NasrGraphicsSpriteSetDest( othernas[ i ], dest );
+            }
 
             const NasrRect d = NasrGraphicsSpriteGetDest( nasrinid );
             NasrAdjustCamera( &d, 800.0f, 800.0f );
 
-            timechange = current_time - prev_time;
-            fps = 1.0 / timechange;
-            dt = 60.0f / ( float )( fps );
-            prev_time = current_time;
             NasrUpdate( dt );
             NasrInputUpdate();
+            prev_time = current_time;
         }
     }
+
+    printf( "%f\n", total_dt / ( float )( dtcount ) );
+
     NasrCloseLanguage();
     NasrAudioClose();
     NasrInputClose();
