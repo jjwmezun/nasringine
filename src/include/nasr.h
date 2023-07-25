@@ -149,14 +149,16 @@ unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer );
 // Graphics
 int NasrGraphicsAddCanvas
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrColor color
 );
 int NasrGraphicsAddRect
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -164,7 +166,8 @@ int NasrGraphicsAddRect
 );
 int NasrGraphicsAddRectGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -174,7 +177,8 @@ int NasrGraphicsAddRectGradient
 );
 int NasrGraphicsAddRectPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -185,7 +189,8 @@ int NasrGraphicsAddRectPalette
 );
 int NasrGraphicsAddRectGradientPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -198,7 +203,8 @@ int NasrGraphicsAddRectGradientPalette
 );
 int NasrGraphicsAddSprite
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int texture,
@@ -215,7 +221,8 @@ int NasrGraphicsAddSprite
 );
 int NasrGraphicsAddTilemap
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int texture,
@@ -227,7 +234,8 @@ int NasrGraphicsAddTilemap
 );
 int NasrGraphicsAddText
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -235,7 +243,8 @@ int NasrGraphicsAddText
 );
 int NasrGraphicsAddTextGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -245,7 +254,8 @@ int NasrGraphicsAddTextGradient
 );
 int NasrGraphicsAddTextPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -255,7 +265,8 @@ int NasrGraphicsAddTextPalette
 );
 int NasrGraphicsAddTextGradientPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -267,7 +278,8 @@ int NasrGraphicsAddTextGradientPalette
 );
 int NasrGraphicsAddCounter
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -284,7 +296,8 @@ int NasrGraphicsAddCounter
 );
 int NasrGraphicsAddCounterGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -303,7 +316,8 @@ int NasrGraphicsAddCounterGradient
 );
 int NasrGraphicsAddCounterPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -322,7 +336,8 @@ int NasrGraphicsAddCounterPalette
 );
 int NasrGraphicsAddCounterPaletteGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
