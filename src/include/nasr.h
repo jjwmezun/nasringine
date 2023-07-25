@@ -222,7 +222,8 @@ int NasrGraphicsAddTilemap
     const NasrTile * tiles,
     unsigned int w,
     unsigned int h,
-    int_fast8_t useglobalpal
+    int_fast8_t useglobalpal,
+    float opacity
 );
 int NasrGraphicsAddText
 (
@@ -502,6 +503,8 @@ void NasrGraphicsTilemapSetTilePalette( unsigned int id, unsigned int x, unsigne
 void NasrGraphicsTilemapSetTileAnimation( unsigned int id, unsigned int x, unsigned int y, unsigned char v );
 void NasrGraphicsTilemapSetTile( unsigned int id, unsigned int x, unsigned int y, NasrTile tile );
 void NasrGraphicsTilemapClearTile( unsigned int id, unsigned int x, unsigned int y );
+float NasrGraphicsTilemapGetOpacity( unsigned int id );
+void NasrGraphicsTilemapSetOpacity( unsigned int id, float opacity );
 
 // TextGraphics Manipulation
 float NasrGraphicsTextGetXOffset( unsigned int id );

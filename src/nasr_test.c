@@ -195,7 +195,8 @@ void NasrTestRun( void )
         tiles,
         tilesw,
         tilesh,
-        0
+        0,
+        0.5f
     );
 
     NasrTile till = { 5, 1, 150, 2 };
@@ -230,7 +231,8 @@ void NasrTestRun( void )
         tiles2,
         tilesw,
         tilesh,
-        1
+        1,
+        1.0f
     );
 
     NasrTile tiles3[ tilesw * tilesh ];
@@ -254,7 +256,8 @@ void NasrTestRun( void )
         tiles3,
         tilesw,
         tilesh,
-        0
+        0,
+        1.0f
     );
 
     const board = NasrAddTextureBlankEx( 400, 200, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
