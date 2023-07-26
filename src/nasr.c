@@ -109,6 +109,7 @@ typedef struct NasrGraphicTilemap
     NasrRect dest;
     int_fast8_t useglobalpal;
     unsigned char * data;
+    float opacity;
 } NasrGraphicTilemap;
 
 typedef struct NasrGraphicText
@@ -164,7 +165,8 @@ typedef union NasrGraphicData
 typedef struct NasrGraphic
 {
     uint_fast8_t type;
-    uint_fast8_t abs;
+    float scrollx;
+    float scrolly;
     NasrGraphicData data;
 } NasrGraphic;
 
@@ -300,7 +302,7 @@ static uint32_t CharMapHashString( unsigned int id, const char * key );
 static void CharsetMalformedError( const char * msg, const char * file );
 static void ClearBufferBindings( void );
 static void DestroyGraphic( NasrGraphic * graphic );
-static void DrawBox( unsigned int vao, const NasrRect * rect, uint_fast8_t abs );
+static void DrawBox( unsigned int vao, const NasrRect * rect, float scrollx, float scrolly );
 static void FramebufferSizeCallback( GLFWwindow * window, int width, int height );
 static unsigned int GenerateShaderProgram( const NasrShader * shaders, int shadersnum );
 static int GetCharacterSize( const char * s );
@@ -311,7 +313,8 @@ static unsigned int GetStateLayerIndex( unsigned int state, unsigned int layer )
 static float * GetVertices( unsigned int id );
 static int GraphicsAddCounter
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -330,7 +333,8 @@ static int GraphicsAddCounter
 );
 static int GraphicAddText
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -348,7 +352,7 @@ static unsigned char * LoadTextureFileData( const char * filename, unsigned int 
 static void ResetVertices( float * vptr );
 static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
-static void SetVerticesView( float x, float y, uint_fast8_t abs );
+static void SetVerticesView( float x, float y, float scrollx, float scrolly );
 static void SetupVertices( unsigned int vao );
 static uint32_t TextureMapHashString( const char * key );
 static void UpdateShaderOrtho( float x, float y, float w, float h );
@@ -491,7 +495,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n  \nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        vec4 tile = texture( map_data, texture_coords );\n        if ( tile.a > 0.0 && tile.a < 1.0 )\n        {\n            float frames = floor( tile.a * 255.0 );\n            float frame = mod( float( animation ), frames );\n            // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n            // This fixes it.\n            while ( frame >= frames )\n            {\n                frame -= frames;\n            }\n            tile.x += frame / 255.0;\n        }\n        float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n        float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n        float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n        float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n        float palette = tile.z;\n        vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n        final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n    }\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform float opacity;\nuniform uint animation;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = tile.z;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n    final_color.a *= opacity;\n}"
         }
     };
 
@@ -500,7 +504,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform uint animation;\nuniform uint global_palette;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n  \nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        vec4 tile = texture( map_data, texture_coords );\n        if ( tile.a < 1.0 )\n        {\n            if ( tile.a > 0.0 && tile.a < 1.0 )\n            {\n                float frames = floor( tile.a * 255.0 );\n                float frame = mod( float( animation ), frames );\n                // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n                // This fixes it.\n                while ( frame >= frames )\n                {\n                    frame -= frames;\n                }\n                tile.x += frame / 255.0;\n            }\n            float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n            float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n            float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n            float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n            float palette = float( global_palette ) / 255.0;\n            vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n            final_color = texture( palette_data, vec2( index.r, palette ) );\n        }\n    }\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform float opacity;\nuniform uint animation;\nuniform uint global_palette;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a < 1.0 || opacity > 0.0 )\n    {\n        if ( tile.a > 0.0 && tile.a < 1.0 )\n        {\n            float frames = floor( tile.a * 255.0 );\n            float frame = mod( float( animation ), frames );\n            // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n            // This fixes it.\n            while ( frame >= frames )\n            {\n                frame -= frames;\n            }\n            tile.x += frame / 255.0;\n        }\n        float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n        float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n        float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n        float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n        float palette = float( global_palette ) / 255.0;\n        vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n        final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n        final_color.a *= opacity;\n    }\n}"
         }
     };
 
@@ -651,7 +655,8 @@ void NasrUpdate( float dt )
                 (
                     vao,
                     &graphics[ i ].data.rect.rect,
-                    graphics[ i ].abs
+                    graphics[ i ].scrollx,
+                    graphics[ i ].scrolly
                 );
                 
                 SetupVertices( vao );
@@ -663,7 +668,8 @@ void NasrUpdate( float dt )
                 (
                     vao,
                     &graphics[ i ].data.gradient.rect,
-                    graphics[ i ].abs
+                    graphics[ i ].scrollx,
+                    graphics[ i ].scrolly
                 );
                 
                 SetupVertices( vao );
@@ -673,7 +679,7 @@ void NasrUpdate( float dt )
             {
                 #define RECT graphics[ i ].data.rectpal.rect
                 glUseProgram( rect_pal_shader );
-                SetVerticesView( RECT.x + ( RECT.w / 2.0f ), RECT.y + ( RECT.h / 2.0f ), graphics[ i ].abs );
+                SetVerticesView( RECT.x + ( RECT.w / 2.0f ), RECT.y + ( RECT.h / 2.0f ), graphics[ i ].scrollx, graphics[ i ].scrolly );
                 mat4 model = BASE_MATRIX;
                 vec3 scale = { RECT.w, RECT.h, 0.0 };
                 glm_scale( model, scale );
@@ -716,7 +722,7 @@ void NasrUpdate( float dt )
                 // Ignore if offscreen.
                 if
                 (
-                    !graphics[ i ].abs &&
+                    graphics[ i ].scrollx == 0.0f && graphics[ i ].scrolly == 0.0f &&
                     (
                         DEST.x + DEST.w < camera.x ||
                         DEST.y + DEST.h < camera.y ||
@@ -739,7 +745,7 @@ void NasrUpdate( float dt )
                 const unsigned int shader = textures[ texture_id ].indexed ? indexed_sprite_shader : sprite_shader;
                 glUseProgram( shader );
 
-                SetVerticesView( DEST.x + ( DEST.w / 2.0f ), DEST.y + ( DEST.h / 2.0f ), graphics[ i ].abs );
+                SetVerticesView( DEST.x + ( DEST.w / 2.0f ), DEST.y + ( DEST.h / 2.0f ), graphics[ i ].scrollx, graphics[ i ].scrolly );
 
                 unsigned int model_location = glGetUniformLocation( shader, "model" );
                 glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( SPRITE.model ) );
@@ -797,7 +803,7 @@ void NasrUpdate( float dt )
                 const unsigned int shader = TG.useglobalpal ? tilemap_mono_shader : tilemap_shader;
                 glUseProgram( shader );
 
-                SetVerticesView( TG.dest.x + ( TG.dest.w / 2.0f ), TG.dest.y + ( TG.dest.h / 2.0f ), graphics[ i ].abs );
+                SetVerticesView( TG.dest.x + ( TG.dest.w / 2.0f ), TG.dest.y + ( TG.dest.h / 2.0f ), graphics[ i ].scrollx, graphics[ i ].scrolly );
 
                 mat4 model = BASE_MATRIX;
                 vec3 scale = { TG.dest.w, TG.dest.h, 0.0 };
@@ -835,6 +841,9 @@ void NasrUpdate( float dt )
                 GLint camerab_location = glGetUniformLocation( shader, "camerab" );
                 glUniform1f( camerab_location, ( camera.y + camera.h ) / maph );
 
+                GLint opacity_location = glGetUniformLocation( shader, "opacity" );
+                glUniform1f( opacity_location, TG.opacity );
+
                 if ( TG.useglobalpal )
                 {
                     GLint global_palette_location = glGetUniformLocation( shader, "global_palette" );
@@ -870,7 +879,7 @@ void NasrUpdate( float dt )
                     
                     glBindVertexArray( graphics[ i ].data.text.vaos[ j ] );
                     glBindBuffer( GL_ARRAY_BUFFER, graphics[ i ].data.text.vbos[ j ] );
-                    SetVerticesView( CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.text.xoffset, CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.text.yoffset, graphics[ i ].abs );
+                    SetVerticesView( CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.text.xoffset, CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.text.yoffset, graphics[ i ].scrollx, graphics[ i ].scrolly );
 
                     mat4 model = BASE_MATRIX;
                     vec3 scale = { CHAR.dest.w, CHAR.dest.h, 0.0 };
@@ -919,7 +928,7 @@ void NasrUpdate( float dt )
 
                     glBindVertexArray( graphics[ i ].data.counter->vaos[ j ] );
                     glBindBuffer( GL_ARRAY_BUFFER, graphics[ i ].data.counter->vbos[ j ] );
-                    SetVerticesView( CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.counter->xoffset, CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.counter->yoffset, graphics[ i ].abs );
+                    SetVerticesView( CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.counter->xoffset, CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.counter->yoffset, graphics[ i ].scrollx, graphics[ i ].scrolly );
 
                     mat4 model = BASE_MATRIX;
                     vec3 scale = { CHAR.dest.w, CHAR.dest.h, 0.0 };
@@ -1615,7 +1624,8 @@ unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer )
 // Graphics
 int NasrGraphicsAddCanvas
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrColor color
@@ -1623,7 +1633,8 @@ int NasrGraphicsAddCanvas
 {
     return NasrGraphicsAddRect
     (
-        abs,
+        scrollx,
+        scrolly,
         state,
         layer,
         canvas,
@@ -1633,7 +1644,8 @@ int NasrGraphicsAddCanvas
 
 int NasrGraphicsAddRect
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrRect rect,
@@ -1641,7 +1653,8 @@ int NasrGraphicsAddRect
 )
 {
     struct NasrGraphic graphic;
-    graphic.abs = abs;
+    graphic.scrollx = scrollx;
+    graphic.scrolly = scrolly;
     graphic.type = NASR_GRAPHIC_RECT;
     graphic.data.rect.rect = rect;
     graphic.data.rect.color = color;
@@ -1655,7 +1668,8 @@ int NasrGraphicsAddRect
 
 int NasrGraphicsAddRectGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -1665,7 +1679,8 @@ int NasrGraphicsAddRectGradient
 )
 {
     struct NasrGraphic graphic;
-    graphic.abs = abs;
+    graphic.scrollx = scrollx;
+    graphic.scrolly = scrolly;
     graphic.type = NASR_GRAPHIC_RECT_GRADIENT;
     graphic.data.gradient.rect = rect;
     graphic.data.gradient.dir = dir;
@@ -1740,7 +1755,8 @@ int NasrGraphicsAddRectGradient
 
 int NasrGraphicsAddRectPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -1751,7 +1767,8 @@ int NasrGraphicsAddRectPalette
 )
 {
     struct NasrGraphic graphic;
-    graphic.abs = abs;
+    graphic.scrollx = scrollx;
+    graphic.scrolly = scrolly;
     graphic.type = NASR_GRAPHIC_RECT_PAL;
     graphic.data.rectpal.rect = rect;
     graphic.data.rectpal.palette = palette;
@@ -1768,7 +1785,8 @@ int NasrGraphicsAddRectPalette
 
 int NasrGraphicsAddRectGradientPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -1844,7 +1862,8 @@ int NasrGraphicsAddRectGradientPalette
     }
 
     struct NasrGraphic graphic;
-    graphic.abs = abs;
+    graphic.scrollx = scrollx;
+    graphic.scrolly = scrolly;
     graphic.type = NASR_GRAPHIC_RECT_PAL;
     graphic.data.rectpal.rect = rect;
     graphic.data.rectpal.palette = palette;
@@ -1862,7 +1881,8 @@ int NasrGraphicsAddRectGradientPalette
 
 int NasrGraphicsAddSprite
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int texture,
@@ -1886,7 +1906,8 @@ int NasrGraphicsAddSprite
         }
     #endif
     struct NasrGraphic graphic;
-    graphic.abs = abs;
+    graphic.scrollx = scrollx;
+    graphic.scrolly = scrolly;
     graphic.type = NASR_GRAPHIC_SPRITE;
     graphic.data.sprite.texture = texture;
     graphic.data.sprite.src = src;
@@ -1924,14 +1945,16 @@ int NasrGraphicsAddSprite
 
 int NasrGraphicsAddTilemap
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int texture,
     const NasrTile * tiles,
     unsigned int w,
     unsigned int h,
-    int_fast8_t useglobalpal
+    int_fast8_t useglobalpal,
+    float opacity
 )
 {
     // Generate texture from tile data.
@@ -1959,7 +1982,8 @@ int NasrGraphicsAddTilemap
     }
 
     struct NasrGraphic graphic;
-    graphic.abs = abs;
+    graphic.scrollx = scrollx;
+    graphic.scrolly = scrolly;
     graphic.type = NASR_GRAPHIC_TILEMAP;
     graphic.data.tilemap.texture = texture;
     graphic.data.tilemap.tilemap = ( unsigned int )( tilemap_texture );
@@ -1972,6 +1996,7 @@ int NasrGraphicsAddTilemap
     graphic.data.tilemap.dest.w = ( float )( w ) * 16.0f;
     graphic.data.tilemap.dest.h = ( float )( h ) * 16.0f;
     graphic.data.tilemap.useglobalpal = useglobalpal;
+    graphic.data.tilemap.opacity = opacity;
     graphic.data.tilemap.data = data;
     const int id = AddGraphic( state, layer, graphic );
     if ( id > -1 )
@@ -1991,7 +2016,8 @@ int NasrGraphicsAddTilemap
 
 int NasrGraphicsAddText
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -2000,7 +2026,8 @@ int NasrGraphicsAddText
 {
     return GraphicAddText
     (
-        abs,
+        scrollx,
+        scrolly,
         state,
         layer,
         text,
@@ -2015,7 +2042,8 @@ int NasrGraphicsAddText
 
 int NasrGraphicsAddTextGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -2108,7 +2136,8 @@ int NasrGraphicsAddTextGradient
     }
     return GraphicAddText
     (
-        abs,
+        scrollx,
+        scrolly,
         state,
         layer,
         text,
@@ -2123,7 +2152,8 @@ int NasrGraphicsAddTextGradient
 
 int NasrGraphicsAddTextPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -2141,7 +2171,8 @@ int NasrGraphicsAddTextPalette
     };
     return GraphicAddText
     (
-        abs,
+        scrollx,
+        scrolly,
         state,
         layer,
         text,
@@ -2156,7 +2187,8 @@ int NasrGraphicsAddTextPalette
 
 int NasrGraphicsAddTextGradientPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -2257,7 +2289,8 @@ int NasrGraphicsAddTextGradientPalette
 
     return GraphicAddText
     (
-        abs,
+        scrollx,
+        scrolly,
         state,
         layer,
         text,
@@ -2272,7 +2305,8 @@ int NasrGraphicsAddTextGradientPalette
 
 int NasrGraphicsAddCounter
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -2296,7 +2330,8 @@ int NasrGraphicsAddCounter
     };
     return GraphicsAddCounter
     (
-        abs,
+        scrollx,
+        scrolly,
         state,
         layer,
         charset,
@@ -2319,7 +2354,8 @@ int NasrGraphicsAddCounter
 
 int NasrGraphicsAddCounterGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -2418,7 +2454,8 @@ int NasrGraphicsAddCounterGradient
     }
     return GraphicsAddCounter
     (
-        abs,
+        scrollx,
+        scrolly,
         state,
         layer,
         charset,
@@ -2439,7 +2476,8 @@ int NasrGraphicsAddCounterGradient
 
 int NasrGraphicsAddCounterPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -2467,7 +2505,8 @@ int NasrGraphicsAddCounterPalette
     NasrColor * colors[ 4 ] = { &c, &c, &c, &c };
     return GraphicsAddCounter
     (
-        abs,
+        scrollx,
+        scrolly,
         state,
         layer,
         charset,
@@ -2488,7 +2527,8 @@ int NasrGraphicsAddCounterPalette
 
 int NasrGraphicsAddCounterPaletteGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -2598,7 +2638,8 @@ int NasrGraphicsAddCounterPaletteGradient
     }
     return GraphicsAddCounter
     (
-        abs,
+        scrollx,
+        scrolly,
         state,
         layer,
         charset,
@@ -4945,6 +4986,34 @@ void NasrGraphicsTilemapClearTile( unsigned int id, unsigned int x, unsigned int
     #undef TEX
 };
 
+float NasrGraphicsTilemapGetOpacity( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapGetOpacity Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    NasrGraphicTilemap * t = &GetGraphic( id )->data.tilemap;
+    return t->opacity;
+};
+
+void NasrGraphicsTilemapSetOpacity( unsigned int id, float opacity )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsTilemapSetOpacity Error: invalid id %u", id );
+            return;
+        }
+    #endif
+
+    NasrGraphicTilemap * t = &GetGraphic( id )->data.tilemap;
+    t->opacity = opacity;
+};
+
 
 
 // TextGraphics Manipulation
@@ -5490,7 +5559,8 @@ void NasrDrawRectToTexture( NasrRect rect, NasrColor color )
     (
         vaos[ max_graphics ],
         &rect,
-        0
+        0.0f,
+        0.0f
     );
     SetupVertices( vaos[ max_graphics ] );
 };
@@ -5576,7 +5646,8 @@ void NasrDrawGradientRectToTexture( NasrRect rect, int dir, NasrColor color1, Na
     (
         vaos[ max_graphics ],
         &rect,
-        0
+        0.0f,
+        0.0f
     );
     SetupVertices( vaos[ max_graphics ] );
 };
@@ -5616,7 +5687,7 @@ void NasrDrawSpriteToTexture
 
     UpdateSpriteVerticesValues( GetVertices( max_graphics ), &sprite );
 
-    SetVerticesView( sprite.dest.x + ( sprite.dest.w / 2.0f ), sprite.dest.y + ( sprite.dest.h / 2.0f ), 0 );
+    SetVerticesView( sprite.dest.x + ( sprite.dest.w / 2.0f ), sprite.dest.y + ( sprite.dest.h / 2.0f ), 0.0f, 0.0f );
 
     mat4 model = BASE_MATRIX;
     vec3 scale = { sprite.dest.w, sprite.dest.h, 0.0 };
@@ -5882,10 +5953,10 @@ static void DestroyGraphic( NasrGraphic * graphic )
     }
 };
 
-static void DrawBox( unsigned int vao, const NasrRect * rect, uint_fast8_t abs )
+static void DrawBox( unsigned int vao, const NasrRect * rect, float scrollx, float scrolly )
 {
     glUseProgram( rect_shader );
-    SetVerticesView( rect->x + ( rect->w / 2.0f ), rect->y + ( rect->h / 2.0f ), abs );
+    SetVerticesView( rect->x + ( rect->w / 2.0f ), rect->y + ( rect->h / 2.0f ), scrollx, scrolly );
     mat4 model = BASE_MATRIX;
     vec3 scale = { rect->w, rect->h, 0.0 };
     glm_scale( model, scale );
@@ -6032,7 +6103,8 @@ static float * GetVertices( unsigned int id )
 
 static int GraphicsAddCounter
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -6056,7 +6128,8 @@ static int GraphicsAddCounter
     }
 
     struct NasrGraphic graphic;
-    graphic.abs = abs;
+    graphic.scrollx = scrollx;
+    graphic.scrolly = scrolly;
     graphic.type = NASR_GRAPHIC_COUNTER;
     graphic.data.counter = calloc( 1, sizeof( NasrGraphicCounter ) );
     graphic.data.counter->palette = palette;
@@ -6151,7 +6224,8 @@ static int GraphicsAddCounter
 
 static int GraphicAddText
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -6351,7 +6425,8 @@ static int GraphicAddText
     // End charlist
 
     struct NasrGraphic graphic;
-    graphic.abs = abs;
+    graphic.scrollx = scrollx;
+    graphic.scrolly = scrolly;
     graphic.type = NASR_GRAPHIC_TEXT;
     graphic.data.text.charset = text.charset;
     graphic.data.text.palette = palette;
@@ -6576,13 +6651,10 @@ static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_col
     BufferVertices( vptr );
 };
 
-static void SetVerticesView( float x, float y, uint_fast8_t abs )
+static void SetVerticesView( float x, float y, float scrollx, float scrolly )
 {
-    if ( abs )
-    {
-        x += camera.x;
-        y += camera.y;
-    }
+    x += camera.x * scrollx;
+    y += camera.y * scrolly;
     mat4 view = BASE_MATRIX;
     vec3 trans = { x, y, 0.0f };
     glm_translate( view, trans );

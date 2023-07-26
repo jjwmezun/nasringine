@@ -73,7 +73,8 @@ void NasrTestRun( void )
     NasrRect backbox = { 0.0f, 0.0f, 520.0f, 320.0f };
     NasrGraphicsAddRectGradientPalette
     (
-        1,
+        1.0f,
+        0.0f,
         0,
         0,
         backbox,
@@ -153,7 +154,8 @@ void NasrTestRun( void )
     NasrRect dest = { 200.0f, 100.0f, 54.15f, 94.05f };
     int nasrinid = NasrGraphicsAddSprite
     (
-        0,
+        0.0f,
+        0.0f,
         0,
         3,
         texture,
@@ -193,14 +195,16 @@ void NasrTestRun( void )
     }
     const int tilemap1 = NasrGraphicsAddTilemap
     (
-        0,
+        0.0f,
+        0.0f,
         0,
         2,
         tilestext,
         tiles,
         tilesw,
         tilesh,
-        0
+        0,
+        0.5f
     );
 
     NasrTile till = { 5, 1, 150, 2 };
@@ -228,14 +232,16 @@ void NasrTestRun( void )
     }
     const int tilemap2 = NasrGraphicsAddTilemap
     (
-        0,
+        0.5f,
+        0.0f,
         0,
         2,
         tilestext,
         tiles2,
         tilesw,
         tilesh,
-        1
+        1,
+        1.0f
     );
 
     NasrTile tiles3[ tilesw * tilesh ];
@@ -252,14 +258,16 @@ void NasrTestRun( void )
     }
     NasrGraphicsAddTilemap
     (
-        1,
+        1.0f,
+        0.0f,
         0,
         3,
         NasrLoadFileAsTexture( "assets/universal.png" ),
         tiles3,
         tilesw,
         tilesh,
-        0
+        0,
+        1.0f
     );
 
     const board = NasrAddTextureBlankEx( 400, 200, NASR_SAMPLING_NEAREST, NASR_INDEXED_YES );
@@ -302,7 +310,8 @@ void NasrTestRun( void )
     const NasrRect boarddest = { 32.0f, 32.0f, 400.0f, 200.0f };
     NasrGraphicsAddSprite
     (
-        1,
+        1.0f,
+        0.0f,
         4,
         0,
         board,
@@ -331,7 +340,8 @@ void NasrTestRun( void )
         pal[ i ] = ( rand() % 5 ) * 5;
         ids[ i ] = NasrGraphicsAddSprite
         (
-            0,
+            1.0f,
+            0.0f,
             0,
             0,
             tilestext,
@@ -459,7 +469,8 @@ void NasrTestRun( void )
     NasrColor texcolor1 = { 255.0f, 16.0f, 64.0f, 255.0f };
     NasrColor texcolor2 = { 64.0f, 16.0f, 255.0f, 255.0f };
     const int textid = NasrGraphicsAddTextGradientPalette(
-        1,
+        1.0f,
+        0.0f,
         2,
         0,
         text1,
@@ -470,7 +481,8 @@ void NasrTestRun( void )
         1
     );
     const int textid2 = NasrGraphicsAddTextGradient(
-        0,
+        1.0f,
+        0.0f,
         2,
         0,
         text2,
@@ -480,7 +492,8 @@ void NasrTestRun( void )
     );
     NasrGraphicsTextSetCount( textid2, 0 );
     NasrGraphicsAddTextPalette(
-        0,
+        0.0f,
+        0.0f,
         2,
         0,
         text3,
@@ -489,7 +502,8 @@ void NasrTestRun( void )
         255
     );
     NasrGraphicsAddTextGradient(
-        0,
+        0.0f,
+        0.0f,
         2,
         0,
         text4,
@@ -566,7 +580,8 @@ void NasrTestRun( void )
 
     int digits = NasrGraphicsAddCounterPaletteGradient
     (
-        1,
+        1.0f,
+        0.0f,
         3,
         0,
         charset1,
@@ -588,7 +603,8 @@ void NasrTestRun( void )
 
     digits = NasrGraphicsAddCounterPaletteGradient
     (
-        1,
+        1.0f,
+        0.0f,
         3,
         0,
         charset1,
@@ -613,7 +629,8 @@ void NasrTestRun( void )
 
     nasrinid = NasrGraphicsAddSprite
     (
-        0,
+        0.0f,
+        0.0f,
         0,
         4,
         texture,
@@ -633,7 +650,8 @@ void NasrTestRun( void )
     {
         othernas[ i ] = NasrGraphicsAddSprite
         (
-            0,
+            0.0f,
+            0.0f,
             0,
             4,
             texture,
@@ -655,7 +673,8 @@ void NasrTestRun( void )
     const NasrRect ranr = { 200.0f, 16.0f, 200.0f, 100.0f };
     const int ran = NasrGraphicsAddRectPalette
     (
-        1,
+        1.0f,
+        0.0f,
         4,
         12,
         ranr,
@@ -685,7 +704,8 @@ void NasrTestRun( void )
     NasrColor clockcolor = { 128.0f, 32.0f, 255.0f, 255.0f };
     NasrGraphicsAddText
     (
-        1,
+        1.0f,
+        0.0f,
         4,
         12,
         clocktext,
@@ -750,10 +770,50 @@ void NasrTestRun( void )
                 NasrGraphicsRectPaletteSetColor( ran, 244 );
             }
 
-            if ( NasrHeld( INPUT_UP ) )
+            if ( boxi < 0 && NasrHeld( INPUT_UP ) )
             {
-                dest.w += 5.0f;
-                dest.h += 5.0f;
+                const boxo = NasrAddTextureBlankEx( 200, 200, NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+                NasrSetTextureAsTarget( boxo );
+                NasrRect boxor = { 0.0f, 0.0f, 200.0f, 200.0f };
+                NasrColor boxoc = { 0.0f, 0.0f, 255.0f, 128.0f };
+                NasrDrawRectToTexture( boxor, boxoc );
+                NasrRect boxosrc = { 0.0f, 0.0f, 1083.0f, 1881.0f };
+                NasrRect boxodest = { 8.0f, 8.0f, 54.15f, 94.05f };
+                NasrDrawSpriteToTexture
+                (
+                    texture,
+                    boxosrc,
+                    boxodest,
+                    0,
+                    0,
+                    0.0f,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    0,
+                    0
+                );
+                NasrReleaseTextureTarget();
+                NasrRect boxd = { 0.0f, 0.0f, 200.0f, 200.0f };
+                boxi = NasrGraphicsAddSprite
+                (
+                    1.0f,
+                    0.0f,
+                    4,
+                    0,
+                    boxo,
+                    boxd,
+                    boxd,
+                    0,
+                    0,
+                    0.0f,
+                    0.0f,
+                    0.0f,
+                    1.0f,
+                    0,
+                    0
+                );
+
             }
             else if ( NasrHeld( INPUT_DOWN ) )
             {
