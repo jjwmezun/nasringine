@@ -149,14 +149,16 @@ unsigned int NasrNumOGraphicsInLayer( unsigned int state, unsigned int layer );
 // Graphics
 int NasrGraphicsAddCanvas
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrColor color
 );
 int NasrGraphicsAddRect
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -164,7 +166,8 @@ int NasrGraphicsAddRect
 );
 int NasrGraphicsAddRectGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -174,7 +177,8 @@ int NasrGraphicsAddRectGradient
 );
 int NasrGraphicsAddRectPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -185,7 +189,8 @@ int NasrGraphicsAddRectPalette
 );
 int NasrGraphicsAddRectGradientPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     struct NasrRect rect,
@@ -198,7 +203,8 @@ int NasrGraphicsAddRectGradientPalette
 );
 int NasrGraphicsAddSprite
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int texture,
@@ -215,18 +221,21 @@ int NasrGraphicsAddSprite
 );
 int NasrGraphicsAddTilemap
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int texture,
     const NasrTile * tiles,
     unsigned int w,
     unsigned int h,
-    int_fast8_t useglobalpal
+    int_fast8_t useglobalpal,
+    float opacity
 );
 int NasrGraphicsAddText
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -234,7 +243,8 @@ int NasrGraphicsAddText
 );
 int NasrGraphicsAddTextGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -244,7 +254,8 @@ int NasrGraphicsAddTextGradient
 );
 int NasrGraphicsAddTextPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -254,7 +265,8 @@ int NasrGraphicsAddTextPalette
 );
 int NasrGraphicsAddTextGradientPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     NasrText text,
@@ -266,7 +278,8 @@ int NasrGraphicsAddTextGradientPalette
 );
 int NasrGraphicsAddCounter
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -283,7 +296,8 @@ int NasrGraphicsAddCounter
 );
 int NasrGraphicsAddCounterGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -302,7 +316,8 @@ int NasrGraphicsAddCounterGradient
 );
 int NasrGraphicsAddCounterPalette
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -321,7 +336,8 @@ int NasrGraphicsAddCounterPalette
 );
 int NasrGraphicsAddCounterPaletteGradient
 (
-    uint_fast8_t abs,
+    float scrollx,
+	float scrolly,
     unsigned int state,
     unsigned int layer,
     unsigned int charset,
@@ -502,6 +518,8 @@ void NasrGraphicsTilemapSetTilePalette( unsigned int id, unsigned int x, unsigne
 void NasrGraphicsTilemapSetTileAnimation( unsigned int id, unsigned int x, unsigned int y, unsigned char v );
 void NasrGraphicsTilemapSetTile( unsigned int id, unsigned int x, unsigned int y, NasrTile tile );
 void NasrGraphicsTilemapClearTile( unsigned int id, unsigned int x, unsigned int y );
+float NasrGraphicsTilemapGetOpacity( unsigned int id );
+void NasrGraphicsTilemapSetOpacity( unsigned int id, float opacity );
 
 // TextGraphics Manipulation
 float NasrGraphicsTextGetXOffset( unsigned int id );
