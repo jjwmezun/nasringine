@@ -222,18 +222,52 @@ typedef struct CharMapList
     CharMap * list;
 } CharMapList;
 
-typedef struct SpriteShader
+typedef struct SpriteUniforms
 {
-    unsigned int uniform_model;
-    unsigned int uniform_palette_id;
-    unsigned int uniform_opacity;
-    unsigned int uniform_camerax;
-    unsigned int uniform_cameray;
-    unsigned int uniform_camerar;
-    unsigned int uniform_camerab;
-    unsigned int uniform_texture_data;
-    unsigned int uniform_palette_data;
-} SpriteShader;
+    GLint uniform_model;
+    GLint uniform_palette_id;
+    GLint uniform_opacity;
+    GLint uniform_texture_data;
+    GLint uniform_palette_data;
+} SpriteUniforms;
+
+typedef struct RectUniforms
+{
+    GLint model;
+} RectUniforms;
+
+typedef struct RectPalUniforms
+{
+    GLint model;
+    GLint palette_id;
+    GLint palette_data;
+    GLint opacity;
+} RectPalUniforms;
+
+typedef struct TilemapUniforms
+{
+    GLint model;
+    GLint mapw;
+    GLint maph;
+    GLint tilesetw;
+    GLint tileseth;
+    GLint animation;
+    GLint opacity;
+    GLint texture;
+    GLint palette;
+    GLint mapdata;
+    GLint globalpal;
+} TilemapUniforms;
+
+typedef struct TextUniforms
+{
+    GLint texture;
+    GLint shadow;
+    GLint opacity;
+    GLint palette_id;
+    GLint palette_data;
+    GLint model;
+} TextUniforms;
 
 // Static Data
 static int magnification = 1;
@@ -261,8 +295,14 @@ static unsigned int * base_shaders[ NUMBER_O_BASE_SHADERS ] =
 	&text_pal_shader,
     &rect_pal_shader
 };
-static SpriteShader sprite_uniforms;
-static SpriteShader indexed_sprite_uniforms;
+static SpriteUniforms sprite_uniforms;
+static SpriteUniforms indexed_sprite_uniforms;
+static RectUniforms rect_uniforms;
+static RectPalUniforms rect_pal_uniforms;
+static TilemapUniforms tilemap_uniforms;
+static TilemapUniforms tilemap_mono_uniforms;
+static TextUniforms text_uniforms;
+static TextUniforms text_pal_uniforms;
 static NasrGraphic * graphics;
 static unsigned int max_graphics;
 static unsigned int num_o_graphics;
@@ -501,7 +541,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n\nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        vec4 index = texture( texture_data, texture_coords );\n        float palette = palette_id / 256.0;\n        final_color = texture( palette_data, vec2( index.r, palette ) );\n        final_color.a *= opacity;\n    }\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\n    vec4 index = texture( texture_data, texture_coords );\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( index.r, palette ) );\n    final_color.a *= opacity;\n}"
         }
     };
 
@@ -546,7 +586,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\nin vec4 out_color;\n\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\nuniform float camerax;\nuniform float cameray;\nuniform float camerar;\nuniform float camerab;\n\nvoid main()\n{\n    if\n    (\n        texture_coords.x + 16.0f > camerax &&\n        texture_coords.y + 16.0f > cameray &&\n        texture_coords.x < camerar &&\n        texture_coords.y < camerab\n    )\n    {\n        float palette = palette_id / 256.0;\n        final_color = texture( palette_data, vec2( out_color.r, palette ) );\n        final_color.a *= opacity;\n    }\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\nin vec4 out_color;\n\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( out_color.r, palette ) );\n    final_color.a *= opacity;\n}"
         }
     };
     
@@ -559,23 +599,53 @@ int NasrInit
     text_pal_shader = GenerateShaderProgram( text_pal_shaders, 2 );
     rect_pal_shader = GenerateShaderProgram( rect_pal_shaders, 2 );
 
-    sprite_uniforms.uniform_model = glGetUniformLocation( sprite_shader, "model" );
-    sprite_uniforms.uniform_opacity = glGetUniformLocation( sprite_shader, "opacity" );
-    sprite_uniforms.uniform_camerax = glGetUniformLocation( sprite_shader, "camerax" );
-    sprite_uniforms.uniform_cameray = glGetUniformLocation( sprite_shader, "cameray" );
-    sprite_uniforms.uniform_camerar = glGetUniformLocation( sprite_shader, "camerar" );
-    sprite_uniforms.uniform_camerab = glGetUniformLocation( sprite_shader, "camerab" );
+    // Store uniforms for use during rendering.
+    sprite_uniforms.uniform_model        = glGetUniformLocation( sprite_shader, "model" );
+    sprite_uniforms.uniform_opacity      = glGetUniformLocation( sprite_shader, "opacity" );
     sprite_uniforms.uniform_texture_data = glGetUniformLocation( sprite_shader, "texture_data" );
-
-    indexed_sprite_uniforms.uniform_model = glGetUniformLocation( indexed_sprite_shader, "model" );
-    indexed_sprite_uniforms.uniform_palette_id = glGetUniformLocation( indexed_sprite_shader, "palette_id" );
-    indexed_sprite_uniforms.uniform_opacity = glGetUniformLocation( indexed_sprite_shader, "opacity" );
-    indexed_sprite_uniforms.uniform_camerax = glGetUniformLocation( indexed_sprite_shader, "camerax" );
-    indexed_sprite_uniforms.uniform_cameray = glGetUniformLocation( indexed_sprite_shader, "cameray" );
-    indexed_sprite_uniforms.uniform_camerar = glGetUniformLocation( indexed_sprite_shader, "camerar" );
-    indexed_sprite_uniforms.uniform_camerab = glGetUniformLocation( indexed_sprite_shader, "camerab" );
+    indexed_sprite_uniforms.uniform_model        = glGetUniformLocation( indexed_sprite_shader, "model" );
+    indexed_sprite_uniforms.uniform_palette_id   = glGetUniformLocation( indexed_sprite_shader, "palette_id" );
+    indexed_sprite_uniforms.uniform_opacity      = glGetUniformLocation( indexed_sprite_shader, "opacity" );
     indexed_sprite_uniforms.uniform_texture_data = glGetUniformLocation( indexed_sprite_shader, "texture_data" );
     indexed_sprite_uniforms.uniform_palette_data = glGetUniformLocation( indexed_sprite_shader, "palette_data" );
+    rect_uniforms.model = glGetUniformLocation( rect_shader, "model" );
+    rect_pal_uniforms.model        = glGetUniformLocation( rect_pal_shader, "model" );
+    rect_pal_uniforms.palette_id   = glGetUniformLocation( rect_pal_shader, "palette_id" );
+    rect_pal_uniforms.palette_data = glGetUniformLocation( rect_pal_shader, "palette_data" );
+    rect_pal_uniforms.opacity      = glGetUniformLocation( rect_pal_shader, "opacity" );
+    tilemap_uniforms.model     = glGetUniformLocation( tilemap_shader, "model" );
+    tilemap_uniforms.mapw      = glGetUniformLocation( tilemap_shader, "map_width" );
+    tilemap_uniforms.maph      = glGetUniformLocation( tilemap_shader, "map_height" );
+    tilemap_uniforms.tilesetw  = glGetUniformLocation( tilemap_shader, "tileset_width" );
+    tilemap_uniforms.tileseth  = glGetUniformLocation( tilemap_shader, "tileset_height" );
+    tilemap_uniforms.animation = glGetUniformLocation( tilemap_shader, "animation" );
+    tilemap_uniforms.opacity   = glGetUniformLocation( tilemap_shader, "opacity" );
+    tilemap_uniforms.texture   = glGetUniformLocation( tilemap_shader, "texture_data" );
+    tilemap_uniforms.palette   = glGetUniformLocation( tilemap_shader, "palette_data" );
+    tilemap_uniforms.mapdata   = glGetUniformLocation( tilemap_shader, "map_data" );
+    tilemap_mono_uniforms.model     = glGetUniformLocation( tilemap_mono_shader, "model" );
+    tilemap_mono_uniforms.mapw      = glGetUniformLocation( tilemap_mono_shader, "map_width" );
+    tilemap_mono_uniforms.maph      = glGetUniformLocation( tilemap_mono_shader, "map_height" );
+    tilemap_mono_uniforms.tilesetw  = glGetUniformLocation( tilemap_mono_shader, "tileset_width" );
+    tilemap_mono_uniforms.tileseth  = glGetUniformLocation( tilemap_mono_shader, "tileset_height" );
+    tilemap_mono_uniforms.animation = glGetUniformLocation( tilemap_mono_shader, "animation" );
+    tilemap_mono_uniforms.opacity   = glGetUniformLocation( tilemap_mono_shader, "opacity" );
+    tilemap_mono_uniforms.texture   = glGetUniformLocation( tilemap_mono_shader, "texture_data" );
+    tilemap_mono_uniforms.palette   = glGetUniformLocation( tilemap_mono_shader, "palette_data" );
+    tilemap_mono_uniforms.mapdata   = glGetUniformLocation( tilemap_mono_shader, "map_data" );
+    tilemap_mono_uniforms.globalpal = glGetUniformLocation( tilemap_mono_shader, "global_palette" );
+    text_uniforms.texture = glGetUniformLocation( text_shader, "texture_data" );
+    text_uniforms.shadow = glGetUniformLocation( text_shader, "shadow" );
+    text_uniforms.opacity = glGetUniformLocation( text_shader, "opacity" );
+    text_uniforms.palette_id = glGetUniformLocation( text_shader, "palette_id" );
+    text_uniforms.palette_data = glGetUniformLocation( text_shader, "palette_data" );
+    text_uniforms.model = glGetUniformLocation( text_shader, "model" );
+    text_pal_uniforms.texture      = glGetUniformLocation( text_pal_shader, "texture_data" );
+    text_pal_uniforms.shadow       = glGetUniformLocation( text_pal_shader, "shadow" );
+    text_pal_uniforms.opacity      = glGetUniformLocation( text_pal_shader, "opacity" );
+    text_pal_uniforms.palette_id   = glGetUniformLocation( text_pal_shader, "palette_id" );
+    text_pal_uniforms.palette_data = glGetUniformLocation( text_pal_shader, "palette_data" );
+    text_pal_uniforms.model        = glGetUniformLocation( text_pal_shader, "model" );
 
     // Init camera
     NasrResetCamera();
@@ -711,39 +781,41 @@ void NasrUpdate( float dt )
             case ( NASR_GRAPHIC_RECT_PAL ):
             {
                 #define RECT graphics[ i ].data.rectpal.rect
+
                 glUseProgram( rect_pal_shader );
-                SetVerticesView( RECT.x + ( RECT.w / 2.0f ), RECT.y + ( RECT.h / 2.0f ), graphics[ i ].scrollx, graphics[ i ].scrolly );
+
+                SetVerticesView
+                (
+                    RECT.x + ( RECT.w / 2.0f ),
+                    RECT.y + ( RECT.h / 2.0f ),
+                    graphics[ i ].scrollx,
+                    graphics[ i ].scrolly
+                );
+
+                // Set scale.
                 mat4 model = BASE_MATRIX;
                 vec3 scale = { RECT.w, RECT.h, 0.0 };
                 glm_scale( model, scale );
-                unsigned int model_location = glGetUniformLocation( rect_pal_shader, "model" );
-                glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+                glUniformMatrix4fv( rect_pal_uniforms.model, 1, GL_FALSE, ( float * )( model ) );
 
-                GLint palette_id_location = glGetUniformLocation( rect_pal_shader, "palette_id" );
-                glUniform1f( palette_id_location, ( float )( graphics[ i ].data.rectpal.useglobalpal ? global_palette : graphics[ i ].data.rectpal.palette ) );
-                GLint palette_data_location = glGetUniformLocation( rect_pal_shader, "palette_data" );
+                // Set palette ID.
+                const float palette = ( float )
+                ( 
+                    graphics[ i ].data.rectpal.useglobalpal
+                        ? global_palette
+                        : graphics[ i ].data.rectpal.palette
+                );
+                glUniform1f( rect_pal_uniforms.palette_id, palette );
+                glUniform1f( rect_pal_uniforms.opacity, graphics[ i ].data.rectpal.opacity );
 
-                GLint opacity_location = glGetUniformLocation( rect_pal_shader, "opacity" );
-                glUniform1f( opacity_location, graphics[ i ].data.rectpal.opacity );
-
-                GLint camerax_location = glGetUniformLocation( rect_pal_shader, "camerax" );
-                glUniform1f( camerax_location, camera.x / camera.w );
-
-                GLint cameray_location = glGetUniformLocation( rect_pal_shader, "cameray" );
-                glUniform1f( cameray_location, camera.y / camera.h );
-
-                GLint camerar_location = glGetUniformLocation( rect_pal_shader, "camerar" );
-                glUniform1f( camerar_location, ( camera.x + camera.w ) / camera.w );
-
-                GLint camerab_location = glGetUniformLocation( rect_pal_shader, "camerab" );
-                glUniform1f( camerab_location, ( camera.y + camera.h ) / camera.h );
-
+                // Set palette texture.
                 glActiveTexture( GL_TEXTURE1 );
                 glBindTexture( GL_TEXTURE_2D, palette_texture_id );
-                glUniform1i( palette_data_location, 1 );
-                #undef RECT
+                glUniform1i( rect_pal_uniforms.palette_data, 1 );
                 
                 SetupVertices( vao );
+
+                #undef RECT
             }
             break;
             case ( NASR_GRAPHIC_SPRITE ):
@@ -775,53 +847,49 @@ void NasrUpdate( float dt )
                     continue;
                 }
 
+                // Set shader.
+                const SpriteUniforms * shader_uniforms = textures[ texture_id ].indexed
+                    ? &indexed_sprite_uniforms
+                    : &sprite_uniforms;
                 const unsigned int shader = textures[ texture_id ].indexed ? indexed_sprite_shader : sprite_shader;
-                const SpriteShader * shader_uniforms = textures[ texture_id ].indexed ? &indexed_sprite_uniforms : &sprite_uniforms;
                 glUseProgram( shader );
 
-                SetVerticesView( DEST.x + ( DEST.w / 2.0f ), DEST.y + ( DEST.h / 2.0f ), graphics[ i ].scrollx, graphics[ i ].scrolly );
+                // Set view.
+                SetVerticesView
+                (
+                    DEST.x + ( DEST.w / 2.0f ),
+                    DEST.y + ( DEST.h / 2.0f ),
+                    graphics[ i ].scrollx,
+                    graphics[ i ].scrolly
+                );
 
-                unsigned int model_location = shader_uniforms->uniform_model;
-                glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( SPRITE.model ) );
+                // Set scale.
+                glUniformMatrix4fv( shader_uniforms->uniform_model, 1, GL_FALSE, ( float * )( SPRITE.model ) );
 
-                if ( textures[ texture_id ].indexed )
-                {
-                    GLint palette_id_location = shader_uniforms->uniform_palette_id;
-                    glUniform1f( palette_id_location, ( float )( SPRITE.useglobalpal ? global_palette : SPRITE.palette ) );
-                }
+                // Set opacity.
+                glUniform1f( shader_uniforms->uniform_opacity, ( float )( SPRITE.opacity ) );
 
-                GLint opacity_location = shader_uniforms->uniform_opacity;
-                glUniform1f( opacity_location, ( float )( SPRITE.opacity ) );
-
-                GLint camerax_location = shader_uniforms->uniform_camerax;
-                glUniform1f( camerax_location, camera.x / camera.w );
-
-                GLint cameray_location = shader_uniforms->uniform_cameray;
-                glUniform1f( cameray_location, camera.y / camera.h );
-
-                GLint camerar_location = shader_uniforms->uniform_camerar;
-                glUniform1f( camerar_location, ( camera.x + camera.w ) / camera.w );
-
-                GLint camerab_location = shader_uniforms->uniform_camerab;
-                glUniform1f( camerab_location, ( camera.y + camera.h ) / camera.h );
-
-                GLint texture_data_location = shader_uniforms->uniform_texture_data;
+                // Set texture.
                 glActiveTexture( GL_TEXTURE0 );
                 glBindTexture( GL_TEXTURE_2D, texture_ids[ texture_id ] );
-                glUniform1i( texture_data_location, 0 );
+                glUniform1i( shader_uniforms->uniform_texture_data, 0 );
+
+                // Set palette ID & texture if set to indexed.
                 if ( textures[ texture_id ].indexed )
                 {
-                    GLint palette_data_location = shader_uniforms->uniform_palette_data;
-                    glActiveTexture(GL_TEXTURE1);
-                    glBindTexture(GL_TEXTURE_2D, palette_texture_id );
-                    glUniform1i(palette_data_location, 1);
+                    const float palette = ( float )( SPRITE.useglobalpal ? global_palette : SPRITE.palette );
+                    glUniform1f( shader_uniforms->uniform_palette_id, palette );
+
+                    glActiveTexture( GL_TEXTURE1);
+                    glBindTexture( GL_TEXTURE_2D, palette_texture_id );
+                    glUniform1i( shader_uniforms->uniform_palette_data, 1 );
                 }
+                
+                SetupVertices( vao );
 
                 #undef SPRITE
                 #undef SRC
                 #undef DEST
-                
-                SetupVertices( vao );
             }
             break;
             case ( NASR_GRAPHIC_TILEMAP ):
@@ -834,115 +902,130 @@ void NasrUpdate( float dt )
                     continue;
                 }
 
+                // Set shader.
                 const unsigned int shader = TG.useglobalpal ? tilemap_mono_shader : tilemap_shader;
+                const TilemapUniforms * uniforms = TG.useglobalpal ? &tilemap_mono_uniforms : &tilemap_uniforms;
                 glUseProgram( shader );
 
-                SetVerticesView( TG.dest.x + ( TG.dest.w / 2.0f ), TG.dest.y + ( TG.dest.h / 2.0f ), graphics[ i ].scrollx, graphics[ i ].scrolly );
+                // Set view.
+                SetVerticesView
+                (
+                    TG.dest.x + ( TG.dest.w / 2.0f ),
+                    TG.dest.y + ( TG.dest.h / 2.0f ),
+                    graphics[ i ].scrollx,
+                    graphics[ i ].scrolly
+                );
 
+                // Set scale.
                 mat4 model = BASE_MATRIX;
                 vec3 scale = { TG.dest.w, TG.dest.h, 0.0 };
                 glm_scale( model, scale );
-                unsigned int model_location = glGetUniformLocation( shader, "model" );
-                glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+                glUniformMatrix4fv( uniforms->model, 1, GL_FALSE, ( float * )( model ) );
 
+                // Set map width.
                 const float mapw = ( float )( textures[ TG.tilemap ].width );
+                glUniform1f( uniforms->mapw, mapw );
+
+                // Set map height.
                 const float maph = ( float )( textures[ TG.tilemap ].height );
+                glUniform1f( uniforms->maph, maph );
 
-                GLint map_width_location = glGetUniformLocation( shader, "map_width" );
-                glUniform1f( map_width_location, mapw );
+                // Set tileset width.
+                glUniform1f( uniforms->tilesetw, ( float )( textures[ TG.texture ].width ) );
 
-                GLint map_height_location = glGetUniformLocation( shader, "map_height" );
-                glUniform1f( map_height_location, maph );
+                // Set tileset height.
+                glUniform1f( uniforms->tileseth, ( float )( textures[ TG.texture ].height ) );
 
-                GLint tileset_width_location = glGetUniformLocation( shader, "tileset_width" );
-                glUniform1f( tileset_width_location, ( float )( textures[ TG.texture ].width ) );
+                // Set animation counter.
+                glUniform1ui( uniforms->animation, animation_frame );
 
-                GLint tileset_height_location = glGetUniformLocation( shader, "tileset_height" );
-                glUniform1f( tileset_height_location, ( float )( textures[ TG.texture ].height ) );
+                // Set opacity.
+                glUniform1f( uniforms->opacity, TG.opacity );
 
-                GLint animation_location = glGetUniformLocation( shader, "animation" );
-                glUniform1ui( animation_location, animation_frame );
+                // Set tileset texture.
+                glActiveTexture( GL_TEXTURE0 );
+                glBindTexture( GL_TEXTURE_2D, texture_ids[ TG.texture ] );
+                glUniform1i( uniforms->texture, 0 );
 
-                GLint camerax_location = glGetUniformLocation( shader, "camerax" );
-                glUniform1f( camerax_location, camera.x / mapw );
+                // Set palette texture.
+                glActiveTexture( GL_TEXTURE1 );
+                glBindTexture( GL_TEXTURE_2D, palette_texture_id );
+                glUniform1i( uniforms->palette, 1 );
 
-                GLint cameray_location = glGetUniformLocation( shader, "cameray" );
-                glUniform1f( cameray_location, camera.y / maph );
+                // Set tilemap texture.
+                glActiveTexture( GL_TEXTURE2 );
+                glBindTexture( GL_TEXTURE_2D, texture_ids[ TG.tilemap ] );
+                glUniform1i( uniforms->mapdata, 2 );
 
-                GLint camerar_location = glGetUniformLocation( shader, "camerar" );
-                glUniform1f( camerar_location, ( camera.x + camera.w ) / mapw );
-
-                GLint camerab_location = glGetUniformLocation( shader, "camerab" );
-                glUniform1f( camerab_location, ( camera.y + camera.h ) / maph );
-
-                GLint opacity_location = glGetUniformLocation( shader, "opacity" );
-                glUniform1f( opacity_location, TG.opacity );
-
+                // If using global palette, set its ID.
                 if ( TG.useglobalpal )
                 {
-                    GLint global_palette_location = glGetUniformLocation( shader, "global_palette" );
-                    glUniform1ui( global_palette_location, ( GLuint )( global_palette ) );
+                    glUniform1ui( uniforms->globalpal, ( GLuint )( global_palette ) );
                 }
 
-                GLint texture_data_location = glGetUniformLocation(shader, "texture_data");
-                GLint palette_data_location = glGetUniformLocation(shader, "palette_data");
-                GLint map_data_location = glGetUniformLocation(shader, "map_data");
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, texture_ids[ TG.texture ] );
-                glUniform1i(texture_data_location, 0);
-                glActiveTexture(GL_TEXTURE1 );
-                glBindTexture(GL_TEXTURE_2D, palette_texture_id );
-                glUniform1i(palette_data_location, 1);
-                glActiveTexture(GL_TEXTURE2 );
-                glBindTexture(GL_TEXTURE_2D, texture_ids[ TG.tilemap ] );
-                glUniform1i(map_data_location, 2);
+                SetupVertices( vao );
 
                 #undef TG
-
-                SetupVertices( vao );
             }
             break;
             case ( NASR_GRAPHIC_TEXT ):
             {
+                // Set shader.
                 const unsigned int shader = graphics[ i ].data.text.palette_type ? text_pal_shader : text_shader;
+                const TextUniforms * uniforms = graphics[ i ].data.text.palette_type
+                    ? &text_pal_uniforms
+                    : &text_uniforms;
                 glUseProgram( shader );
+
+                // Set texture.
+                glActiveTexture( GL_TEXTURE0 );
+                glBindTexture( GL_TEXTURE_2D, charmaps.list[ graphics[ i ].data.text.charset ].texture_id );
+                glUniform1i( uniforms->texture, 0 );
+
+                // Set shadow.
+                glUniform1f( uniforms->shadow, graphics[ i ].data.text.shadow );
+
+                // Set opacity.
+                glUniform1f( uniforms->opacity, graphics[ i ].data.text.opacity );
+
+                // If using palette, set palette.
+                if ( graphics[ i ].data.text.palette_type )
+                {
+                    const float palette = ( float )
+                    (
+                        graphics[ i ].data.text.palette_type == NASR_PALETTE_DEFAULT
+                            ? global_palette
+                            : graphics[ i ].data.text.palette
+                    );
+                    glUniform1f( uniforms->palette_id, palette );
+
+                    glActiveTexture( GL_TEXTURE1 );
+                    glBindTexture( GL_TEXTURE_2D, palette_texture_id );
+                    glUniform1i( uniforms->palette_data, 1 );
+                }
 
                 for ( int j = 0; j < graphics[ i ].data.text.count; ++j )
                 {
                     #define CHAR graphics[ i ].data.text.chars[ j ]
                     
+                    // Set buffers.
                     glBindVertexArray( graphics[ i ].data.text.vaos[ j ] );
                     glBindBuffer( GL_ARRAY_BUFFER, graphics[ i ].data.text.vbos[ j ] );
-                    SetVerticesView( CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.text.xoffset, CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.text.yoffset, graphics[ i ].scrollx, graphics[ i ].scrolly );
 
+                    // Set view.
+                    SetVerticesView
+                    (
+                        CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.text.xoffset,
+                        CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.text.yoffset,
+                        graphics[ i ].scrollx,
+                        graphics[ i ].scrolly
+                    );
+
+                    // Set scale.
                     mat4 model = BASE_MATRIX;
                     vec3 scale = { CHAR.dest.w, CHAR.dest.h, 0.0 };
                     glm_scale( model, scale );
-                    unsigned int model_location = glGetUniformLocation( shader, "model" );
-                    glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
-                    GLint shadow_location = glGetUniformLocation( shader, "shadow" );
-                    glUniform1f( shadow_location, graphics[ i ].data.text.shadow );
-
-                    if ( graphics[ i ].data.text.palette_type )
-                    {
-                        GLint palette_id_location = glGetUniformLocation( shader, "palette_id" );
-                        glUniform1f( palette_id_location, ( float )( graphics[ i ].data.text.palette_type == NASR_PALETTE_DEFAULT ? global_palette : graphics[ i ].data.text.palette ) );
-                    }
-
-                    GLint opacity_location = glGetUniformLocation( shader, "opacity" );
-                    glUniform1f( opacity_location, graphics[ i ].data.text.opacity );
-
-                    GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
-                    glActiveTexture( GL_TEXTURE0 );
-                    glBindTexture( GL_TEXTURE_2D, charmaps.list[ graphics[ i ].data.text.charset ].texture_id );
-                    glUniform1i( texture_data_location, 0 );
-                    if ( graphics[ i ].data.text.palette_type )
-                    {
-                        GLint palette_data_location = glGetUniformLocation( shader, "palette_data" );
-                        glActiveTexture( GL_TEXTURE1 );
-                        glBindTexture( GL_TEXTURE_2D, palette_texture_id );
-                        glUniform1i( palette_data_location, 1 );
-                    }
+                    glUniformMatrix4fv( uniforms->model, 1, GL_FALSE, ( float * )( model ) );
 
                     SetupVertices( graphics[ i ].data.text.vaos[ j ] );
                     ClearBufferBindings();
@@ -953,45 +1036,62 @@ void NasrUpdate( float dt )
             break;
             case ( NASR_GRAPHIC_COUNTER ):
             {
+                // Set shader.
                 const unsigned int shader = graphics[ i ].data.counter->palette_type ? text_pal_shader : text_shader;
+                const TextUniforms * uniforms = graphics[ i ].data.counter->palette_type
+                    ? &text_pal_uniforms
+                    : &text_uniforms;
                 glUseProgram( shader );
+
+                // Set texture.
+                glActiveTexture( GL_TEXTURE0 );
+                glBindTexture( GL_TEXTURE_2D, charmaps.list[ graphics[ i ].data.counter->charset ].texture_id );
+                glUniform1i( uniforms->texture, 0 );
+
+                // Set shadow.
+                glUniform1f( uniforms->shadow, graphics[ i ].data.counter->shadow );
+
+                // Set opacity.
+                glUniform1f( uniforms->opacity, graphics[ i ].data.counter->opacity );
+
+                // If using palette, set palette.
+                if ( graphics[ i ].data.counter->palette_type )
+                {
+                    const float palette = ( float )
+                    (
+                        graphics[ i ].data.counter->palette_type == NASR_PALETTE_DEFAULT
+                            ? global_palette
+                            : graphics[ i ].data.counter->palette
+                    );
+                    glUniform1f( uniforms->palette_id, palette );
+
+                    glActiveTexture( GL_TEXTURE1 );
+                    glBindTexture( GL_TEXTURE_2D, palette_texture_id );
+                    glUniform1i( uniforms->palette_data, 1 );
+                }
 
                 for ( int j = 0; j < graphics[ i ].data.counter->count; ++j )
                 {
                     #define CHAR graphics[ i ].data.counter->chars[ j ]
 
+                    // Bind buffers.
                     glBindVertexArray( graphics[ i ].data.counter->vaos[ j ] );
                     glBindBuffer( GL_ARRAY_BUFFER, graphics[ i ].data.counter->vbos[ j ] );
-                    SetVerticesView( CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.counter->xoffset, CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.counter->yoffset, graphics[ i ].scrollx, graphics[ i ].scrolly );
 
+                    // Set view.
+                    SetVerticesView
+                    (
+                        CHAR.dest.x + ( CHAR.dest.w / 2.0f ) + graphics[ i ].data.counter->xoffset,
+                        CHAR.dest.y + ( CHAR.dest.h / 2.0f ) + graphics[ i ].data.counter->yoffset,
+                        graphics[ i ].scrollx,
+                        graphics[ i ].scrolly
+                    );
+
+                    // Set scale.
                     mat4 model = BASE_MATRIX;
                     vec3 scale = { CHAR.dest.w, CHAR.dest.h, 0.0 };
                     glm_scale( model, scale );
-                    unsigned int model_location = glGetUniformLocation( shader, "model" );
-                    glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
-                    GLint shadow_location = glGetUniformLocation( shader, "shadow" );
-                    glUniform1f( shadow_location, graphics[ i ].data.counter->shadow );
-
-                    if ( graphics[ i ].data.counter->palette_type )
-                    {
-                        GLint palette_id_location = glGetUniformLocation( shader, "palette_id" );
-                        glUniform1f( palette_id_location, ( float )( graphics[ i ].data.counter->palette_type == NASR_PALETTE_DEFAULT ? global_palette : graphics[ i ].data.counter->palette ) );
-                    }
-
-                    GLint opacity_location = glGetUniformLocation( shader, "opacity" );
-                    glUniform1f( opacity_location, graphics[ i ].data.counter->opacity );
-
-                    GLint texture_data_location = glGetUniformLocation( shader, "texture_data" );
-                    glActiveTexture( GL_TEXTURE0 );
-                    glBindTexture( GL_TEXTURE_2D, charmaps.list[ graphics[ i ].data.counter->charset ].texture_id );
-                    glUniform1i( texture_data_location, 0 );
-                    if ( graphics[ i ].data.counter->palette_type )
-                    {
-                        GLint palette_data_location = glGetUniformLocation( shader, "palette_data" );
-                        glActiveTexture( GL_TEXTURE1 );
-                        glBindTexture( GL_TEXTURE_2D, palette_texture_id );
-                        glUniform1i( palette_data_location, 1 );
-                    }
+                    glUniformMatrix4fv( uniforms->model, 1, GL_FALSE, ( float * )( model ) );
 
                     SetupVertices( graphics[ i ].data.counter->vaos[ j ] );
                     ClearBufferBindings();
@@ -3782,7 +3882,7 @@ void NasrGraphicsRectGradientSetDir( unsigned int id, uint_fast8_t dir )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsRectGradientSetDir Error: invalid id %u", id );
-            return 0;
+            return;
         }
     #endif
 
@@ -4867,7 +4967,7 @@ unsigned int NasrGraphicsTilemapGetWidth( unsigned int id )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsTilemapGetWidth Error: invalid id %u", id );
-            return;
+            return 0;
         }
     #endif
     return textures[ GetGraphic( id )->data.tilemap.tilemap ].width;
@@ -4879,7 +4979,7 @@ unsigned int NasrGraphicsTilemapGetHeight( unsigned int id )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsTilemapGetHeight Error: invalid id %u", id );
-            return;
+            return 0;
         }
     #endif
     return textures[ GetGraphic( id )->data.tilemap.tilemap ].height;
@@ -5026,7 +5126,7 @@ float NasrGraphicsTilemapGetOpacity( unsigned int id )
         if ( id >= max_graphics )
         {
             NasrLog( "NasrGraphicsTilemapGetOpacity Error: invalid id %u", id );
-            return;
+            return 0.0f;
         }
     #endif
 
@@ -5989,13 +6089,17 @@ static void DestroyGraphic( NasrGraphic * graphic )
 
 static void DrawBox( unsigned int vao, const NasrRect * rect, float scrollx, float scrolly )
 {
+    // Set shader.
     glUseProgram( rect_shader );
+
+    // Set view.
     SetVerticesView( rect->x + ( rect->w / 2.0f ), rect->y + ( rect->h / 2.0f ), scrollx, scrolly );
+
+    // Set scale.
     mat4 model = BASE_MATRIX;
     vec3 scale = { rect->w, rect->h, 0.0 };
     glm_scale( model, scale );
-    unsigned int model_location = glGetUniformLocation( rect_shader, "model" );
-    glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+    glUniformMatrix4fv( rect_uniforms.model, 1, GL_FALSE, ( float * )( model ) );
 };
 
 static void FramebufferSizeCallback( GLFWwindow * window, int screen_width, int screen_height )
