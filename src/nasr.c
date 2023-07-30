@@ -276,6 +276,7 @@ static unsigned int * vaos;
 static unsigned int * vbos;
 static float * vertices;
 static unsigned int ebo;
+static unsigned int current_shader = ( unsigned int )( -1 );
 static unsigned int rect_shader;
 static unsigned int sprite_shader;
 static unsigned int indexed_sprite_shader;
@@ -405,6 +406,7 @@ static void GraphicsUpdateRectPalette( unsigned int id, uint_fast8_t color );
 static int GrowGraphics( void );
 static unsigned char * LoadTextureFileData( const char * filename, unsigned int * width, unsigned int * height, int sampling, int indexed );
 static void ResetVertices( float * vptr );
+static void SetShader( unsigned int shader );
 static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesColorValues( float * vptr, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color );
 static void SetVerticesView( float x, float y, float scrollx, float scrolly );
@@ -782,7 +784,7 @@ void NasrUpdate( float dt )
             {
                 #define RECT graphics[ i ].data.rectpal.rect
 
-                glUseProgram( rect_pal_shader );
+                SetShader( rect_pal_shader );
 
                 SetVerticesView
                 (
@@ -852,7 +854,7 @@ void NasrUpdate( float dt )
                     ? &indexed_sprite_uniforms
                     : &sprite_uniforms;
                 const unsigned int shader = textures[ texture_id ].indexed ? indexed_sprite_shader : sprite_shader;
-                glUseProgram( shader );
+                SetShader( shader );
 
                 // Set view.
                 SetVerticesView
@@ -905,7 +907,7 @@ void NasrUpdate( float dt )
                 // Set shader.
                 const unsigned int shader = TG.useglobalpal ? tilemap_mono_shader : tilemap_shader;
                 const TilemapUniforms * uniforms = TG.useglobalpal ? &tilemap_mono_uniforms : &tilemap_uniforms;
-                glUseProgram( shader );
+                SetShader( shader );
 
                 // Set view.
                 SetVerticesView
@@ -975,7 +977,7 @@ void NasrUpdate( float dt )
                 const TextUniforms * uniforms = graphics[ i ].data.text.palette_type
                     ? &text_pal_uniforms
                     : &text_uniforms;
-                glUseProgram( shader );
+                SetShader( shader );
 
                 // Set texture.
                 glActiveTexture( GL_TEXTURE0 );
@@ -1041,7 +1043,7 @@ void NasrUpdate( float dt )
                 const TextUniforms * uniforms = graphics[ i ].data.counter->palette_type
                     ? &text_pal_uniforms
                     : &text_uniforms;
-                glUseProgram( shader );
+                SetShader( shader );
 
                 // Set texture.
                 glActiveTexture( GL_TEXTURE0 );
@@ -5817,7 +5819,7 @@ void NasrDrawSpriteToTexture
     ResetVertices( GetVertices( max_graphics ) );
     sprite.dest.y = ( textures[ selected_texture ].height - ( sprite.dest.y + sprite.dest.h ) );
 
-    glUseProgram( sprite_shader );
+    SetShader( sprite_shader );
 
     UpdateSpriteVerticesValues( GetVertices( max_graphics ), &sprite );
 
@@ -6090,7 +6092,7 @@ static void DestroyGraphic( NasrGraphic * graphic )
 static void DrawBox( unsigned int vao, const NasrRect * rect, float scrollx, float scrolly )
 {
     // Set shader.
-    glUseProgram( rect_shader );
+    SetShader( rect_shader );
 
     // Set view.
     SetVerticesView( rect->x + ( rect->w / 2.0f ), rect->y + ( rect->h / 2.0f ), scrollx, scrolly );
@@ -6756,6 +6758,15 @@ static void ResetVertices( float * vptr )
     memcpy( vptr, &vertices_base, sizeof( vertices_base ) );
 };
 
+static void SetShader( unsigned int shader )
+{
+    if ( current_shader != shader )
+    {
+        glUseProgram( shader );
+        current_shader = shader;
+    }
+};
+
 static void SetVerticesColors( unsigned int id, const NasrColor * top_left_color, const NasrColor * top_right_color, const NasrColor * bottom_left_color, const NasrColor * bottom_right_color )
 {
     BindBuffers( id );
@@ -6815,7 +6826,7 @@ static void UpdateShaderOrtho( float x, float y, float w, float h )
     for ( int i = 0; i < NUMBER_O_BASE_SHADERS; ++i )
     {
         const unsigned int shader = *base_shaders[ i ];
-        glUseProgram( shader );
+        SetShader( shader );
         mat4 ortho =
         {
             { 1.0f, 1.0f, 1.0f, 1.0f },
