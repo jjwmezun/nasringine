@@ -94,6 +94,8 @@ typedef struct NasrGraphicSprite
     float rotation_y;
     float rotation_z;
     float opacity;
+    float tilingx;
+    float tilingy;
     unsigned int texture;
     uint_fast8_t flip_x;
     uint_fast8_t flip_y;
@@ -110,6 +112,8 @@ typedef struct NasrGraphicTilemap
     int_fast8_t useglobalpal;
     unsigned char * data;
     float opacity;
+    float tilingx;
+    float tilingy;
 } NasrGraphicTilemap;
 
 typedef struct NasrGraphicText
@@ -224,11 +228,12 @@ typedef struct CharMapList
 
 typedef struct SpriteUniforms
 {
-    GLint uniform_model;
-    GLint uniform_palette_id;
-    GLint uniform_opacity;
-    GLint uniform_texture_data;
-    GLint uniform_palette_data;
+    GLint model;
+    GLint palette_id;
+    GLint opacity;
+    GLint texture_data;
+    GLint palette_data;
+    GLint tiling;
 } SpriteUniforms;
 
 typedef struct RectUniforms
@@ -257,6 +262,7 @@ typedef struct TilemapUniforms
     GLint palette;
     GLint mapdata;
     GLint globalpal;
+    GLint tiling;
 } TilemapUniforms;
 
 typedef struct TextUniforms
@@ -534,7 +540,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform float opacity;\n  \nvoid main()\n{\n    final_color = texture( texture_data, texture_coords );\n    final_color.a *= opacity;\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform float opacity;\nuniform vec2 tiling;\n  \nvoid main()\n{\n    final_color = texture( texture_data, texture_coords * tiling );\n    final_color.a *= opacity;\n}"
         }
     };
 
@@ -543,7 +549,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\n\nvoid main()\n{\n    vec4 index = texture( texture_data, texture_coords );\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( index.r, palette ) );\n    final_color.a *= opacity;\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform float palette_id;\nuniform float opacity;\nuniform vec2 tiling;\n\nvoid main()\n{\n    vec4 index = texture( texture_data, texture_coords * tiling );\n    float palette = palette_id / 256.0;\n    final_color = texture( palette_data, vec2( index.r, palette ) );\n    final_color.a *= opacity;\n}"
         }
     };
 
@@ -552,7 +558,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform float opacity;\nuniform uint animation;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = tile.z;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n    final_color.a *= opacity;\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform float opacity;\nuniform uint animation;\nuniform vec2 tiling;\n  \nvoid main()\n{\n    vec2 tc = texture_coords * tiling;\n    vec4 tile = texture( map_data, tc );\n    if ( tile.a > 0.0 && tile.a < 1.0 )\n    {\n        float frames = floor( tile.a * 255.0 );\n        float frame = mod( float( animation ), frames );\n        // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n        // This fixes it.\n        while ( frame >= frames )\n        {\n            frame -= frames;\n        }\n        tile.x += frame / 255.0;\n    }\n    float xrel = mod( tc.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n    float yrel = mod( tc.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n    float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n    float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n    float palette = tile.z;\n    vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n    final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n    final_color.a *= opacity;\n}"
         }
     };
 
@@ -561,7 +567,7 @@ int NasrInit
         vertex_shader,
         {
             NASR_SHADER_FRAGMENT,
-            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform float opacity;\nuniform uint animation;\nuniform uint global_palette;\n  \nvoid main()\n{\n    vec4 tile = texture( map_data, texture_coords );\n    if ( tile.a < 1.0 || opacity > 0.0 )\n    {\n        if ( tile.a > 0.0 && tile.a < 1.0 )\n        {\n            float frames = floor( tile.a * 255.0 );\n            float frame = mod( float( animation ), frames );\n            // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n            // This fixes it.\n            while ( frame >= frames )\n            {\n                frame -= frames;\n            }\n            tile.x += frame / 255.0;\n        }\n        float xrel = mod( texture_coords.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n        float yrel = mod( texture_coords.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n        float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n        float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n        float palette = float( global_palette ) / 255.0;\n        vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n        final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n        final_color.a *= opacity;\n    }\n}"
+            "#version 330 core\nout vec4 final_color;\n\nin vec2 texture_coords;\n\nuniform sampler2D texture_data;\nuniform sampler2D palette_data;\nuniform sampler2D map_data;\nuniform float map_width;\nuniform float map_height;\nuniform float tileset_width;\nuniform float tileset_height;\nuniform float opacity;\nuniform uint animation;\nuniform uint global_palette;\nuniform vec2 tiling;\n  \nvoid main()\n{\n    vec2 tc = texture_coords * tiling;\n    vec4 tile = texture( map_data, tc );\n    if ( tile.a < 1.0 || opacity > 0.0 )\n    {\n        if ( tile.a > 0.0 && tile.a < 1.0 )\n        {\n            float frames = floor( tile.a * 255.0 );\n            float frame = mod( float( animation ), frames );\n            // I don’t know why mod sometimes doesn’t work right & still sometimes says 6 is the mod o’ 6 / 6 ’stead o’ 0;\n            // This fixes it.\n            while ( frame >= frames )\n            {\n                frame -= frames;\n            }\n            tile.x += frame / 255.0;\n        }\n        float xrel = mod( tc.x * 256.0, ( 256.0 / map_width ) ) / ( 4096.0 / map_width );\n        float yrel = mod( tc.y * 256.0, ( 256.0 / map_height ) ) / ( 4096.0 / map_height );\n        float xoffset = tile.x * 255.0 * ( 16 / tileset_width );\n        float yoffset = tile.y * 255.0 * ( 16 / tileset_height );\n        float palette = float( global_palette ) / 255.0;\n        vec4 index = texture( texture_data, vec2( xoffset + ( xrel / ( tileset_width / 256.0 ) ), yoffset + ( yrel / ( tileset_height / 256.0 ) ) ) );\n        final_color = ( tile.a < 1.0 ) ? texture( palette_data, vec2( index.r, palette ) ) : vec4( 0.0, 0.0, 0.0, 0.0 );\n        final_color.a *= opacity;\n    }\n}"
         }
     };
 
@@ -602,14 +608,16 @@ int NasrInit
     rect_pal_shader = GenerateShaderProgram( rect_pal_shaders, 2 );
 
     // Store uniforms for use during rendering.
-    sprite_uniforms.uniform_model        = glGetUniformLocation( sprite_shader, "model" );
-    sprite_uniforms.uniform_opacity      = glGetUniformLocation( sprite_shader, "opacity" );
-    sprite_uniforms.uniform_texture_data = glGetUniformLocation( sprite_shader, "texture_data" );
-    indexed_sprite_uniforms.uniform_model        = glGetUniformLocation( indexed_sprite_shader, "model" );
-    indexed_sprite_uniforms.uniform_palette_id   = glGetUniformLocation( indexed_sprite_shader, "palette_id" );
-    indexed_sprite_uniforms.uniform_opacity      = glGetUniformLocation( indexed_sprite_shader, "opacity" );
-    indexed_sprite_uniforms.uniform_texture_data = glGetUniformLocation( indexed_sprite_shader, "texture_data" );
-    indexed_sprite_uniforms.uniform_palette_data = glGetUniformLocation( indexed_sprite_shader, "palette_data" );
+    sprite_uniforms.model        = glGetUniformLocation( sprite_shader, "model" );
+    sprite_uniforms.opacity      = glGetUniformLocation( sprite_shader, "opacity" );
+    sprite_uniforms.texture_data = glGetUniformLocation( sprite_shader, "texture_data" );
+    sprite_uniforms.tiling       = glGetUniformLocation( sprite_shader, "tiling" );
+    indexed_sprite_uniforms.model        = glGetUniformLocation( indexed_sprite_shader, "model" );
+    indexed_sprite_uniforms.palette_id   = glGetUniformLocation( indexed_sprite_shader, "palette_id" );
+    indexed_sprite_uniforms.opacity      = glGetUniformLocation( indexed_sprite_shader, "opacity" );
+    indexed_sprite_uniforms.texture_data = glGetUniformLocation( indexed_sprite_shader, "texture_data" );
+    indexed_sprite_uniforms.palette_data = glGetUniformLocation( indexed_sprite_shader, "palette_data" );
+    indexed_sprite_uniforms.tiling       = glGetUniformLocation( indexed_sprite_shader, "tiling" );
     rect_uniforms.model = glGetUniformLocation( rect_shader, "model" );
     rect_pal_uniforms.model        = glGetUniformLocation( rect_pal_shader, "model" );
     rect_pal_uniforms.palette_id   = glGetUniformLocation( rect_pal_shader, "palette_id" );
@@ -625,6 +633,7 @@ int NasrInit
     tilemap_uniforms.texture   = glGetUniformLocation( tilemap_shader, "texture_data" );
     tilemap_uniforms.palette   = glGetUniformLocation( tilemap_shader, "palette_data" );
     tilemap_uniforms.mapdata   = glGetUniformLocation( tilemap_shader, "map_data" );
+    tilemap_uniforms.tiling   = glGetUniformLocation( tilemap_shader, "tiling" );
     tilemap_mono_uniforms.model     = glGetUniformLocation( tilemap_mono_shader, "model" );
     tilemap_mono_uniforms.mapw      = glGetUniformLocation( tilemap_mono_shader, "map_width" );
     tilemap_mono_uniforms.maph      = glGetUniformLocation( tilemap_mono_shader, "map_height" );
@@ -636,6 +645,7 @@ int NasrInit
     tilemap_mono_uniforms.palette   = glGetUniformLocation( tilemap_mono_shader, "palette_data" );
     tilemap_mono_uniforms.mapdata   = glGetUniformLocation( tilemap_mono_shader, "map_data" );
     tilemap_mono_uniforms.globalpal = glGetUniformLocation( tilemap_mono_shader, "global_palette" );
+    tilemap_mono_uniforms.tiling    = glGetUniformLocation( tilemap_mono_shader, "tiling" );
     text_uniforms.texture = glGetUniformLocation( text_shader, "texture_data" );
     text_uniforms.shadow = glGetUniformLocation( text_shader, "shadow" );
     text_uniforms.opacity = glGetUniformLocation( text_shader, "opacity" );
@@ -866,25 +876,28 @@ void NasrUpdate( float dt )
                 );
 
                 // Set scale.
-                glUniformMatrix4fv( shader_uniforms->uniform_model, 1, GL_FALSE, ( float * )( SPRITE.model ) );
+                glUniformMatrix4fv( shader_uniforms->model, 1, GL_FALSE, ( float * )( SPRITE.model ) );
+
+                // Set tiling.
+                glUniform2f( shader_uniforms->tiling, SPRITE.tilingx, SPRITE.tilingy );
 
                 // Set opacity.
-                glUniform1f( shader_uniforms->uniform_opacity, ( float )( SPRITE.opacity ) );
+                glUniform1f( shader_uniforms->opacity, ( float )( SPRITE.opacity ) );
 
                 // Set texture.
                 glActiveTexture( GL_TEXTURE0 );
                 glBindTexture( GL_TEXTURE_2D, texture_ids[ texture_id ] );
-                glUniform1i( shader_uniforms->uniform_texture_data, 0 );
+                glUniform1i( shader_uniforms->texture_data, 0 );
 
                 // Set palette ID & texture if set to indexed.
                 if ( textures[ texture_id ].indexed )
                 {
                     const float palette = ( float )( SPRITE.useglobalpal ? global_palette : SPRITE.palette );
-                    glUniform1f( shader_uniforms->uniform_palette_id, palette );
+                    glUniform1f( shader_uniforms->palette_id, palette );
 
                     glActiveTexture( GL_TEXTURE1);
                     glBindTexture( GL_TEXTURE_2D, palette_texture_id );
-                    glUniform1i( shader_uniforms->uniform_palette_data, 1 );
+                    glUniform1i( shader_uniforms->palette_data, 1 );
                 }
                 
                 SetupVertices( vao );
@@ -923,6 +936,9 @@ void NasrUpdate( float dt )
                 vec3 scale = { TG.dest.w, TG.dest.h, 0.0 };
                 glm_scale( model, scale );
                 glUniformMatrix4fv( uniforms->model, 1, GL_FALSE, ( float * )( model ) );
+
+                // Set tiling.
+                glUniform2f( uniforms->tiling, TG.tilingx, TG.tilingy );
 
                 // Set map width.
                 const float mapw = ( float )( textures[ TG.tilemap ].width );
@@ -2031,7 +2047,9 @@ int NasrGraphicsAddSprite
     float rotation_z,
     float opacity,
     unsigned char palette,
-    int_fast8_t useglobalpal
+    int_fast8_t useglobalpal,
+    float tilingx,
+    float tilingy
 )
 {
     #ifdef NASR_SAFE
@@ -2056,6 +2074,8 @@ int NasrGraphicsAddSprite
     graphic.data.sprite.opacity = opacity;
     graphic.data.sprite.palette = palette;
     graphic.data.sprite.useglobalpal = useglobalpal;
+    graphic.data.sprite.tilingx = tilingx;
+    graphic.data.sprite.tilingy = tilingy;
     const int id = AddGraphic( state, layer, graphic );
 
     if ( id > -1 )
@@ -2090,7 +2110,9 @@ int NasrGraphicsAddTilemap
     unsigned int w,
     unsigned int h,
     int_fast8_t useglobalpal,
-    float opacity
+    float opacity,
+    float tilingx,
+    float tilingy
 )
 {
     // Generate texture from tile data.
@@ -2134,6 +2156,8 @@ int NasrGraphicsAddTilemap
     graphic.data.tilemap.useglobalpal = useglobalpal;
     graphic.data.tilemap.opacity = opacity;
     graphic.data.tilemap.data = data;
+    graphic.data.tilemap.tilingx = tilingx;
+    graphic.data.tilemap.tilingy = tilingy;
     const int id = AddGraphic( state, layer, graphic );
     if ( id > -1 )
     {
@@ -5557,8 +5581,8 @@ void NasrCopyTextureToTexture( unsigned int src, unsigned int dest, NasrRectInt 
     NasrApplyTextureToPixelData( src, pixels, srccoords, destcoords );
     glBindTexture( GL_TEXTURE_2D, texture_ids[ dest ] );
     glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, textures[ dest ].width, textures[ dest ].height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 };
@@ -5800,7 +5824,9 @@ void NasrDrawSpriteToTexture
     float rotation_z,
     float opacity,
     uint_fast8_t palette,
-    int_fast8_t useglobalpal
+    int_fast8_t useglobalpal,
+    float tilingx,
+    float tilingy
 )
 {
     NasrGraphicSprite sprite;
@@ -5815,6 +5841,8 @@ void NasrDrawSpriteToTexture
     sprite.opacity = opacity;
     sprite.palette = palette;
     sprite.useglobalpal = useglobalpal;
+    sprite.tilingx = tilingx;
+    sprite.tilingy = tilingy;
 
     ResetVertices( GetVertices( max_graphics ) );
     sprite.dest.y = ( textures[ selected_texture ].height - ( sprite.dest.y + sprite.dest.h ) );
@@ -5834,16 +5862,15 @@ void NasrDrawSpriteToTexture
     glm_rotate( model, DEGREES_TO_RADIANS( sprite.rotation_y ), yrot );
     vec3 zrot = { 1.0, 0.0, 0.0 };
     glm_rotate( model, DEGREES_TO_RADIANS( sprite.rotation_z ), zrot );
-    unsigned int model_location = glGetUniformLocation( sprite_shader, "model" );
-    glUniformMatrix4fv( model_location, 1, GL_FALSE, ( float * )( model ) );
+    glUniformMatrix4fv( sprite_uniforms.model, 1, GL_FALSE, ( float * )( model ) );
 
-    GLint opacity_location = glGetUniformLocation( sprite_shader, "opacity" );
-    glUniform1f( opacity_location, ( float )( sprite.opacity ) );
+    glUniform1f( sprite_uniforms.opacity, ( float )( sprite.opacity ) );
 
-    GLint texture_data_location = glGetUniformLocation( sprite_shader, "texture_data" );
+    glUniform2f( sprite_uniforms.tiling, sprite.tilingx, sprite.tilingy );
+
     glActiveTexture( GL_TEXTURE0 );
     glBindTexture( GL_TEXTURE_2D, texture_ids[ sprite.texture ] );
-    glUniform1i( texture_data_location, 0 );
+    glUniform1i( sprite_uniforms.texture_data, 0 );
     SetupVertices( vaos[ max_graphics ] );
 };
 
@@ -5959,8 +5986,8 @@ static void AddTexture( Texture * texture, unsigned int texture_id, const unsign
     texture->indexed = index_type == GL_R8;
     glBindTexture( GL_TEXTURE_2D, texture_id );
     glTexImage2D( GL_TEXTURE_2D, 0, index_type, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, sample_type );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, sample_type );
 };

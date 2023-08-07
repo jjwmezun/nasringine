@@ -168,7 +168,34 @@ void NasrTestRun( void )
         0.0f,
         1.0f,
         0,
-        0
+        0,
+        1.0f,
+        1.0f
+    );
+
+
+    int window_text = NasrLoadFileAsTextureEx( "assets/window.png", NASR_SAMPLING_NEAREST, NASR_INDEXED_NO );
+    NasrRect window_src = { 0.0f, 0.0f, 48.0f, 48.0f };
+    NasrRect window_dest = { 0.0f, 64.0f, 96.0f, 96.0f };
+    NasrGraphicsAddSprite
+    (
+        0.5f,
+        1.0f,
+        0,
+        2,
+        window_text,
+        window_src,
+        window_dest,
+        0,
+        0,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0,
+        0,
+        2.0f,
+        2.0f
     );
 
 
@@ -204,32 +231,26 @@ void NasrTestRun( void )
         tilesw,
         tilesh,
         0,
-        0.5f
+        0.5f,
+        1.0f,
+        1.0f
     );
 
     NasrTile till = { 5, 1, 150, 2 };
     NasrGraphicsTilemapSetTile( tilemap1, 5, 1, till );
     NasrGraphicsTilemapClearTile( tilemap1, 5, tilesh - 1 );
 
-    NasrTile tiles2[ tilesw * tilesh ];
-    for ( int i = 0; i < tilesw * tilesh; ++i )
+    NasrTile tiles2[ 8 ] =
     {
-        tiles2[ i ].animation = 255;
-    }
-    for ( int i = tilesw * ( tilesh - 3 ); i < tilesw * ( tilesh - 2 ); ++i )
-    {
-        tiles2[ i ].x = i % 3 == 0 ? 11 : 10;
-        tiles2[ i ].y = 1;
-        tiles2[ i ].palette = 0;
-        tiles2[ i ].animation = 0;
-    }
-    for ( int i = tilesw * ( tilesh - 4 ); i < tilesw * ( tilesh - 3 ); ++i )
-    {
-        tiles2[ i ].x = i % 3 == 0 ? 11 : 10;
-        tiles2[ i ].y = 0;
-        tiles2[ i ].palette = 0;
-        tiles2[ i ].animation = 0;
-    }
+        { 10, 0, 0, 0 },
+        { 11, 0, 0, 0 },
+        { 10, 0, 0, 0 },
+        { 10, 0, 0, 0 },
+        { 10, 1, 0, 0 },
+        { 11, 1, 0, 0 },
+        { 10, 1, 0, 0 },
+        { 10, 1, 0, 0 }
+    };
     const int tilemap2 = NasrGraphicsAddTilemap
     (
         0.5f,
@@ -238,11 +259,14 @@ void NasrTestRun( void )
         2,
         tilestext,
         tiles2,
-        tilesw,
-        tilesh,
+        4,
+        2,
         1,
+        1.0f,
+        1.0f,
         1.0f
     );
+    NasrGraphicsTilemapSetY( tilemap2, 192.0f );
 
     NasrTile tiles3[ tilesw * tilesh ];
     for ( int i = 0; i < tilesw * tilesh; ++i )
@@ -267,6 +291,8 @@ void NasrTestRun( void )
         tilesw,
         tilesh,
         0,
+        1.0f,
+        1.0f,
         1.0f
     );
 
@@ -300,7 +326,9 @@ void NasrTestRun( void )
                 0.0f,
                 1.0f,
                 0,
-                0
+                0,
+                1.0f,
+                1.0f
             );
         }
     }
@@ -308,6 +336,7 @@ void NasrTestRun( void )
     NasrReleaseTextureTarget();
 
     const NasrRect boarddest = { 32.0f, 32.0f, 400.0f, 200.0f };
+    /*
     NasrGraphicsAddSprite
     (
         1.0f,
@@ -324,8 +353,10 @@ void NasrTestRun( void )
         0.0f,
         1.0f,
         0,
-        1
-    );
+        1,
+        1.0f,
+        1.0f
+    );*/
 
     for ( int i = 0; i < RECTCOUNT; ++i )
     {
@@ -354,7 +385,9 @@ void NasrTestRun( void )
             0.0f,
             1.0f,
             pal[ i ],
-            1
+            1,
+            1.0f,
+            1.0f
         );
         switch ( d )
         {
@@ -643,7 +676,9 @@ void NasrTestRun( void )
         0.0f,
         1.0f,
         0,
-        0
+        0,
+        1.0f,
+        1.0f
     );
 
     for ( int i = 0; i < 100; ++i )
@@ -664,7 +699,9 @@ void NasrTestRun( void )
             0.0f,
             1.0f,
             0,
-            0
+            0,
+            1.0f,
+            1.0f
         );
     }
 
@@ -791,7 +828,9 @@ void NasrTestRun( void )
                     0.0f,
                     1.0f,
                     0,
-                    0
+                    0,
+                    1.0f,
+                    1.0f
                 );
                 NasrReleaseTextureTarget();
                 NasrRect boxd = { 0.0f, 0.0f, 200.0f, 200.0f };
@@ -811,7 +850,9 @@ void NasrTestRun( void )
                     0.0f,
                     1.0f,
                     0,
-                    0
+                    0,
+                    1.0f,
+                    1.0f
                 );
 
             }

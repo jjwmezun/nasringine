@@ -217,7 +217,9 @@ int NasrGraphicsAddSprite
     float rotation_z,
     float opacity,
     uint_fast8_t palette,
-    int_fast8_t useglobalpal
+    int_fast8_t useglobalpal,
+    float tilingx,
+    float tilingy
 );
 int NasrGraphicsAddTilemap
 (
@@ -230,7 +232,9 @@ int NasrGraphicsAddTilemap
     unsigned int w,
     unsigned int h,
     int_fast8_t useglobalpal,
-    float opacity
+    float opacity,
+    float tilingx,
+    float tilingy
 );
 int NasrGraphicsAddText
 (
@@ -569,7 +573,9 @@ void NasrDrawSpriteToTexture
     float rotation_z,
     float opacity,
     uint_fast8_t palette,
-    int_fast8_t useglobalpal
+    int_fast8_t useglobalpal,
+    float tilingx,
+    float tilingy
 );
 
 // Debug
