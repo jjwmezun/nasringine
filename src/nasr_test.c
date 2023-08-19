@@ -263,7 +263,7 @@ void NasrTestRun( void )
         2,
         1,
         1.0f,
-        1.0f,
+        2.0f,
         1.0f
     );
     NasrGraphicsTilemapSetY( tilemap2, 192.0f );

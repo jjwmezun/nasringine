@@ -933,7 +933,7 @@ void NasrUpdate( float dt )
 
                 // Set scale.
                 mat4 model = BASE_MATRIX;
-                vec3 scale = { TG.dest.w, TG.dest.h, 0.0 };
+                vec3 scale = { TG.dest.w * TG.tilingx, TG.dest.h * TG.tilingy, 0.0 };
                 glm_scale( model, scale );
                 glUniformMatrix4fv( uniforms->model, 1, GL_FALSE, ( float * )( model ) );
 
