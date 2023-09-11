@@ -5704,6 +5704,30 @@ void NasrClearTextures( void )
     texture_count = 0;
 };
 
+unsigned int NasrTextureGetWidth( unsigned int texture )
+{
+    #if NASR_SAFE
+        if ( texture >= max_textures )
+        {
+            NasrLog( "NasrTextureGetWidth Error: texture #%u is beyond texture limit.", texture );
+            return 0;
+        }
+    #endif
+    return textures[ texture ].width;
+};
+
+unsigned int NasrTextureGetHeight( unsigned int texture )
+{
+    #if NASR_SAFE
+        if ( texture >= max_textures )
+        {
+            NasrLog( "NasrTextureGetHeight Error: texture #%u is beyond texture limit.", texture );
+            return 0;
+        }
+    #endif
+    return textures[ texture ].height;
+};
+
 
 
 // Draw to Texture

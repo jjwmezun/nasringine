@@ -557,6 +557,8 @@ void NasrTileTexture( unsigned int texture, unsigned char * pixels, NasrRectInt 
 void NasrSetTextureAsTarget( unsigned int texture );
 void NasrReleaseTextureTarget( void );
 void NasrClearTextures( void );
+unsigned int NasrTextureGetWidth( unsigned int texture );
+unsigned int NasrTextureGetHeight( unsigned int texture );
 
 // Draw to Texture
 void NasrDrawRectToTexture( NasrRect rect, NasrColor color );
