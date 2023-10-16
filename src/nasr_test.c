@@ -708,6 +708,7 @@ void NasrTestRun( void )
     int boxi = -1;
 
     const NasrRect ranr = { 200.0f, 16.0f, 200.0f, 100.0f };
+    float rani = 0.1f;
     const int ran = NasrGraphicsAddRectPalette
     (
         1.0f,
@@ -718,7 +719,7 @@ void NasrTestRun( void )
         128,
         64,
         0,
-        0.5f
+        0.1f
     );
 
     NasrRect clockrect = { 0.0f, 0.0f, 9.0f, 9.0f };
@@ -791,6 +792,7 @@ void NasrTestRun( void )
 
             */
 
+            NasrGraphicsRectPaletteAddToOpacity( ran, 0.1f );
 
             if ( NasrHeld( INPUT_Z ) )
             {

@@ -482,6 +482,9 @@ uint_fast8_t NasrGraphicsRectPaletteGetColor( unsigned int id );
 void NasrGraphicsRectPaletteSetColor( unsigned int id, uint_fast8_t v );
 void NasrGraphicsRectPaletteIncrementColor( unsigned int id );
 void NasrGraphicsRectPaletteDecrementColor( unsigned int id );
+float NasrGraphicsRectPaletteGetOpacity( unsigned int id );
+void NasrGraphicsRectPaletteSetOpacity( unsigned int id, float v );
+void NasrGraphicsRectPaletteAddToOpacity( unsigned int id, float v );
 
 // RectGraphicsGradientPalette Manipulation
 float NasrGraphicsRectGradientPaletteGetX( unsigned int id );

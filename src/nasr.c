@@ -4529,6 +4529,42 @@ void NasrGraphicsRectPaletteDecrementColor( unsigned int id )
     GraphicsUpdateRectPalette( id, --GetGraphic( id )->data.rectpal.color1 );
 };
 
+float NasrGraphicsRectPaletteGetOpacity( unsigned int id )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteGetOpacity Error: invalid id %u", id );
+            return NAN;
+        }
+    #endif
+    return GetGraphic( id )->data.rectpal.opacity;
+};
+
+void NasrGraphicsRectPaletteSetOpacity( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteSetOpacity Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.opacity = v;
+};
+
+void NasrGraphicsRectPaletteAddToOpacity( unsigned int id, float v )
+{
+    #ifdef NASR_SAFE
+        if ( id >= max_graphics )
+        {
+            NasrLog( "NasrGraphicsRectPaletteAddToOpacity Error: invalid id %u", id );
+            return;
+        }
+    #endif
+    GetGraphic( id )->data.rectpal.opacity += v;
+};
+
 
 
 // RectGraphicsGradientPalette Manipulation
